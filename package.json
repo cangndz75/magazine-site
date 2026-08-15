@@ -8,8 +8,12 @@
     "pnpm": ">=11 <12"
   },
   "scripts": {
-    "dev": "pnpm --filter web dev",
-    "build": "pnpm --filter web build",
-    "lint": "pnpm --filter web lint"
+    "dev:web": "pnpm --filter web dev",
+    "dev:editor": "pnpm --filter editor dev",
+    "dev": "pnpm --parallel --filter web --filter editor dev",
+    "build:web": "pnpm --filter web build",
+    "build:editor": "pnpm --filter editor build",
+    "build": "pnpm build:web && pnpm build:editor",
+    "lint": "pnpm --filter web lint && pnpm --filter editor lint"
   }
 }
