@@ -28,7 +28,12 @@ export {
 export {
   isStaleScheduleGeneration,
   shouldExecuteScheduledPublish,
+  decideScheduledPublishExecution,
+  SCHEDULED_PUBLISH_DECISION,
   type ScheduledPublishJob,
+  type ScheduledPublishDecisionCode,
+  type ScheduledPublishExecutionDecision,
+  type ScheduledPublishExecutionInput,
 } from "./schedule-generation";
 export {
   publishedStateIsCoherent,
@@ -81,3 +86,33 @@ export {
   hashSessionToken,
 } from "./session-token";
 export { safeInternalPath } from "./safe-internal-path";
+export {
+  PUBLISHING_ERROR,
+  PublishingError,
+  CONTENT_SLUG_MAX_LENGTH,
+  canonicalizeContentSlug,
+  assertDraftRelationInputs,
+  copyVersionOwnedRelations,
+  assertCanApproveVersion,
+  assertCanSubmitForReview,
+  assertWorkflowTransition,
+  isAllowedWorkflowTransition,
+  assertPublishReady,
+  assertVersionEditable,
+  assertContentNotDeleted,
+  assertAllowedPublishTarget,
+  decidePublish,
+  decideReschedule,
+  decideSchedule,
+  decideUnpublish,
+  decideUnschedule,
+  nextScheduleGeneration,
+  nextVersionNumber,
+  resolveDraftRevisionSource,
+  type PublishingDecision,
+  type PublishingErrorCode,
+  type ContentLifecycleItem,
+  type ContentLifecycleVersion,
+  type PublishPlan,
+  type VersionRelationInput,
+} from "./publishing";
