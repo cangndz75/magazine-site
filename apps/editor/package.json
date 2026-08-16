@@ -7,10 +7,15 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "eslint",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "tsx --test src/lib/auth/*.test.ts"
   },
   "dependencies": {
     "@magazine/config": "workspace:*",
+    "@magazine/db": "workspace:*",
+    "@magazine/domain": "workspace:*",
+    "@node-rs/argon2": "2.1.0",
+    "drizzle-orm": "0.45.2",
     "next": "16.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -24,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
+    "tsx": "^4",
     "typescript": "^5"
   }
 }

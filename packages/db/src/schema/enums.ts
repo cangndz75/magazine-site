@@ -7,6 +7,9 @@ import {
   MEDIA_ROLES,
   MEDIA_TYPES,
   PUBLICATION_STATUSES,
+  STAFF_ROLES,
+  STAFF_SCOPE_MODES,
+  STAFF_STATUSES,
   WORKFLOW_STATUSES,
 } from "@magazine/domain";
 
@@ -28,3 +31,9 @@ export const mediaTypeEnum = pgEnum("media_type", MEDIA_TYPES);
 export const mediaRoleEnum = pgEnum("media_role", MEDIA_ROLES);
 
 export const authorRoleEnum = pgEnum("author_role", AUTHOR_ROLES);
+
+export const staffStatusEnum = pgEnum("staff_status", STAFF_STATUSES);
+
+export const staffScopeModeEnum = pgEnum("staff_scope_mode", STAFF_SCOPE_MODES);
+
+export const staffRoleEnum = pgEnum("staff_role", STAFF_ROLES);

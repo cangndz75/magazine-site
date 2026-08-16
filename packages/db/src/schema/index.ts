@@ -6,6 +6,9 @@ export {
   mediaRoleEnum,
   mediaTypeEnum,
   publicationStatusEnum,
+  staffRoleEnum,
+  staffScopeModeEnum,
+  staffStatusEnum,
   workflowStatusEnum,
 } from "./enums";
 export { authors } from "./authors";
@@ -21,3 +24,10 @@ export {
   contentVersionTags,
   contentVersions,
 } from "./content";
+export {
+  staffPasswordCredentials,
+  staffSessions,
+  staffUserCategoryScopes,
+  staffUserRoles,
+  staffUsers,
+} from "./staff";

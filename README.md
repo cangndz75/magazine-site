@@ -60,6 +60,9 @@ pnpm db:migrate   # apply committed migrations to DATABASE_URL
 Do not use `drizzle-kit push`. Generated SQL is the production migration path.
 Do not apply migrations without an explicit target and approval.
 
+Editor application authentication uses opaque server-side sessions.
+There is no committed staff password or bootstrap user in this repository.
+
 ## Health
 
 - Web: `GET /api/health`

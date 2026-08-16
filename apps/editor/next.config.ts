@@ -4,7 +4,7 @@ import { getEditorEnv } from "@magazine/config/env/editor";
 getEditorEnv();
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@magazine/config"],
+  transpilePackages: ["@magazine/config", "@magazine/domain", "@magazine/db"],
 };
 
 export default nextConfig;
