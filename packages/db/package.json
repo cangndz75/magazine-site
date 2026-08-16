@@ -1,0 +1,31 @@
+{
+  "name": "@magazine/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./schema": "./src/schema/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "check": "drizzle-kit check",
+    "migrate": "node ./scripts/require-database-url.mjs && drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@magazine/config": "workspace:*",
+    "@magazine/domain": "workspace:*",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/pg": "^8.15.6",
+    "drizzle-kit": "0.31.10",
+    "eslint": "^9",
+    "typescript": "^5",
+    "typescript-eslint": "^8"
+  }
+}

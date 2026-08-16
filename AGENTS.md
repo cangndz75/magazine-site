@@ -24,7 +24,7 @@ Do not trade these qualities for short-term implementation speed.
 - App Router
 - Tailwind CSS 4
 - pnpm workspace
-- PostgreSQL
+- PostgreSQL 16+
 - Type-safe ORM
 - Cloudflare
 - Object storage / image CDN

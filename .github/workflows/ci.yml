@@ -42,5 +42,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Domain tests
+        run: pnpm test
+
+      - name: Migration check
+        run: pnpm db:check
+
       - name: Production build
         run: pnpm build

@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./env/web": "./src/env/web.ts",
-    "./env/editor": "./src/env/editor.ts"
+    "./env/editor": "./src/env/editor.ts",
+    "./env/db": "./src/env/db.ts"
   },
   "scripts": {
     "lint": "eslint .",
