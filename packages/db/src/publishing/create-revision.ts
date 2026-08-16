@@ -1,10 +1,12 @@
 import { desc, eq } from "drizzle-orm";
 import {
+  type EditorStaffScope,
   PUBLISHING_ERROR,
   PublishingError,
   WORKFLOW_STATUS,
   assertContentNotDeleted,
   copyVersionOwnedRelations,
+  nextMonotonicUpdatedAt,
   nextVersionNumber,
   resolveDraftRevisionSource,
 } from "@magazine/domain";
@@ -12,6 +14,7 @@ import { getDb } from "../client";
 import { contentItems, contentVersions } from "../schema/content";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
+import { authorizeLockedEditorMutation } from "./locked-scope";
 import {
   insertVersionRelations,
   loadVersionRelations,
@@ -23,6 +26,7 @@ export type CreateDraftRevisionResult = {
   versionId: string;
   versionNumber: number;
   draftVersionId: string;
+  updatedAt: Date;
 };
 
 /**
@@ -40,14 +44,15 @@ export type CreateDraftRevisionResult = {
  */
 export async function createDraftRevision(
   contentItemId: string,
-  sourceVersionId?: string,
+  sourceVersionId: string | undefined,
+  scope: EditorStaffScope,
 ): Promise<CreateDraftRevisionResult> {
   const db = getDb();
-  const now = new Date();
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
     unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
+    await authorizeLockedEditorMutation(tx, item, scope);
 
     const sourceId = unwrapPublishingDecision(
       resolveDraftRevisionSource({
@@ -88,6 +93,8 @@ export async function createDraftRevision(
       authors: loaded.authors ?? [],
     });
 
+    const nextUpdatedAt = nextMonotonicUpdatedAt(item.updatedAt);
+
     const [created] = await tx
       .insert(contentVersions)
       .values({
@@ -109,7 +116,7 @@ export async function createDraftRevision(
         sourceUrl: source.sourceUrl,
         syndicated: source.syndicated,
         isMaterialUpdate: source.isMaterialUpdate,
-        createdAt: now,
+        createdAt: nextUpdatedAt,
       })
       .returning({ id: contentVersions.id });
 
@@ -123,7 +130,7 @@ export async function createDraftRevision(
       .update(contentItems)
       .set({
         draftVersionId: created.id,
-        updatedAt: now,
+        updatedAt: nextUpdatedAt,
       })
       .where(eq(contentItems.id, item.id));
 
@@ -133,6 +140,7 @@ export async function createDraftRevision(
       versionId: created.id,
       versionNumber,
       draftVersionId: created.id,
+      updatedAt: nextUpdatedAt,
     };
   });
 }

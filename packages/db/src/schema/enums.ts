@@ -7,6 +7,7 @@ import {
   MEDIA_ROLES,
   MEDIA_TYPES,
   PUBLICATION_STATUSES,
+  REVIEW_EVENT_TYPES,
   STAFF_ROLES,
   STAFF_SCOPE_MODES,
   STAFF_STATUSES,
@@ -37,3 +38,8 @@ export const staffStatusEnum = pgEnum("staff_status", STAFF_STATUSES);
 export const staffScopeModeEnum = pgEnum("staff_scope_mode", STAFF_SCOPE_MODES);
 
 export const staffRoleEnum = pgEnum("staff_role", STAFF_ROLES);
+
+export const reviewEventTypeEnum = pgEnum(
+  "review_event_type",
+  REVIEW_EVENT_TYPES,
+);

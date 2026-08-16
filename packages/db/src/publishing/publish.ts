@@ -8,12 +8,18 @@ import {
   decidePublish,
   decideScheduledPublishExecution,
   decideUnpublish,
+  nextMonotonicUpdatedAt,
+  type EditorStaffScope,
 } from "@magazine/domain";
 import { getDb } from "../client";
 import { contentItems, contentVersions } from "../schema/content";
 import type { PublishingTx } from "./db-types";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
+import {
+  authorizeLockedEditorMutation,
+  loadLockedVersionCategories,
+} from "./locked-scope";
 import { loadVersionRelations } from "./relations";
 
 export type PublishResult = {
@@ -78,6 +84,8 @@ async function publishLockedVersion(
     }),
   );
 
+  const nextUpdatedAt = nextMonotonicUpdatedAt(item.updatedAt, now);
+
   await tx
     .update(contentItems)
     .set({
@@ -92,7 +100,7 @@ async function publishLockedVersion(
           ? plan.scheduledAt
           : new Date(plan.scheduledAt),
       scheduleGeneration: plan.scheduleGeneration,
-      updatedAt: now,
+      updatedAt: nextUpdatedAt,
     })
     .where(eq(contentItems.id, item.id));
 
@@ -117,6 +125,7 @@ async function publishLockedVersion(
 export async function publishVersion(
   contentItemId: string,
   versionId: string,
+  scope: EditorStaffScope,
   now: Date = new Date(),
 ): Promise<PublishResult> {
   const db = getDb();
@@ -124,6 +133,10 @@ export async function publishVersion(
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
     unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
+    const target = await loadLockedVersionCategories(tx, versionId);
+    await authorizeLockedEditorMutation(tx, item, scope, {
+      categoryIds: target.categoryIds,
+    });
     return publishLockedVersion(tx, item, versionId, now);
   });
 }
@@ -132,7 +145,10 @@ export async function publishVersion(
  * UNPUBLISH does not unschedule. A future scheduled version remains scheduled.
  * Historical publishedVersionId / publishedAt / publicDateModified are preserved.
  */
-export async function unpublishContent(contentItemId: string): Promise<{
+export async function unpublishContent(
+  contentItemId: string,
+  scope: EditorStaffScope,
+): Promise<{
   contentItemId: string;
   publicationStatus: typeof PUBLICATION_STATUS.UNPUBLISHED;
   publishedVersionId: string | null;
@@ -142,17 +158,22 @@ export async function unpublishContent(contentItemId: string): Promise<{
   scheduledAt: Date | null;
 }> {
   const db = getDb();
-  const now = new Date();
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
+    const published = await loadLockedVersionCategories(tx, item.publishedVersionId);
+    await authorizeLockedEditorMutation(tx, item, scope, {
+      categoryIds: published.categoryIds,
+    });
     unwrapPublishingDecision(decideUnpublish(item));
+
+    const nextUpdatedAt = nextMonotonicUpdatedAt(item.updatedAt);
 
     await tx
       .update(contentItems)
       .set({
         publicationStatus: PUBLICATION_STATUS.UNPUBLISHED,
-        updatedAt: now,
+        updatedAt: nextUpdatedAt,
       })
       .where(eq(contentItems.id, item.id));
 

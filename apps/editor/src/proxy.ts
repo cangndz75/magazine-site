@@ -36,6 +36,24 @@ export function proxy(request: NextRequest) {
   const hasSessionCookie = request.cookies.has(cookieName);
 
   if (!hasSessionCookie) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: "UNAUTHENTICATED",
+            message: "Authentication required.",
+          },
+        },
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "private, no-store",
+          },
+        },
+      );
+    }
+
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.search = "";

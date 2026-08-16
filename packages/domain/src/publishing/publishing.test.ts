@@ -29,9 +29,15 @@ import { assertDraftRelationInputs, copyVersionOwnedRelations } from "./relation
 import { canonicalizeContentSlug } from "./slug";
 import {
   assertCanApproveVersion,
+  assertCanRequestChanges,
   assertCanSubmitForReview,
   assertWorkflowTransition,
 } from "./transitions";
+import {
+  canonicalizeOptionalReviewNote,
+  canonicalizeRequiredReviewNote,
+  REVIEW_NOTE_MAX_LENGTH,
+} from "./review-note";
 
 const NOW = new Date("2026-08-16T12:00:00.000Z");
 const EARLIER = new Date("2026-01-01T00:00:00.000Z");
@@ -108,13 +114,17 @@ describe("create content defaults", () => {
 });
 
 describe("workflow transitions", () => {
-  it("accepts DRAFT -> IN_REVIEW and IN_REVIEW -> APPROVED", () => {
+  it("accepts DRAFT -> IN_REVIEW, IN_REVIEW -> APPROVED, and IN_REVIEW -> DRAFT", () => {
     assert.deepEqual(
       assertWorkflowTransition(WORKFLOW_STATUS.DRAFT, WORKFLOW_STATUS.IN_REVIEW),
       { ok: true, value: true },
     );
     assert.deepEqual(
       assertWorkflowTransition(WORKFLOW_STATUS.IN_REVIEW, WORKFLOW_STATUS.APPROVED),
+      { ok: true, value: true },
+    );
+    assert.deepEqual(
+      assertWorkflowTransition(WORKFLOW_STATUS.IN_REVIEW, WORKFLOW_STATUS.DRAFT),
       { ok: true, value: true },
     );
   });
@@ -879,6 +889,54 @@ describe("revision source", () => {
       assertPublishReady({
         workflowStatus: WORKFLOW_STATUS.APPROVED,
         categories: [{ isPrimary: false }],
+      }).ok,
+      false,
+    );
+  });
+});
+
+describe("review notes", () => {
+  it("requires a trimmed note of 3 to 4000 characters for request-changes", () => {
+    assert.equal(canonicalizeRequiredReviewNote("").ok, false);
+    assert.equal(canonicalizeRequiredReviewNote("   ").ok, false);
+    assert.equal(canonicalizeRequiredReviewNote("ab").ok, false);
+    assert.deepEqual(canonicalizeRequiredReviewNote("  fix "), {
+      ok: true,
+      value: "fix",
+    });
+    assert.equal(
+      canonicalizeRequiredReviewNote("x".repeat(REVIEW_NOTE_MAX_LENGTH + 1)).ok,
+      false,
+    );
+  });
+
+  it("allows a missing optional note on approve/submit", () => {
+    assert.deepEqual(canonicalizeOptionalReviewNote(undefined), {
+      ok: true,
+      value: null,
+    });
+    assert.deepEqual(canonicalizeOptionalReviewNote("   "), {
+      ok: true,
+      value: null,
+    });
+  });
+
+  it("treats request-changes as IN_REVIEW -> DRAFT on the current draft", () => {
+    const allowed = assertCanRequestChanges({
+      contentItemId: "item-1",
+      versionContentItemId: "item-1",
+      draftVersionId: "draft-1",
+      versionId: "draft-1",
+      workflowStatus: WORKFLOW_STATUS.IN_REVIEW,
+    });
+    assert.deepEqual(allowed, { ok: true, value: true });
+    assert.equal(
+      assertCanRequestChanges({
+        contentItemId: "item-1",
+        versionContentItemId: "item-1",
+        draftVersionId: "draft-1",
+        versionId: "draft-1",
+        workflowStatus: WORKFLOW_STATUS.DRAFT,
       }).ok,
       false,
     );

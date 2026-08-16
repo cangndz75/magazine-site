@@ -1,6 +1,17 @@
 export { createContent, type CreateContentInput, type CreateContentResult } from "./create-content";
 export { createDraftRevision, type CreateDraftRevisionResult } from "./create-revision";
-export { approveVersion, submitForReview, type ReviewResult } from "./review";
+export {
+  updateDraftContent,
+  type UpdateDraftContentInput,
+  type UpdateDraftContentResult,
+} from "./update-draft";
+export {
+  updateDraftScalarFields,
+  type DraftScalarFields,
+  type UpdateDraftScalarFieldsInput,
+  type UpdateDraftScalarFieldsResult,
+} from "./update-draft-scalars";
+export { approveVersion, requestChanges, submitForReview, type ReviewResult } from "./review";
 export {
   executeScheduledPublish,
   publishVersion,

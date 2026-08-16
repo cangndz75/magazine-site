@@ -68,6 +68,9 @@ export const contentVersions = pgTable(
       "content_versions_version_number_positive",
       sql`${table.versionNumber} > 0`,
     ),
+    uniqueIndex("content_versions_one_in_review")
+      .on(table.contentItemId)
+      .where(sql`${table.workflowStatus} = 'IN_REVIEW'`),
   ],
 );
 

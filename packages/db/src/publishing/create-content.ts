@@ -3,8 +3,12 @@ import {
   PUBLICATION_STATUS,
   WORKFLOW_STATUS,
   assertDraftRelationInputs,
+  assertSelectedCreatePrimaryCategory,
+  assertCategoriesAssignableInScope,
   canonicalizeContentSlug,
+  getPrimaryCategoryId,
   type Credibility,
+  type EditorStaffScope,
 } from "@magazine/domain";
 import { getDb } from "../client";
 import { contentItems, contentVersions } from "../schema/content";
@@ -32,6 +36,7 @@ export type CreateContentInput = ContentRelationInput & {
   sourceUrl?: string | null;
   syndicated?: boolean;
   isMaterialUpdate?: boolean;
+  scope: EditorStaffScope;
 };
 
 export type CreateContentResult = {
@@ -42,6 +47,7 @@ export type CreateContentResult = {
   workflowStatus: typeof WORKFLOW_STATUS.DRAFT;
   draftVersionId: string;
   scheduleGeneration: 0;
+  updatedAt: Date;
 };
 
 export async function createContent(
@@ -55,6 +61,19 @@ export async function createContent(
 
   try {
     return await db.transaction(async (tx) => {
+      const nextPrimaryCategoryId = getPrimaryCategoryId(input.categories ?? []);
+      unwrapPublishingDecision(
+        assertSelectedCreatePrimaryCategory({
+          ...input.scope,
+          primaryCategoryId: nextPrimaryCategoryId,
+        }),
+      );
+      unwrapPublishingDecision(
+        assertCategoriesAssignableInScope({
+          ...input.scope,
+          categoryIds: (input.categories ?? []).map((item) => item.categoryId),
+        }),
+      );
       await assertRelatedRecordsExist(tx, input);
 
       const [item] = await tx
@@ -123,6 +142,7 @@ export async function createContent(
         workflowStatus: WORKFLOW_STATUS.DRAFT,
         draftVersionId: version.id,
         scheduleGeneration: 0,
+        updatedAt: now,
       };
     });
   } catch (error) {

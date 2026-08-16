@@ -6,6 +6,7 @@ export {
   mediaRoleEnum,
   mediaTypeEnum,
   publicationStatusEnum,
+  reviewEventTypeEnum,
   staffRoleEnum,
   staffScopeModeEnum,
   staffStatusEnum,
@@ -24,6 +25,7 @@ export {
   contentVersionTags,
   contentVersions,
 } from "./content";
+export { contentReviewEvents } from "./review-events";
 export {
   staffPasswordCredentials,
   staffSessions,

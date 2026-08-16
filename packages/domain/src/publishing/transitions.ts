@@ -6,7 +6,10 @@ const ALLOWED_WORKFLOW_TRANSITIONS: Record<
   readonly WorkflowStatus[]
 > = {
   [WORKFLOW_STATUS.DRAFT]: [WORKFLOW_STATUS.IN_REVIEW],
-  [WORKFLOW_STATUS.IN_REVIEW]: [WORKFLOW_STATUS.APPROVED],
+  [WORKFLOW_STATUS.IN_REVIEW]: [
+    WORKFLOW_STATUS.APPROVED,
+    WORKFLOW_STATUS.DRAFT,
+  ],
   [WORKFLOW_STATUS.APPROVED]: [],
 };
 
@@ -81,4 +84,26 @@ export function assertCanApproveVersion(input: {
   }
 
   return assertWorkflowTransition(input.workflowStatus, WORKFLOW_STATUS.APPROVED);
+}
+
+export function assertCanRequestChanges(input: {
+  contentItemId: string;
+  versionContentItemId: string;
+  draftVersionId: string | null;
+  versionId: string;
+  workflowStatus: WorkflowStatus;
+}): PublishingDecision<true> {
+  if (input.versionContentItemId !== input.contentItemId) {
+    return { ok: false, code: PUBLISHING_ERROR.VERSION_NOT_OWNED_BY_ITEM };
+  }
+
+  const currentDraft = assertCurrentDraftVersion(
+    input.draftVersionId,
+    input.versionId,
+  );
+  if (!currentDraft.ok) {
+    return currentDraft;
+  }
+
+  return assertWorkflowTransition(input.workflowStatus, WORKFLOW_STATUS.DRAFT);
 }

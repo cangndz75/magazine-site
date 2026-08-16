@@ -6,14 +6,16 @@
   "exports": {
     "./schema": "./src/schema/index.ts",
     "./client": "./src/client.ts",
-    "./publishing": "./src/publishing/index.ts"
+    "./publishing": "./src/publishing/index.ts",
+    "./editor": "./src/editor/index.ts"
   },
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "generate": "drizzle-kit generate",
     "check": "drizzle-kit check",
-    "migrate": "node ./scripts/require-database-url.mjs && drizzle-kit migrate"
+    "migrate": "node ./scripts/require-database-url.mjs && drizzle-kit migrate",
+    "test:integration": "node ./scripts/run-content-integration.mjs"
   },
   "dependencies": {
     "@magazine/config": "workspace:*",
@@ -26,6 +28,7 @@
     "@types/pg": "^8.15.6",
     "drizzle-kit": "0.31.10",
     "eslint": "^9",
+    "tsx": "^4",
     "typescript": "^5",
     "typescript-eslint": "^8"
   }
