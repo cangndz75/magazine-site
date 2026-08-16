@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import { getWebEnv } from "@magazine/config/env/web";
+
+getWebEnv();
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  transpilePackages: ["@magazine/config"],
 };
 
 export default nextConfig;

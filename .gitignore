@@ -4,15 +4,21 @@ node_modules/
 # Next.js
 .next/
 out/
+next-env.d.ts
 
 # Build / test
 dist/
 coverage/
+*.tsbuildinfo
 
 # Environment
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.test
+.env.staging
 
 # Logs
 *.log
@@ -22,3 +28,4 @@ pnpm-debug.log*
 # OS / editor
 .DS_Store
 Thumbs.db
+.vercel

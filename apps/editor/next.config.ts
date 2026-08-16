@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import { getEditorEnv } from "@magazine/config/env/editor";
+
+getEditorEnv();
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  transpilePackages: ["@magazine/config"],
 };
 
 export default nextConfig;
