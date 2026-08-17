@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import {
+  CONTENT_AUDIT_EVENT_TYPE,
   PUBLICATION_STATUS,
   WORKFLOW_STATUS,
   assertDraftRelationInputs,
@@ -18,6 +19,7 @@ import {
   insertVersionRelations,
   type ContentRelationInput,
 } from "./relations";
+import { appendContentAuditEvent, staffAuditActor } from "./audit";
 
 export type CreateContentInput = ContentRelationInput & {
   slug: string;
@@ -37,6 +39,7 @@ export type CreateContentInput = ContentRelationInput & {
   syndicated?: boolean;
   isMaterialUpdate?: boolean;
   scope: EditorStaffScope;
+  actorId: string;
 };
 
 export type CreateContentResult = {
@@ -133,6 +136,13 @@ export async function createContent(
           updatedAt: now,
         })
         .where(eq(contentItems.id, item.id));
+
+      await appendContentAuditEvent(tx, {
+        contentItemId: item.id,
+        versionId: version.id,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_CREATED,
+        actor: staffAuditActor(input.actorId),
+      });
 
       return {
         contentItemId: item.id,

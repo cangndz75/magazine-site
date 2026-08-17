@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm";
 import {
+  CONTENT_AUDIT_EVENT_TYPE,
   type Credibility,
   type EditorStaffScope,
   PUBLISHING_ERROR,
   PublishingError,
   assertContentNotDeleted,
   assertOptionalHttpUrl,
+  assertStructuredArticleBody,
   canonicalizeDraftTitle,
   decideSaveDraft,
   nextMonotonicUpdatedAt,
@@ -16,6 +18,11 @@ import { contentItems, contentVersions } from "../schema/content";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
 import { authorizeLockedEditorMutation } from "./locked-scope";
+import {
+  appendContentAuditEvent,
+  buildDraftUpdateChangeSet,
+  staffAuditActor,
+} from "./audit";
 
 export type DraftScalarFields = {
   title: string;
@@ -38,8 +45,10 @@ export type UpdateDraftScalarFieldsInput = Partial<DraftScalarFields> & {
   contentItemId: string;
   versionId: string;
   expectedUpdatedAt: Date | string;
+  body?: unknown;
   title: string;
   scope: EditorStaffScope;
+  actorId: string;
 };
 
 export type UpdateDraftScalarFieldsResult = {
@@ -47,6 +56,7 @@ export type UpdateDraftScalarFieldsResult = {
   versionId: string;
   updatedAt: Date;
   fields: DraftScalarFields;
+  body: Record<string, unknown> | unknown[];
 };
 
 export async function updateDraftScalarFields(
@@ -72,6 +82,10 @@ export async function updateDraftScalarFields(
     syndicated: input.syndicated ?? false,
     isMaterialUpdate: input.isMaterialUpdate ?? false,
   };
+  const body =
+    input.body === undefined
+      ? undefined
+      : unwrapPublishingDecision(assertStructuredArticleBody(input.body));
 
   const db = getDb();
 
@@ -108,10 +122,18 @@ export async function updateDraftScalarFields(
     );
 
     const nextUpdatedAt = nextMonotonicUpdatedAt(item.updatedAt);
+    const changeSet = buildDraftUpdateChangeSet({
+      before: version,
+      after: fields,
+      bodyChanged:
+        body === undefined
+          ? false
+          : JSON.stringify(version.body) !== JSON.stringify(body),
+    });
 
     await tx
       .update(contentVersions)
-      .set(fields)
+      .set(body === undefined ? fields : { ...fields, body })
       .where(eq(contentVersions.id, version.id));
 
     await tx
@@ -119,11 +141,22 @@ export async function updateDraftScalarFields(
       .set({ updatedAt: nextUpdatedAt })
       .where(eq(contentItems.id, item.id));
 
+    if (changeSet) {
+      await appendContentAuditEvent(tx, {
+        contentItemId: item.id,
+        versionId: version.id,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.DRAFT_UPDATED,
+        actor: staffAuditActor(input.actorId),
+        changeSet,
+      });
+    }
+
     return {
       contentItemId: item.id,
       versionId: version.id,
       updatedAt: nextUpdatedAt,
       fields,
+      body: (body ?? version.body) as Record<string, unknown> | unknown[],
     };
   });
 }

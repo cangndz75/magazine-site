@@ -298,6 +298,73 @@ describe("body block diff", () => {
     assert.equal(result.body.blocks[0]?.links?.changed, true);
   });
 
+  it("treats mark-only changes as body modifications", () => {
+    const result = diff(
+      {
+        body: {
+          blocks: [
+            {
+              type: "paragraph",
+              content: [{ text: "Same visible text" }],
+            },
+          ],
+        },
+      },
+      {
+        body: {
+          blocks: [
+            {
+              type: "paragraph",
+              content: [
+                { text: "Same visible text", marks: [{ type: "bold" }] },
+              ],
+            },
+          ],
+        },
+      },
+    );
+    assert.equal(result.body.changed, true);
+    assert.equal(result.body.blocks[0]?.changeType, "MODIFIED");
+  });
+
+  it("treats canonical inline href-only changes as body modifications", () => {
+    const result = diff(
+      {
+        body: {
+          blocks: [
+            {
+              type: "paragraph",
+              content: [
+                {
+                  text: "Same visible text",
+                  marks: [{ type: "link", href: "https://example.com/a" }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        body: {
+          blocks: [
+            {
+              type: "paragraph",
+              content: [
+                {
+                  text: "Same visible text",
+                  marks: [{ type: "link", href: "https://example.com/b" }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    );
+    assert.equal(result.body.changed, true);
+    assert.equal(result.body.blocks[0]?.changeType, "MODIFIED");
+    assert.equal(result.body.blocks[0]?.links?.changed, true);
+  });
+
   it("rejects corrupt persisted bodies safely", () => {
     const result = diffContentVersions({
       contentItemId: ITEM,

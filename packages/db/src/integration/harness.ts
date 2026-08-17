@@ -288,6 +288,7 @@ export async function createDraftItem(
     categories?: { categoryId: string; isPrimary: boolean }[];
     tags?: { tagId: string }[];
     includeRelations?: boolean;
+    actorId?: string;
   } = {},
 ) {
   const created = await createContent({
@@ -295,6 +296,7 @@ export async function createDraftItem(
     title: input.title ?? "Original title",
     body: input.body ?? EMPTY_BODY,
     scope: input.scope ?? fixture.selectedOnA,
+    actorId: input.actorId ?? fixture.ids.staffEditor,
     categories: input.categories ?? [
       { categoryId: fixture.ids.categoryA, isPrimary: true },
     ],
@@ -501,20 +503,23 @@ export async function countLeftoverFixtures(
   items: number;
   versions: number;
   reviewEvents: number;
+  auditEvents: number;
 }> {
   if (itemIds.length === 0) {
-    return { items: 0, versions: 0, reviewEvents: 0 };
+    return { items: 0, versions: 0, reviewEvents: 0, auditEvents: 0 };
   }
 
   const result = await getRacerPool().query<{
     items: string;
     versions: string;
     reviewEvents: string;
+    auditEvents: string;
   }>(
     `SELECT
        (SELECT count(*)::text FROM content_items WHERE id = ANY($1::uuid[])) AS items,
        (SELECT count(*)::text FROM content_versions WHERE content_item_id = ANY($1::uuid[])) AS versions,
-       (SELECT count(*)::text FROM content_review_events WHERE content_item_id = ANY($1::uuid[])) AS "reviewEvents"`,
+       (SELECT count(*)::text FROM content_review_events WHERE content_item_id = ANY($1::uuid[])) AS "reviewEvents",
+       (SELECT count(*)::text FROM content_audit_events WHERE content_item_id = ANY($1::uuid[])) AS "auditEvents"`,
     [itemIds],
   );
 
@@ -522,6 +527,7 @@ export async function countLeftoverFixtures(
     items: Number(result.rows[0]?.items ?? "0"),
     versions: Number(result.rows[0]?.versions ?? "0"),
     reviewEvents: Number(result.rows[0]?.reviewEvents ?? "0"),
+    auditEvents: Number(result.rows[0]?.auditEvents ?? "0"),
   };
 }
 
@@ -542,6 +548,10 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
     );
     await pool.query(
       "DELETE FROM content_review_events WHERE content_item_id = ANY($1::uuid[])",
+      [itemIds],
+    );
+    await pool.query(
+      "DELETE FROM content_audit_events WHERE content_item_id = ANY($1::uuid[])",
       [itemIds],
     );
     await pool.query(

@@ -104,6 +104,7 @@ describe("editor content PostgreSQL integration", () => {
         title: "Actor A title",
         body: BODIES.actorA,
         scope: fixture.selectedOnA,
+        actorId: fixture.ids.staffEditor,
         categories: primaryA(fixture),
         tags: [{ tagId: fixture.ids.extraTag }],
         entities: [],
@@ -123,6 +124,7 @@ describe("editor content PostgreSQL integration", () => {
             title: "Actor B title",
             body: BODIES.actorB,
             scope: fixture.selectedOnA,
+            actorId: fixture.ids.staffEditor,
             categories: primaryA(fixture),
             tags: [{ tagId: fixture.ids.tag }],
             entities: [],
@@ -156,6 +158,7 @@ describe("editor content PostgreSQL integration", () => {
         title: "Round trip title",
         body: articleBody("round-trip"),
         scope: fixture.selectedOnA,
+        actorId: fixture.ids.staffEditor,
         categories: primaryA(fixture),
       });
 
@@ -193,6 +196,7 @@ describe("editor content PostgreSQL integration", () => {
         created.contentItemId,
         created.versionId,
         fixture.selectedOnA,
+        fixture.ids.staffReviewerA,
       );
 
       const publishedBefore = await snapshotContent(
@@ -203,6 +207,7 @@ describe("editor content PostgreSQL integration", () => {
         created.contentItemId,
         undefined,
         fixture.selectedOnA,
+        fixture.ids.staffEditor,
       );
       const draftBefore = await snapshotContent(
         created.contentItemId,
@@ -228,6 +233,7 @@ describe("editor content PostgreSQL integration", () => {
         syndicated: true,
         isMaterialUpdate: true,
         scope: fixture.selectedOnA,
+        actorId: fixture.ids.staffEditor,
       });
 
       const publishedAfter = await snapshotContent(
@@ -295,6 +301,126 @@ describe("editor content PostgreSQL integration", () => {
       assert.equal(draftAfter.draftVersionId, revision.versionId);
       assert.equal(draftAfter.scheduledVersionId, null);
     });
+
+    it("persists body edits through the article editor save path without touching the published version", async () => {
+      const created = await createDraftItem(fixture, {
+        body: articleBody("published body"),
+      });
+      const submitted = await submitForReview(
+        created.contentItemId,
+        created.versionId,
+        {
+          expectedUpdatedAt: created.updatedAt,
+          scope: fixture.selectedOnA,
+          actorId: fixture.ids.staffEditor,
+        },
+      );
+      await approveVersion(
+        created.contentItemId,
+        created.versionId,
+        {
+          expectedUpdatedAt: submitted.updatedAt,
+          scope: fixture.selectedOnA,
+          actorId: fixture.ids.staffReviewerA,
+        },
+      );
+      await publishVersion(
+        created.contentItemId,
+        created.versionId,
+        fixture.selectedOnA,
+        fixture.ids.staffReviewerA,
+      );
+
+      const publishedBefore = await snapshotContent(
+        created.contentItemId,
+        created.versionId,
+      );
+      const revision = await createDraftRevision(
+        created.contentItemId,
+        undefined,
+        fixture.selectedOnA,
+        fixture.ids.staffEditor,
+      );
+      const draftBefore = await snapshotContent(
+        created.contentItemId,
+        revision.versionId,
+      );
+      const nextBody = {
+        blocks: [
+          { type: "heading", level: 2, text: "Yeni ara başlık" },
+          { type: "paragraph", text: "Türkçe gövde paragrafı" },
+        ],
+      };
+
+      const saved = await updateDraftScalarFields({
+        contentItemId: created.contentItemId,
+        versionId: revision.versionId,
+        expectedUpdatedAt: revision.updatedAt,
+        title: draftBefore.title,
+        body: nextBody,
+        scope: fixture.selectedOnA,
+        actorId: fixture.ids.staffEditor,
+      });
+
+      const draftAfter = await snapshotContent(
+        created.contentItemId,
+        revision.versionId,
+      );
+      const publishedAfter = await snapshotContent(
+        created.contentItemId,
+        created.versionId,
+      );
+
+      assert.deepEqual(draftAfter.body, nextBody);
+      assert.equal(draftAfter.workflowStatus, WORKFLOW_STATUS.DRAFT);
+      assert.equal(draftAfter.publishedVersionId, created.versionId);
+      assert.deepEqual(publishedAfter.body, publishedBefore.body);
+
+      await assert.rejects(
+        () =>
+          updateDraftScalarFields({
+            contentItemId: created.contentItemId,
+            versionId: revision.versionId,
+            expectedUpdatedAt: revision.updatedAt,
+            title: draftBefore.title,
+            body: articleBody("stale body"),
+            scope: fixture.selectedOnA,
+            actorId: fixture.ids.staffEditor,
+          }),
+        (error: unknown) => {
+          assertPublishingCode(error, PUBLISHING_ERROR.CONTENT_WRITE_CONFLICT);
+          return true;
+        },
+      );
+      const afterConflict = await snapshotContent(
+        created.contentItemId,
+        revision.versionId,
+      );
+      assert.deepEqual(afterConflict.body, nextBody);
+
+      const audit = await getRacerPool().query<{
+        event_type: string;
+        change_set: {
+          bodyChange?: { changed?: boolean; detailLimited?: boolean };
+          scalarChanges?: unknown[];
+        } | null;
+      }>(
+        `SELECT event_type, change_set
+         FROM content_audit_events
+         WHERE content_item_id = $1 AND content_version_id = $2
+         ORDER BY occurred_at DESC, id DESC
+         LIMIT 1`,
+        [created.contentItemId, revision.versionId],
+      );
+      assert.equal(audit.rows[0]?.event_type, "DRAFT_UPDATED");
+      assert.equal(audit.rows[0]?.change_set?.bodyChange?.changed, true);
+      assert.equal(
+        audit.rows[0]?.change_set?.bodyChange?.detailLimited,
+        true,
+      );
+      assert.equal(audit.rows[0]?.change_set?.scalarChanges, undefined);
+      assert.equal(requiredTimestampMs(saved.updatedAt) > draftBefore.updatedAtMs, true);
+    });
   });
 
   describe("FOR UPDATE serialization", () => {
@@ -323,6 +449,7 @@ describe("editor content PostgreSQL integration", () => {
           title: "Should not commit",
           body: BODIES.actorB,
           scope: fixture.selectedOnA,
+          actorId: fixture.ids.staffEditor,
           categories: primaryA(fixture),
         });
 
@@ -396,6 +523,7 @@ describe("editor content PostgreSQL integration", () => {
         title: "Should not commit",
         body: BODIES.actorB,
         scope: fixture.selectedOnA,
+        actorId: fixture.ids.staffEditor,
         categories: primaryA(fixture),
         tags: [{ tagId: fixture.ids.extraTag }],
       });
@@ -435,6 +563,7 @@ describe("editor content PostgreSQL integration", () => {
         title: "Ready for review",
         body: articleBody("review"),
         scope: fixture.selectedOnA,
+        actorId: fixture.ids.staffEditor,
         categories: primaryA(fixture),
       });
       const t2 = saved.updatedAt;
@@ -490,6 +619,7 @@ describe("editor content PostgreSQL integration", () => {
             title: "Empty categories",
             body: BODIES.actorB,
             scope: fixture.selectedOnA,
+            actorId: fixture.ids.staffEditor,
             categories: [],
             tags: [],
             entities: [],
@@ -514,6 +644,7 @@ describe("editor content PostgreSQL integration", () => {
         title: "Valid selected save",
         body: articleBody("selected-ok"),
         scope: fixture.selectedOnA,
+        actorId: fixture.ids.staffEditor,
         categories: primaryA(fixture),
         tags: [{ tagId: fixture.ids.tag }],
         entities: [],
@@ -542,6 +673,7 @@ describe("editor content PostgreSQL integration", () => {
             title: "Smuggled secondary",
             body: BODIES.actorB,
             scope: fixture.selectedOnA,
+            actorId: fixture.ids.staffEditor,
             categories: primaryASecondaryB(fixture),
             tags: [{ tagId: fixture.ids.extraTag }],
             entities: [],
@@ -581,6 +713,7 @@ describe("editor content PostgreSQL integration", () => {
             title: "Partial write",
             body: BODIES.actorB,
             scope: fixture.selectedOnA,
+            actorId: fixture.ids.staffEditor,
             categories: primaryA(fixture),
             tags: [{ tagId: fixture.ids.extraTag }],
             entities: [],
@@ -642,6 +775,7 @@ describe("editor content PostgreSQL integration", () => {
         created.contentItemId,
         created.versionId,
         fixture.selectedOnA,
+        fixture.ids.staffReviewerA,
       );
 
       await locked.promise;
@@ -668,6 +802,7 @@ describe("editor content PostgreSQL integration", () => {
         created.contentItemId,
         created.versionId,
         fixture.selectedOnA,
+        fixture.ids.staffReviewerA,
       );
       const before = await snapshotContent(created.contentItemId, created.versionId);
       assert.equal(before.publishedVersionId, created.versionId);
@@ -687,6 +822,7 @@ describe("editor content PostgreSQL integration", () => {
       const mutation = unpublishContent(
         created.contentItemId,
         fixture.selectedOnA,
+        fixture.ids.staffReviewerA,
       );
 
       await locked.promise;
@@ -718,6 +854,7 @@ describe("editor content PostgreSQL integration", () => {
         created.versionId,
         firstAt,
         fixture.selectedOnA,
+        fixture.ids.staffReviewerA,
         now,
       );
       const before = await snapshotContent(created.contentItemId, created.versionId);
@@ -739,6 +876,7 @@ describe("editor content PostgreSQL integration", () => {
         created.contentItemId,
         secondAt,
         fixture.selectedOnA,
+        fixture.ids.staffReviewerA,
         now,
       );
 
@@ -769,6 +907,7 @@ describe("editor content PostgreSQL integration", () => {
         created.versionId,
         new Date(now.getTime() + 60_000),
         fixture.selectedOnA,
+        fixture.ids.staffReviewerA,
         now,
       );
       const before = await snapshotContent(created.contentItemId, created.versionId);
@@ -788,6 +927,7 @@ describe("editor content PostgreSQL integration", () => {
       const mutation = unscheduleVersion(
         created.contentItemId,
         fixture.selectedOnA,
+        fixture.ids.staffReviewerA,
       );
 
       await locked.promise;
@@ -838,6 +978,7 @@ describe("editor content PostgreSQL integration", () => {
         created.versionId,
         scheduledAt,
         fixture.superAdmin,
+        fixture.ids.staffReviewerA,
         now,
       );
 

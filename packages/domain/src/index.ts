@@ -53,6 +53,27 @@ export {
   REVIEW_EVENT_TYPES,
   type ReviewEventType,
 } from "./review-event-type";
+export {
+  CONTENT_AUDIT_ACTOR_KIND,
+  CONTENT_AUDIT_ACTOR_KINDS,
+  CONTENT_AUDIT_EVENT_TYPE,
+  CONTENT_AUDIT_EVENT_TYPES,
+  CONTENT_AUDIT_SCALAR_FIELD,
+  CONTENT_AUDIT_SCALAR_FIELDS,
+  assertContentAuditChangeSet,
+  diffAuditScalarFields,
+  type ContentAuditActor,
+  type ContentAuditActorKind,
+  type ContentAuditBodySummary,
+  type ContentAuditChangeSet,
+  type ContentAuditEvent,
+  type ContentAuditEventType,
+  type ContentAuditRelationSummary,
+  type ContentAuditScalarChange,
+  type ContentAuditScalarField,
+  type ContentAuditScalarInput,
+  type ContentAuditScalarValue,
+} from "./content-audit";
 export { CAPABILITY, CAPABILITIES, type Capability } from "./capability";
 export { ROLE_CAPABILITIES } from "./role-capabilities";
 export {
@@ -157,10 +178,12 @@ export {
   type ContentVersionDiffSideInput,
   type DiffContentVersionsInput,
   decodeEditorListCursor,
+  decodeEditorAuditCursor,
   decodeEditorReviewQueueCursor,
   decodeEditorRevisionCursor,
   editorTimestampToEpochMs,
   encodeEditorListCursor,
+  encodeEditorAuditCursor,
   encodeEditorReviewQueueCursor,
   encodeEditorRevisionCursor,
   getPrimaryCategoryId,
@@ -175,6 +198,7 @@ export {
   selectEditorDisplayVersionId,
   staffHasUnrestrictedCategoryScope,
   type EditorListCursor,
+  type EditorAuditCursor,
   type EditorReviewQueueCursor,
   type EditorRevisionHistoryCursor,
   type EditorStaffScope,

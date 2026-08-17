@@ -47,6 +47,7 @@ export type ArticleEditorModel = {
     workflowStatus: "DRAFT" | "IN_REVIEW" | "APPROVED";
     createdAt: Date;
     fields: DraftScalarFields;
+    body: Record<string, unknown> | unknown[];
     canEdit: boolean;
     concurrencyToken: Date;
     relations: ArticleEditorRelationSummary;
@@ -146,6 +147,7 @@ async function loadEditableDraft(versionId: string, itemUpdatedAt: Date) {
       sourceUrl: contentVersions.sourceUrl,
       syndicated: contentVersions.syndicated,
       isMaterialUpdate: contentVersions.isMaterialUpdate,
+      body: contentVersions.body,
       createdAt: contentVersions.createdAt,
     })
     .from(contentVersions)
@@ -177,6 +179,7 @@ async function loadEditableDraft(versionId: string, itemUpdatedAt: Date) {
       syndicated: version.syndicated,
       isMaterialUpdate: version.isMaterialUpdate,
     },
+    body: version.body as Record<string, unknown> | unknown[],
     canEdit: version.workflowStatus === "DRAFT",
     concurrencyToken: itemUpdatedAt,
     relations: await loadRelationSummary(version.id),

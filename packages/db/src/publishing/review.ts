@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import {
+  CONTENT_AUDIT_EVENT_TYPE,
   type EditorStaffScope,
   PUBLISHING_ERROR,
   PublishingError,
@@ -23,6 +24,7 @@ import type { PublishingTx } from "./db-types";
 import { rethrowPublishingDbError, unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
 import { authorizeLockedReviewTarget } from "./locked-scope";
+import { appendContentAuditEvent, staffAuditActor } from "./audit";
 
 export type ReviewResult = {
   contentItemId: string;
@@ -134,6 +136,20 @@ async function mutateReviewWorkflow(input: {
         eventType: input.eventType,
         actorId: input.actorId,
         note: input.note,
+      });
+
+      const auditEventType =
+        input.eventType === REVIEW_EVENT_TYPE.SUBMITTED
+          ? CONTENT_AUDIT_EVENT_TYPE.REVIEW_SUBMITTED
+          : input.eventType === REVIEW_EVENT_TYPE.APPROVED
+            ? CONTENT_AUDIT_EVENT_TYPE.REVIEW_APPROVED
+            : CONTENT_AUDIT_EVENT_TYPE.REVIEW_CHANGES_REQUESTED;
+
+      await appendContentAuditEvent(tx, {
+        contentItemId: item.id,
+        versionId: version.id,
+        eventType: auditEventType,
+        actor: staffAuditActor(input.actorId),
       });
 
       await tx

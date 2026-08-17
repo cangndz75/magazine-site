@@ -223,3 +223,53 @@ export function decodeEditorReviewQueueCursor(
     return null;
   }
 }
+
+export type EditorAuditCursor = {
+  occurredAt: string;
+  id: string;
+};
+
+export function encodeEditorAuditCursor(input: {
+  occurredAt: Date | string;
+  id: string;
+}): string {
+  const occurredAt =
+    input.occurredAt instanceof Date
+      ? input.occurredAt.toISOString()
+      : new Date(input.occurredAt).toISOString();
+
+  return Buffer.from(
+    JSON.stringify({ occurredAt, id: input.id }),
+    "utf8",
+  ).toString("base64url");
+}
+
+export function decodeEditorAuditCursor(
+  raw: string | undefined,
+): EditorAuditCursor | null {
+  if (raw === undefined || raw.length === 0) {
+    return null;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(
+      Buffer.from(raw, "base64url").toString("utf8"),
+    );
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("occurredAt" in parsed) ||
+      !("id" in parsed) ||
+      typeof parsed.occurredAt !== "string" ||
+      typeof parsed.id !== "string" ||
+      !isUuid(parsed.id) ||
+      Number.isNaN(new Date(parsed.occurredAt).getTime())
+    ) {
+      return null;
+    }
+
+    return { occurredAt: parsed.occurredAt, id: parsed.id };
+  } catch {
+    return null;
+  }
+}

@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import {
+  CONTENT_AUDIT_EVENT_TYPE,
   PUBLISHING_ERROR,
   PublishingError,
   assertContentNotDeleted,
@@ -18,6 +19,7 @@ import {
   loadLockedVersionCategories,
 } from "./locked-scope";
 import { loadVersionRelations } from "./relations";
+import { appendContentAuditEvent, staffAuditActor } from "./audit";
 
 export type ScheduleResult = {
   contentItemId: string;
@@ -32,6 +34,7 @@ export async function scheduleVersion(
   versionId: string,
   scheduledAt: Date,
   scope: EditorStaffScope,
+  actorId: string,
   now: Date = new Date(),
 ): Promise<ScheduleResult> {
   const db = getDb();
@@ -79,6 +82,13 @@ export async function scheduleVersion(
       })
       .where(eq(contentItems.id, item.id));
 
+    await appendContentAuditEvent(tx, {
+      contentItemId: item.id,
+      versionId: plan.scheduledVersionId,
+      eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_SCHEDULED,
+      actor: staffAuditActor(actorId),
+    });
+
     return {
       contentItemId: item.id,
       scheduledVersionId: plan.scheduledVersionId,
@@ -93,6 +103,7 @@ export async function rescheduleVersion(
   contentItemId: string,
   scheduledAt: Date,
   scope: EditorStaffScope,
+  actorId: string,
   now: Date = new Date(),
 ): Promise<ScheduleResult> {
   const db = getDb();
@@ -121,6 +132,13 @@ export async function rescheduleVersion(
       })
       .where(eq(contentItems.id, item.id));
 
+    await appendContentAuditEvent(tx, {
+      contentItemId: item.id,
+      versionId: plan.scheduledVersionId,
+      eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_RESCHEDULED,
+      actor: staffAuditActor(actorId),
+    });
+
     return {
       contentItemId: item.id,
       scheduledVersionId: plan.scheduledVersionId,
@@ -134,6 +152,7 @@ export async function rescheduleVersion(
 export async function unscheduleVersion(
   contentItemId: string,
   scope: EditorStaffScope,
+  actorId: string,
 ): Promise<{
   contentItemId: string;
   scheduledVersionId: null;
@@ -163,6 +182,13 @@ export async function unscheduleVersion(
         updatedAt: nextUpdatedAt,
       })
       .where(eq(contentItems.id, item.id));
+
+    await appendContentAuditEvent(tx, {
+      contentItemId: item.id,
+      versionId: item.scheduledVersionId,
+      eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_SCHEDULE_CANCELLED,
+      actor: staffAuditActor(actorId),
+    });
 
     return {
       contentItemId: item.id,

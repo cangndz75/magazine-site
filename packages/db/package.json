@@ -7,7 +7,8 @@
     "./schema": "./src/schema/index.ts",
     "./client": "./src/client.ts",
     "./publishing": "./src/publishing/index.ts",
-    "./editor": "./src/editor/index.ts"
+    "./editor": "./src/editor/index.ts",
+    "./staff-provisioning": "./src/staff-provisioning.ts"
   },
   "scripts": {
     "lint": "eslint .",

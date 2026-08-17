@@ -125,7 +125,12 @@ describe("editorial semantic version diff PostgreSQL", () => {
       versionId,
       submitted.updatedAt,
     );
-    await publishVersion(contentItemId, versionId, fixture.superAdmin);
+    await publishVersion(
+      contentItemId,
+      versionId,
+      fixture.superAdmin,
+      fixture.ids.staffReviewerA,
+    );
     return approved;
   }
 
@@ -310,6 +315,7 @@ describe("editorial semantic version diff PostgreSQL", () => {
       created.contentItemId,
       undefined,
       fixture.superAdmin,
+      fixture.ids.staffEditor,
     );
     await updateDraftContent({
       contentItemId: created.contentItemId,
@@ -318,6 +324,7 @@ describe("editorial semantic version diff PostgreSQL", () => {
       title: "Unpublished B",
       body: articleBody("Unpublished body"),
       scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
       categories: [{ categoryId: fixture.ids.categoryA, isPrimary: true }],
       tags: [{ tagId: fixture.ids.tag }],
       entities: [
@@ -391,6 +398,7 @@ describe("editorial semantic version diff PostgreSQL", () => {
       title: "Original title",
       body: articleBody("Hello world"),
       scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
       categories: [{ categoryId: fixture.ids.categoryA, isPrimary: true }],
       tags: [{ tagId: fixture.ids.tag }],
       entities: [
@@ -440,6 +448,7 @@ describe("editorial semantic version diff PostgreSQL", () => {
       created.contentItemId,
       undefined,
       fixture.superAdmin,
+      fixture.ids.staffEditor,
     );
     await updateDraftContent({
       contentItemId: created.contentItemId,
@@ -454,6 +463,7 @@ describe("editorial semantic version diff PostgreSQL", () => {
         ],
       },
       scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
       categories: [
         { categoryId: fixture.ids.categoryA, isPrimary: true },
         { categoryId: fixture.ids.categoryB, isPrimary: false },
@@ -624,6 +634,7 @@ describe("editorial semantic version diff PostgreSQL", () => {
       created.contentItemId,
       undefined,
       fixture.superAdmin,
+      fixture.ids.staffEditor,
     );
     const updated = await updateDraftContent({
       contentItemId: created.contentItemId,
@@ -632,6 +643,7 @@ describe("editorial semantic version diff PostgreSQL", () => {
       title: "Review B",
       body: articleBody("Review body"),
       scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
       categories: [{ categoryId: fixture.ids.categoryA, isPrimary: true }],
       tags: [{ tagId: fixture.ids.tag }],
       entities: [

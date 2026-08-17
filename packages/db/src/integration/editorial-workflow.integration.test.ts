@@ -127,11 +127,13 @@ describe("editorial workflow PostgreSQL reads", () => {
         created.contentItemId,
         created.versionId,
         fixture.superAdmin,
+        fixture.ids.staffReviewerA,
       );
       const revision = await createDraftRevision(
         created.contentItemId,
         undefined,
         fixture.superAdmin,
+        fixture.ids.staffEditor,
       );
 
       const history = await listContentRevisionHistory(
@@ -206,11 +208,13 @@ describe("editorial workflow PostgreSQL reads", () => {
         created.contentItemId,
         created.versionId,
         fixture.superAdmin,
+        fixture.ids.staffReviewerA,
       );
       const second = await createDraftRevision(
         created.contentItemId,
         undefined,
         fixture.superAdmin,
+        fixture.ids.staffEditor,
       );
       const secondSubmit = await submitCurrent(
         created.contentItemId,
@@ -226,11 +230,13 @@ describe("editorial workflow PostgreSQL reads", () => {
         created.contentItemId,
         second.versionId,
         fixture.superAdmin,
+        fixture.ids.staffReviewerA,
       );
       const third = await createDraftRevision(
         created.contentItemId,
         undefined,
         fixture.superAdmin,
+        fixture.ids.staffEditor,
       );
 
       const firstPage = await listContentRevisionHistory(
@@ -309,11 +315,13 @@ describe("editorial workflow PostgreSQL reads", () => {
         published.contentItemId,
         published.versionId,
         fixture.superAdmin,
+        fixture.ids.staffReviewerA,
       );
       const reviewDraft = await createDraftRevision(
         published.contentItemId,
         undefined,
         fixture.superAdmin,
+        fixture.ids.staffEditor,
       );
       const saved = await updateDraftContent({
         contentItemId: published.contentItemId,
@@ -322,6 +330,7 @@ describe("editorial workflow PostgreSQL reads", () => {
         title: "Newer in review",
         body: articleBody("review-body-must-not-leak"),
         scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
         categories: primaryA(fixture),
       });
       await submitCurrent(
@@ -364,12 +373,18 @@ describe("editorial workflow PostgreSQL reads", () => {
         live.versionId,
         liveSubmit.updatedAt,
       );
-      await publishVersion(live.contentItemId, live.versionId, fixture.superAdmin);
+      await publishVersion(
+        live.contentItemId,
+        live.versionId,
+        fixture.superAdmin,
+        fixture.ids.staffReviewerA,
+      );
 
       const revision = await createDraftRevision(
         live.contentItemId,
         undefined,
         fixture.superAdmin,
+        fixture.ids.staffEditor,
       );
       const saved = await updateDraftContent({
         contentItemId: live.contentItemId,
@@ -378,6 +393,7 @@ describe("editorial workflow PostgreSQL reads", () => {
         title: "Review B",
         body: articleBody("b"),
         scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
         categories: [{ categoryId: fixture.ids.categoryB, isPrimary: true }],
       });
       await submitCurrent(live.contentItemId, revision.versionId, saved.updatedAt);

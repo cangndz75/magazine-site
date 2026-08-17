@@ -27,6 +27,7 @@ export async function PATCH(
       const result = await updateDraftContent({
         contentItemId: id,
         scope: editorScopeFromSession(session),
+        actorId: session.staffUserId,
         ...parsed,
       });
 

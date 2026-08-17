@@ -50,6 +50,18 @@ const WRITE_SERVICES = [
   "unscheduleVersion",
 ];
 
+const STAFF_ATTRIBUTED_MUTATION_ROUTES = [
+  ["content", "route.ts"],
+  ["content", "[contentItemId]", "draft", "route.ts"],
+  ["content", "[contentItemId]", "editor-fields", "route.ts"],
+  ["content", "[contentItemId]", "revision", "route.ts"],
+  ["content", "[contentItemId]", "publish", "route.ts"],
+  ["content", "[contentItemId]", "unpublish", "route.ts"],
+  ["content", "[contentItemId]", "schedule", "route.ts"],
+  ["content", "[contentItemId]", "reschedule", "route.ts"],
+  ["content", "[contentItemId]", "unschedule", "route.ts"],
+];
+
 describe("editor content route contracts", () => {
   const files = contentRoots.flatMap((dir) => walkRouteFiles(dir));
 
@@ -115,6 +127,28 @@ describe("editor content route contracts", () => {
       assert.equal(source.includes("body.staffUserId"), false);
       assert.equal(source.includes("body.scopeMode"), false);
       assert.equal(source.includes("body.scopedCategoryIds"), false);
+    }
+  });
+
+  it("attributes staff-triggered content mutations to the authenticated session actor", () => {
+    for (const route of STAFF_ATTRIBUTED_MUTATION_ROUTES) {
+      const file = path.join(apiRoot, ...route);
+      const source = readFileSync(file, "utf8");
+      assert.equal(
+        source.includes("session.staffUserId"),
+        true,
+        `${file} must pass the authenticated staff actor`,
+      );
+      assert.equal(
+        source.includes("CONTENT_AUDIT_ACTOR_KIND.SYSTEM"),
+        false,
+        `${file} must not attribute staff mutations as SYSTEM`,
+      );
+      assert.equal(
+        source.includes("SYSTEM_AUDIT_ACTOR"),
+        false,
+        `${file} must not attribute staff mutations as SYSTEM`,
+      );
     }
   });
 

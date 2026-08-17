@@ -239,6 +239,7 @@ export type ParsedDraftSave = {
 export type ParsedArticleEditorSave = {
   versionId: string;
   expectedUpdatedAt: string;
+  body?: Record<string, unknown> | unknown[];
   title: string;
   subtitle: string | null;
   excerpt: string | null;
@@ -266,10 +267,15 @@ export function parseArticleEditorSaveBody(
   const sourceUrl = unwrap(
     assertOptionalHttpUrl(optionalTrimmedText(optionalString(record, "sourceUrl"))),
   );
+  const parsedBody =
+    record.body === undefined
+      ? undefined
+      : unwrap(assertStructuredArticleBody(record.body));
 
   return {
     versionId: requiredUuid(record, "versionId"),
     expectedUpdatedAt: requiredExpectedUpdatedAt(record),
+    ...(parsedBody === undefined ? {} : { body: parsedBody }),
     title,
     subtitle: optionalTrimmedText(optionalString(record, "subtitle")),
     excerpt: optionalTrimmedText(optionalString(record, "excerpt")),

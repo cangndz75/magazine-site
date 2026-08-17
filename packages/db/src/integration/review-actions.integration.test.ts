@@ -398,6 +398,7 @@ describe("editorial review actions PostgreSQL", () => {
         title: "Revised title",
         body: articleBody("revised"),
         scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
         categories: primaryA(fixture),
       });
       const secondSubmit = await submitDraft(
@@ -696,11 +697,13 @@ describe("editorial review actions PostgreSQL", () => {
         created.contentItemId,
         created.versionId,
         fixture.superAdmin,
+        fixture.ids.staffReviewerA,
       );
       const revision = await createDraftRevision(
         created.contentItemId,
         undefined,
         fixture.superAdmin,
+        fixture.ids.staffEditor,
       );
       const saved = await updateDraftContent({
         contentItemId: created.contentItemId,
@@ -709,6 +712,7 @@ describe("editorial review actions PostgreSQL", () => {
         title: "Next draft",
         body: articleBody("next"),
         scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
         categories: primaryA(fixture),
       });
       const review = await submitDraft(

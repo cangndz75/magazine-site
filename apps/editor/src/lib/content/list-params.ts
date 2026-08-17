@@ -1,5 +1,6 @@
 import {
   clampEditorListLimit,
+  decodeEditorAuditCursor,
   decodeEditorListCursor,
   decodeEditorReviewQueueCursor,
   decodeEditorRevisionCursor,
@@ -197,6 +198,23 @@ export function parseReviewHistorySearchParams(url: URL) {
   }
 
   return { versionId };
+}
+
+export function parseAuditHistorySearchParams(url: URL) {
+  const cursorRaw = url.searchParams.get("cursor") ?? undefined;
+  const cursor = decodeEditorAuditCursor(cursorRaw);
+  if (cursorRaw && !cursor) {
+    throw new EditorHttpError(
+      400,
+      EDITOR_API_ERROR.INVALID_REQUEST,
+      "The request is invalid.",
+    );
+  }
+
+  return {
+    limit: parseLimitParam(url),
+    cursor,
+  };
 }
 
 export function parseReviewQueueSearchParams(url: URL) {

@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import {
+  CONTENT_AUDIT_EVENT_TYPE,
   type EditorStaffScope,
   PUBLISHING_ERROR,
   PublishingError,
@@ -19,6 +20,7 @@ import {
   insertVersionRelations,
   loadVersionRelations,
 } from "./relations";
+import { appendContentAuditEvent, staffAuditActor } from "./audit";
 
 export type CreateDraftRevisionResult = {
   contentItemId: string;
@@ -46,6 +48,7 @@ export async function createDraftRevision(
   contentItemId: string,
   sourceVersionId: string | undefined,
   scope: EditorStaffScope,
+  actorId: string,
 ): Promise<CreateDraftRevisionResult> {
   const db = getDb();
 
@@ -133,6 +136,13 @@ export async function createDraftRevision(
         updatedAt: nextUpdatedAt,
       })
       .where(eq(contentItems.id, item.id));
+
+    await appendContentAuditEvent(tx, {
+      contentItemId: item.id,
+      versionId: created.id,
+      eventType: CONTENT_AUDIT_EVENT_TYPE.DRAFT_REVISION_CREATED,
+      actor: staffAuditActor(actorId),
+    });
 
     return {
       contentItemId: item.id,

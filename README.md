@@ -63,6 +63,30 @@ Do not apply migrations without an explicit target and approval.
 Editor application authentication uses opaque server-side sessions.
 There is no committed staff password or bootstrap user in this repository.
 
+## Initial Staff Provisioning
+
+Create the first staff account for an empty installation with:
+
+```bash
+pnpm staff:bootstrap
+```
+
+The command uses `DATABASE_URL`, shows only the target host/database, prompts for
+email, display name, and a hidden password, then creates the initial
+`SUPER_ADMIN` staff user with `ALL` scope. It refuses to run after any staff user
+already exists.
+
+For non-interactive operations, pass explicit metadata and pipe the password from
+a secure stdin provider:
+
+```bash
+<password producer> | pnpm staff:bootstrap --email <email> --display-name '<name>' --password-stdin --yes
+```
+
+No default credential is committed or generated automatically. The command does
+not handle subsequent staff administration, password resets, MFA enrollment, or
+staff management UI.
+
 ## Health
 
 - Web: `GET /api/health`

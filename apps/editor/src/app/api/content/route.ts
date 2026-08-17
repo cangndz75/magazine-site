@@ -33,6 +33,7 @@ export async function POST(request: Request) {
           ? [{ categoryId: parsed.primaryCategoryId, isPrimary: true }]
           : [],
         scope: editorScopeFromSession(session),
+        actorId: session.staffUserId,
       });
       return editorOk(created, 201);
     },

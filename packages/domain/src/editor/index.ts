@@ -55,8 +55,10 @@ export {
   clampEditorListLimit,
   clampEditorLookupLimit,
   decodeEditorListCursor,
+  decodeEditorAuditCursor,
   decodeEditorReviewQueueCursor,
   decodeEditorRevisionCursor,
+  encodeEditorAuditCursor,
   encodeEditorListCursor,
   encodeEditorReviewQueueCursor,
   encodeEditorRevisionCursor,
@@ -65,6 +67,7 @@ export {
   parseWorkflowStatusFilter,
   sanitizeEditorSearch,
   type EditorListCursor,
+  type EditorAuditCursor,
   type EditorReviewQueueCursor,
   type EditorRevisionHistoryCursor,
 } from "./query-bounds";

@@ -24,6 +24,7 @@ export async function POST(
       const result = await unscheduleVersion(
         id,
         editorScopeFromSession(session),
+        session.staffUserId,
       );
       return editorOk(result);
     },

@@ -5,6 +5,15 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Credibility } from "@magazine/domain";
 import { formatDateTime } from "@/lib/content/format-date";
 import { deriveContentStatus } from "@/lib/content/status";
+import { ArticleAuditHistory } from "@/components/article-audit-history";
+import { StructuredBodyEditor } from "@/components/structured-body-editor";
+import {
+  bodyEditorDocumentsEqual,
+  bodyToEditorDocument,
+  cloneBodyEditorDocument,
+  editorDocumentToBody,
+  type BodyEditorDocument,
+} from "@/lib/content/body-editor-state";
 import {
   CREDIBILITY_LABELS,
   articleEditorFieldsEqual,
@@ -34,6 +43,7 @@ type ArticleEditorModel = {
     workflowStatus: "DRAFT" | "IN_REVIEW" | "APPROVED";
     createdAt: string;
     fields: ArticleEditorFields;
+    body: unknown;
     canEdit: boolean;
     concurrencyToken: string;
     relations: {
@@ -92,18 +102,37 @@ export function ArticleEditor({ model, returnHref }: Props) {
   const [fields, setFields] = useState<ArticleEditorFields | null>(
     version?.fields ?? null,
   );
+  const bodyParse = useMemo(
+    () => (version ? bodyToEditorDocument(version.body) : null),
+    [version],
+  );
+  const [baselineBody, setBaselineBody] = useState<BodyEditorDocument | null>(
+    bodyParse?.ok ? cloneBodyEditorDocument(bodyParse.document) : null,
+  );
+  const [bodyDocument, setBodyDocument] = useState<BodyEditorDocument | null>(
+    bodyParse?.ok ? cloneBodyEditorDocument(bodyParse.document) : null,
+  );
   const [token, setToken] = useState(version?.concurrencyToken ?? "");
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const [isSaving, setIsSaving] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   const validation = useMemo(
     () => (fields ? validateArticleEditorFields(fields) : { ok: true, errors: {} }),
     [fields],
   );
   const isDirty = Boolean(
-    fields && baseline && !articleEditorFieldsEqual(fields, baseline),
+    fields &&
+      baseline &&
+      ((!articleEditorFieldsEqual(fields, baseline)) ||
+        (bodyDocument &&
+          baselineBody &&
+          !bodyEditorDocumentsEqual(bodyDocument, baselineBody))),
   );
-  const canEdit = Boolean(version?.canEdit && fields && baseline);
+  const canEdit = Boolean(
+    version?.canEdit && fields && baseline && bodyDocument && baselineBody,
+  );
 
   useEffect(() => {
     if (!isDirty) {
@@ -142,12 +171,21 @@ export function ArticleEditor({ model, returnHref }: Props) {
   }
 
   async function save() {
-    if (!version || !fields || !canEdit || !isDirty || !validation.ok) {
+    if (
+      !version ||
+      !fields ||
+      !bodyDocument ||
+      !canEdit ||
+      !isDirty ||
+      !validation.ok
+    ) {
       return;
     }
 
+    const nextBodyDocument = cloneBodyEditorDocument(bodyDocument);
     const payload = {
       ...normalizeArticleEditorFields(fields),
+      body: editorDocumentToBody(nextBodyDocument),
       versionId: version.id,
       expectedUpdatedAt: token,
     };
@@ -183,8 +221,11 @@ export function ArticleEditor({ model, returnHref }: Props) {
 
       setFields(body.data.fields);
       setBaseline(body.data.fields);
+      setBodyDocument(cloneBodyEditorDocument(nextBodyDocument));
+      setBaselineBody(cloneBodyEditorDocument(nextBodyDocument));
       setToken(body.data.updatedAt);
       setSaveState({ kind: "saved", message: "Değişiklikler kaydedildi." });
+      setHistoryRefreshKey((current) => current + 1);
     } finally {
       setIsSaving(false);
     }
@@ -404,12 +445,22 @@ export function ArticleEditor({ model, returnHref }: Props) {
                 </div>
               </details>
 
-              <section className="border-t border-zinc-200 pt-6">
-                <h2 className="text-sm font-semibold text-zinc-900">Gövde</h2>
-                <p className="mt-2 text-sm text-zinc-500">
-                  İçerik gövdesi sonraki editör geçişinde eklenecek.
-                </p>
-              </section>
+              {bodyParse?.ok && bodyDocument ? (
+                <StructuredBodyEditor
+                  document={bodyDocument}
+                  disabled={!canEdit}
+                  onChange={(next) => {
+                    setBodyDocument(next);
+                    setSaveState({ kind: "idle" });
+                  }}
+                />
+              ) : (
+                <Notice>
+                  {bodyParse && !bodyParse.ok
+                    ? bodyParse.message
+                    : "Gövde bu editörde güvenli şekilde açılamıyor."}
+                </Notice>
+              )}
 
               <div className="sticky bottom-0 z-20 -mx-4 border-t border-zinc-200 bg-zinc-50/95 px-4 py-3 backdrop-blur">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -433,6 +484,35 @@ export function ArticleEditor({ model, returnHref }: Props) {
         </main>
 
         <aside className="space-y-4">
+          <section>
+            <div className="flex items-start justify-between gap-3 rounded border border-zinc-200 bg-white p-4">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-900">Geçmiş</h2>
+                <p className="mt-1 text-xs text-zinc-500">
+                  İçerik için kayıtlı audit akışı.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-expanded={isHistoryOpen}
+                aria-controls="article-audit-history-panel"
+                onClick={() => setIsHistoryOpen((current) => !current)}
+                className="rounded px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+              >
+                {isHistoryOpen ? "Kapat" : "Aç"}
+              </button>
+            </div>
+            {isHistoryOpen && (
+              <div id="article-audit-history-panel" className="mt-3">
+                <ArticleAuditHistory
+                  contentItemId={model.contentItem.id}
+                  isOpen={isHistoryOpen}
+                  refreshKey={historyRefreshKey}
+                />
+              </div>
+            )}
+          </section>
+
           <Panel title="Sürüm bağlamı">
             <Meta label="Düzenlenen sürüm" value={version ? `v${version.versionNumber}` : "Yok"} />
             <Meta label="İş akışı" value={version ? WORKFLOW_LABELS[version.workflowStatus] : "—"} />

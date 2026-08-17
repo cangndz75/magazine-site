@@ -73,6 +73,7 @@ export default async function ArticleEditorPage({
               createdAt: model.editableVersion.createdAt.toISOString(),
               concurrencyToken:
                 model.editableVersion.concurrencyToken.toISOString(),
+              body: model.editableVersion.body,
             }
           : null,
         publishedVersion: model.publishedVersion,

@@ -26,6 +26,7 @@ export {
   contentVersions,
 } from "./content";
 export { contentReviewEvents } from "./review-events";
+export { contentAuditEvents } from "./audit-events";
 export {
   staffPasswordCredentials,
   staffSessions,

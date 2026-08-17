@@ -3,6 +3,11 @@ export {
   type ArticleEditorModel,
   type ArticleEditorRelationSummary,
 } from "./article-editor";
+export {
+  listContentAuditEvents,
+  type EditorContentAuditEvent,
+  type ListContentAuditEventsResult,
+} from "./audit";
 export { getEditorContentAccess, getOwnedVersionCategories } from "./access";
 export { getContentVersionDiff } from "./diff";
 export { getEditorContentDetail } from "./detail";

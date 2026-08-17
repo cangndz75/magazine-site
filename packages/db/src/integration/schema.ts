@@ -14,6 +14,7 @@ const JOURNALED_SQL_FILES = [
 ] as const;
 
 const REVIEW_EVENTS_SQL = "0003_content-review-events.sql";
+const AUDIT_EVENTS_SQL = "0004_content-audit-events.sql";
 
 async function publicTableExists(
   client: Client,
@@ -72,5 +73,10 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   );
   if (!hasReviewEvents) {
     await applySqlFile(client, REVIEW_EVENTS_SQL);
+  }
+
+  const hasAuditEvents = await publicTableExists(client, "content_audit_events");
+  if (!hasAuditEvents) {
+    await applySqlFile(client, AUDIT_EVENTS_SQL);
   }
 }

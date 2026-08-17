@@ -27,6 +27,7 @@ export async function POST(
         id,
         parsed.scheduledAt,
         editorScopeFromSession(session),
+        session.staffUserId,
       );
       return editorOk(result);
     },

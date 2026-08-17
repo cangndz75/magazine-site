@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EDITOR_LIST_MAX_LIMIT, PUBLISHING_ERROR, STAFF_ROLE, STAFF_SCOPE_MODE } from "@magazine/domain";
 import { parseEditorListSearchParams, parseReviewQueueSearchParams, parseRevisionHistorySearchParams, parseDiffSearchParams } from "./list-params";
-import { parseCreateContentBody, parseDraftSaveBody, parseRequestChangesBody, parseSubmitReviewBody } from "./payload";
+import { parseArticleEditorSaveBody, parseCreateContentBody, parseDraftSaveBody, parseRequestChangesBody, parseSubmitReviewBody } from "./payload";
 
 const CAT = "11111111-1111-4111-8111-111111111111";
 const VER = "22222222-2222-4222-8222-222222222222";
@@ -142,6 +142,18 @@ describe("create/draft payload validation", () => {
     );
     assert.equal(parsed.title, "Hello");
     assert.equal("staffUserId" in parsed, false);
+  });
+
+  it("accepts canonical structured body on article editor saves", () => {
+    const parsed = parseArticleEditorSaveBody({
+      versionId: VER,
+      expectedUpdatedAt: "2026-08-16T12:00:00.000Z",
+      title: "Hello",
+      body: { blocks: [{ type: "paragraph", text: "Gövde" }] },
+    });
+    assert.deepEqual(parsed.body, {
+      blocks: [{ type: "paragraph", text: "Gövde" }],
+    });
   });
 
   it("requires expectedUpdatedAt for submit-review", () => {

@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import {
+  CONTENT_AUDIT_EVENT_TYPE,
   type Credibility,
   type EditorStaffScope,
   PUBLISHING_ERROR,
@@ -21,9 +22,15 @@ import { lockContentItem } from "./lock";
 import { loadLockedDisplayCategories } from "./locked-scope";
 import {
   assertRelatedRecordsExist,
+  loadVersionRelations,
   replaceVersionRelations,
   type ContentRelationInput,
 } from "./relations";
+import {
+  appendContentAuditEvent,
+  buildDraftUpdateChangeSet,
+  staffAuditActor,
+} from "./audit";
 
 export type UpdateDraftContentInput = ContentRelationInput & {
   contentItemId: string;
@@ -45,6 +52,7 @@ export type UpdateDraftContentInput = ContentRelationInput & {
   syndicated?: boolean;
   isMaterialUpdate?: boolean;
   scope: EditorStaffScope;
+  actorId: string;
 };
 
 export type UpdateDraftContentResult = {
@@ -106,7 +114,32 @@ export async function updateDraftContent(
       }),
     );
 
+    const beforeRelations = await loadVersionRelations(tx, version.id);
     const nextUpdatedAt = nextMonotonicUpdatedAt(item.updatedAt);
+    const afterVersion = {
+      ...version,
+      title,
+      subtitle: optionalTrimmedText(input.subtitle),
+      excerpt: optionalTrimmedText(input.excerpt),
+      seoTitle: optionalTrimmedText(input.seoTitle),
+      seoDescription: optionalTrimmedText(input.seoDescription),
+      canonicalUrl,
+      robots: optionalTrimmedText(input.robots),
+      credibility: input.credibility ?? null,
+      credibilitySource: optionalTrimmedText(input.credibilitySource),
+      source: optionalTrimmedText(input.source),
+      sourceOrganization: optionalTrimmedText(input.sourceOrganization),
+      sourceUrl,
+      syndicated: input.syndicated ?? false,
+      isMaterialUpdate: input.isMaterialUpdate ?? false,
+    };
+    const changeSet = buildDraftUpdateChangeSet({
+      before: version,
+      after: afterVersion,
+      bodyChanged: JSON.stringify(version.body) !== JSON.stringify(body),
+      beforeRelations,
+      afterRelations: input,
+    });
 
     await assertRelatedRecordsExist(tx, input);
     await replaceVersionRelations(tx, version.id, input);
@@ -114,21 +147,21 @@ export async function updateDraftContent(
     await tx
       .update(contentVersions)
       .set({
-        title,
-        subtitle: optionalTrimmedText(input.subtitle),
-        excerpt: optionalTrimmedText(input.excerpt),
+        title: afterVersion.title,
+        subtitle: afterVersion.subtitle,
+        excerpt: afterVersion.excerpt,
         body,
-        seoTitle: optionalTrimmedText(input.seoTitle),
-        seoDescription: optionalTrimmedText(input.seoDescription),
-        canonicalUrl,
-        robots: optionalTrimmedText(input.robots),
-        credibility: input.credibility ?? null,
-        credibilitySource: optionalTrimmedText(input.credibilitySource),
-        source: optionalTrimmedText(input.source),
-        sourceOrganization: optionalTrimmedText(input.sourceOrganization),
-        sourceUrl,
-        syndicated: input.syndicated ?? false,
-        isMaterialUpdate: input.isMaterialUpdate ?? false,
+        seoTitle: afterVersion.seoTitle,
+        seoDescription: afterVersion.seoDescription,
+        canonicalUrl: afterVersion.canonicalUrl,
+        robots: afterVersion.robots,
+        credibility: afterVersion.credibility,
+        credibilitySource: afterVersion.credibilitySource,
+        source: afterVersion.source,
+        sourceOrganization: afterVersion.sourceOrganization,
+        sourceUrl: afterVersion.sourceUrl,
+        syndicated: afterVersion.syndicated,
+        isMaterialUpdate: afterVersion.isMaterialUpdate,
       })
       .where(eq(contentVersions.id, version.id));
 
@@ -138,6 +171,16 @@ export async function updateDraftContent(
         updatedAt: nextUpdatedAt,
       })
       .where(eq(contentItems.id, item.id));
+
+    if (changeSet) {
+      await appendContentAuditEvent(tx, {
+        contentItemId: item.id,
+        versionId: version.id,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.DRAFT_UPDATED,
+        actor: staffAuditActor(input.actorId),
+        changeSet,
+      });
+    }
 
     return {
       contentItemId: item.id,
