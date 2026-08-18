@@ -15,6 +15,7 @@ const JOURNALED_SQL_FILES = [
 
 const REVIEW_EVENTS_SQL = "0003_content-review-events.sql";
 const AUDIT_EVENTS_SQL = "0004_content-audit-events.sql";
+const PUBLIC_CACHE_OUTBOX_SQL = "0005_public-cache-outbox.sql";
 
 async function publicTableExists(
   client: Client,
@@ -78,5 +79,13 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   const hasAuditEvents = await publicTableExists(client, "content_audit_events");
   if (!hasAuditEvents) {
     await applySqlFile(client, AUDIT_EVENTS_SQL);
+  }
+
+  const hasPublicCacheOutbox = await publicTableExists(
+    client,
+    "public_cache_outbox",
+  );
+  if (!hasPublicCacheOutbox) {
+    await applySqlFile(client, PUBLIC_CACHE_OUTBOX_SQL);
   }
 }

@@ -13,6 +13,7 @@ import {
   type EditorStaffScope,
 } from "@magazine/domain";
 import { getDb } from "../client";
+import { enqueuePublicArticleCacheInvalidation } from "../public-cache-outbox";
 import { contentItems, contentVersions } from "../schema/content";
 import type { PublishingTx } from "./db-types";
 import { unwrapPublishingDecision } from "./errors";
@@ -132,6 +133,11 @@ async function publishLockedVersion(
     eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_PUBLISHED,
     actor,
   });
+  await enqueuePublicArticleCacheInvalidation(tx, {
+    contentItemId: item.id,
+    slug: item.slug,
+    now,
+  });
 
   return {
     contentItemId: item.id,
@@ -213,6 +219,10 @@ export async function unpublishContent(
       versionId: item.publishedVersionId,
       eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_UNPUBLISHED,
       actor: staffAuditActor(actorId),
+    });
+    await enqueuePublicArticleCacheInvalidation(tx, {
+      contentItemId: item.id,
+      slug: item.slug,
     });
 
     return {

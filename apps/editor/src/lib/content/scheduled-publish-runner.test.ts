@@ -74,8 +74,7 @@ describe("scheduled publish runner", () => {
     }
   });
 
-  it("invalidates public article cache only after successful scheduled execution", async () => {
-    const invalidated: unknown[] = [];
+  it("returns the canonical published identity after successful scheduled execution", async () => {
     const result = await runScheduledPublishJob(
       { contentItemId: CONTENT_ITEM_ID, scheduleGeneration: 4 },
       {
@@ -95,66 +94,27 @@ describe("scheduled publish runner", () => {
             updatedAt: new Date("2026-08-18T10:00:00.000Z"),
           },
         }),
-        invalidate: async (target) => {
-          invalidated.push(target);
-        },
       },
     );
 
     assert.deepEqual(result, {
       outcome: SCHEDULED_PUBLISH_DECISION.EXECUTE,
-      cacheInvalidated: true,
       contentItemId: CONTENT_ITEM_ID,
       slug: "kanonik-haber",
       publishedVersionId: VERSION_ID,
     });
-    assert.equal(invalidated.length, 1);
   });
 
-  it("does not invalidate for non-executed schedules", async () => {
-    let invalidated = false;
+  it("returns non-executed schedules without publication identity", async () => {
     const result = await runScheduledPublishJob(
       { contentItemId: CONTENT_ITEM_ID, scheduleGeneration: 4 },
       {
         execute: async () => ({ outcome: SCHEDULED_PUBLISH_DECISION.NOOP_STALE }),
-        invalidate: async () => {
-          invalidated = true;
-        },
       },
     );
 
     assert.deepEqual(result, {
       outcome: SCHEDULED_PUBLISH_DECISION.NOOP_STALE,
-      cacheInvalidated: false,
     });
-    assert.equal(invalidated, false);
-  });
-
-  it("does not roll back the runner success shape when invalidation logs internally", async () => {
-    const result = await runScheduledPublishJob(
-      { contentItemId: CONTENT_ITEM_ID, scheduleGeneration: 4 },
-      {
-        execute: async () => ({
-          outcome: SCHEDULED_PUBLISH_DECISION.EXECUTE,
-          publish: {
-            contentItemId: CONTENT_ITEM_ID,
-            slug: "kanonik-haber",
-            publishedVersionId: VERSION_ID,
-            publicationStatus: "PUBLISHED",
-            publishedAt: new Date("2026-08-18T10:00:00.000Z"),
-            publicDateModified: new Date("2026-08-18T10:00:00.000Z"),
-            draftVersionId: null,
-            scheduledVersionId: null,
-            scheduledAt: null,
-            scheduleGeneration: 5,
-            updatedAt: new Date("2026-08-18T10:00:00.000Z"),
-          },
-        }),
-        invalidate: async () => undefined,
-      },
-    );
-
-    assert.equal(result.outcome, SCHEDULED_PUBLISH_DECISION.EXECUTE);
-    assert.equal(result.cacheInvalidated, true);
   });
 });

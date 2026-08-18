@@ -17,9 +17,7 @@ export async function invalidatePublicArticleCache(
 ): Promise<void> {
   const tags = publicArticleInvalidationTags(target);
   try {
-    for (const tag of tags) {
-      revalidate(tag, { expire: 0 });
-    }
+    await deliverPublicArticleCacheInvalidation(target, revalidate);
   } catch (error) {
     console.error("Public article cache invalidation failed.", {
       contentItemId: target.contentItemId,
@@ -27,6 +25,15 @@ export async function invalidatePublicArticleCache(
       tags,
       error,
     });
+  }
+}
+
+export async function deliverPublicArticleCacheInvalidation(
+  target: PublicArticleCacheTarget,
+  revalidate: RevalidateTag = revalidateTag,
+): Promise<void> {
+  for (const tag of publicArticleInvalidationTags(target)) {
+    revalidate(tag, { expire: 0 });
   }
 }
 

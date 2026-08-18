@@ -8,7 +8,6 @@ import {
   executeScheduledPublish,
   type ScheduledPublishExecutionResult,
 } from "@magazine/db/publishing";
-import { invalidatePublicArticleCache } from "./public-cache-invalidation";
 
 export const SCHEDULED_PUBLISH_RUNNER_ERROR = {
   UNAUTHORIZED: "UNAUTHORIZED",
@@ -41,11 +40,9 @@ export type ScheduledPublishRunnerResult =
         ScheduledPublishDecisionCode,
         typeof SCHEDULED_PUBLISH_DECISION.EXECUTE
       >;
-      cacheInvalidated: false;
     }
   | {
       outcome: typeof SCHEDULED_PUBLISH_DECISION.EXECUTE;
-      cacheInvalidated: true;
       contentItemId: string;
       slug: string;
       publishedVersionId: string;
@@ -56,7 +53,6 @@ export type ScheduledPublishRunnerDeps = {
     contentItemId: string,
     scheduleGeneration: number,
   ) => Promise<ScheduledPublishExecutionResult>;
-  invalidate?: typeof invalidatePublicArticleCache;
 };
 
 export function assertScheduledPublishRunnerAuthorized(
@@ -105,21 +101,16 @@ export async function runScheduledPublishJob(
   deps: ScheduledPublishRunnerDeps = {},
 ): Promise<ScheduledPublishRunnerResult> {
   const execute = deps.execute ?? executeScheduledPublish;
-  const invalidate = deps.invalidate ?? invalidatePublicArticleCache;
   const result = await execute(payload.contentItemId, payload.scheduleGeneration);
 
   if (result.outcome !== SCHEDULED_PUBLISH_DECISION.EXECUTE) {
     return {
       outcome: result.outcome,
-      cacheInvalidated: false,
     };
   }
 
-  await invalidate(result.publish);
-
   return {
     outcome: result.outcome,
-    cacheInvalidated: true,
     contentItemId: result.publish.contentItemId,
     slug: result.publish.slug,
     publishedVersionId: result.publish.publishedVersionId,

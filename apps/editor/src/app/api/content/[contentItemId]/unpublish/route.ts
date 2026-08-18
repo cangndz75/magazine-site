@@ -7,7 +7,6 @@ import {
 } from "@/lib/content/authorize";
 import { editorOk } from "@/lib/content/http";
 import { parseContentItemId } from "@/lib/content/list-params";
-import { invalidatePublicArticleCache } from "@/lib/content/public-cache-invalidation";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +26,6 @@ export async function POST(
         editorScopeFromSession(session),
         session.staffUserId,
       );
-      await invalidatePublicArticleCache(result);
       return editorOk(result);
     },
   );
