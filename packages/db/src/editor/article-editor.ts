@@ -1,28 +1,72 @@
-import { eq, inArray } from "drizzle-orm";
-import { selectEditorDisplayVersionId } from "@magazine/domain";
+import { and, eq, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import {
+  PUBLISHING_ERROR,
+  PublishingError,
+  selectEditorDisplayVersionId,
+  type AuthorRole,
+  type EntityKind,
+  type EntityRole,
+  type MediaRole,
+} from "@magazine/domain";
 import { getDb } from "../client";
 import {
   contentItems,
-  contentVersionCategories,
   contentVersionAuthors,
+  contentVersionCategories,
+  contentVersionEntities,
+  contentVersionMedia,
+  contentVersionTags,
   contentVersions,
 } from "../schema/content";
-import { categories } from "../schema/taxonomy";
+import { categories, tags } from "../schema/taxonomy";
 import { authors } from "../schema/authors";
+import { entities } from "../schema/entities";
+import { media } from "../schema/media";
 import type { DraftScalarFields } from "../publishing/update-draft-scalars";
 import type { EditorVersionSummary } from "./types";
+import { formatEditorMediaLabel } from "./media-label";
+
+const parentCategory = alias(categories, "article_editor_parent_category");
 
 export type ArticleEditorRelationSummary = {
   categories: {
     id: string;
     name: string;
     slug: string;
+    parentName: string | null;
     isPrimary: boolean;
   }[];
   authors: {
     id: string;
     displayName: string;
     slug: string;
+    role: AuthorRole;
+    sortOrder: number;
+  }[];
+  tags: {
+    id: string;
+    name: string;
+    slug: string;
+  }[];
+  entities: {
+    id: string;
+    name: string;
+    kind: EntityKind;
+    role: EntityRole;
+    sortOrder: number;
+  }[];
+  media: {
+    id: string;
+    label: string;
+    mediaType: string;
+    width: number | null;
+    height: number | null;
+    role: MediaRole;
+    sortOrder: number;
+    caption: string | null;
+    altText: string | null;
+    credit: string | null;
   }[];
 };
 
@@ -59,6 +103,7 @@ export type ArticleEditorModel = {
 
 export async function getArticleEditorModel(
   contentItemId: string,
+  options?: { focusVersionId?: string | null },
 ): Promise<ArticleEditorModel | null> {
   const db = getDb();
   const [item] = await db
@@ -94,8 +139,19 @@ export async function getArticleEditorModel(
     summaryRows.map((row) => [row.id, row satisfies EditorVersionSummary]),
   );
 
-  const editableVersion = item.draftVersionId
-    ? await loadEditableDraft(item.draftVersionId, item.updatedAt)
+  const focusVersionId = options?.focusVersionId ?? null;
+  const editableVersionId =
+    focusVersionId ?? item.draftVersionId ?? selectEditorDisplayVersionId(item);
+
+  if (focusVersionId) {
+    const owned = await loadOwnedVersionId(item.id, focusVersionId);
+    if (!owned) {
+      throw new PublishingError(PUBLISHING_ERROR.VERSION_NOT_FOUND);
+    }
+  }
+
+  const editableVersion = editableVersionId
+    ? await loadEditableDraft(editableVersionId, item)
     : null;
 
   return {
@@ -126,7 +182,32 @@ export async function getArticleEditorModel(
   };
 }
 
-async function loadEditableDraft(versionId: string, itemUpdatedAt: Date) {
+async function loadOwnedVersionId(
+  contentItemId: string,
+  versionId: string,
+): Promise<string | null> {
+  const db = getDb();
+  const [row] = await db
+    .select({ id: contentVersions.id })
+    .from(contentVersions)
+    .where(
+      and(
+        eq(contentVersions.id, versionId),
+        eq(contentVersions.contentItemId, contentItemId),
+      ),
+    )
+    .limit(1);
+
+  return row?.id ?? null;
+}
+
+async function loadEditableDraft(
+  versionId: string,
+  item: {
+    draftVersionId: string | null;
+    updatedAt: Date;
+  },
+) {
   const db = getDb();
   const [version] = await db
     .select({
@@ -180,8 +261,9 @@ async function loadEditableDraft(versionId: string, itemUpdatedAt: Date) {
       isMaterialUpdate: version.isMaterialUpdate,
     },
     body: version.body as Record<string, unknown> | unknown[],
-    canEdit: version.workflowStatus === "DRAFT",
-    concurrencyToken: itemUpdatedAt,
+    canEdit:
+      version.workflowStatus === "DRAFT" && version.id === item.draftVersionId,
+    concurrencyToken: item.updatedAt,
     relations: await loadRelationSummary(version.id),
   };
 }
@@ -190,36 +272,91 @@ async function loadRelationSummary(
   versionId: string,
 ): Promise<ArticleEditorRelationSummary> {
   const db = getDb();
-  const [categoryRows, authorRows] = await Promise.all([
-    db
-      .select({
-        id: categories.id,
-        name: categories.name,
-        slug: categories.slug,
-        isPrimary: contentVersionCategories.isPrimary,
-      })
-      .from(contentVersionCategories)
-      .innerJoin(categories, eq(categories.id, contentVersionCategories.categoryId))
-      .where(eq(contentVersionCategories.contentVersionId, versionId)),
-    db
-      .select({
-        id: authors.id,
-        displayName: authors.displayName,
-        slug: authors.slug,
-        sortOrder: contentVersionAuthors.sortOrder,
-      })
-      .from(contentVersionAuthors)
-      .innerJoin(authors, eq(authors.id, contentVersionAuthors.authorId))
-      .where(eq(contentVersionAuthors.contentVersionId, versionId))
-      .orderBy(contentVersionAuthors.sortOrder),
-  ]);
+  const [categoryRows, authorRows, tagRows, entityRows, mediaRows] =
+    await Promise.all([
+      db
+        .select({
+          id: categories.id,
+          name: categories.name,
+          slug: categories.slug,
+          parentName: parentCategory.name,
+          isPrimary: contentVersionCategories.isPrimary,
+        })
+        .from(contentVersionCategories)
+        .innerJoin(
+          categories,
+          eq(categories.id, contentVersionCategories.categoryId),
+        )
+        .leftJoin(parentCategory, eq(parentCategory.id, categories.parentId))
+        .where(eq(contentVersionCategories.contentVersionId, versionId)),
+      db
+        .select({
+          id: authors.id,
+          displayName: authors.displayName,
+          slug: authors.slug,
+          role: contentVersionAuthors.role,
+          sortOrder: contentVersionAuthors.sortOrder,
+        })
+        .from(contentVersionAuthors)
+        .innerJoin(authors, eq(authors.id, contentVersionAuthors.authorId))
+        .where(eq(contentVersionAuthors.contentVersionId, versionId))
+        .orderBy(contentVersionAuthors.sortOrder),
+      db
+        .select({
+          id: tags.id,
+          name: tags.name,
+          slug: tags.slug,
+        })
+        .from(contentVersionTags)
+        .innerJoin(tags, eq(tags.id, contentVersionTags.tagId))
+        .where(eq(contentVersionTags.contentVersionId, versionId))
+        .orderBy(tags.name),
+      db
+        .select({
+          id: entities.id,
+          name: entities.canonicalName,
+          kind: entities.kind,
+          role: contentVersionEntities.role,
+          sortOrder: contentVersionEntities.sortOrder,
+        })
+        .from(contentVersionEntities)
+        .innerJoin(entities, eq(entities.id, contentVersionEntities.entityId))
+        .where(eq(contentVersionEntities.contentVersionId, versionId))
+        .orderBy(contentVersionEntities.sortOrder),
+      db
+        .select({
+          id: media.id,
+          mediaType: media.mediaType,
+          width: media.width,
+          height: media.height,
+          role: contentVersionMedia.role,
+          sortOrder: contentVersionMedia.sortOrder,
+          caption: contentVersionMedia.caption,
+          altText: contentVersionMedia.altText,
+          credit: contentVersionMedia.credit,
+        })
+        .from(contentVersionMedia)
+        .innerJoin(media, eq(media.id, contentVersionMedia.mediaId))
+        .where(eq(contentVersionMedia.contentVersionId, versionId))
+        .orderBy(contentVersionMedia.sortOrder),
+    ]);
 
   return {
     categories: categoryRows,
-    authors: authorRows.map((row) => ({
+    authors: authorRows,
+    tags: tagRows,
+    entities: entityRows,
+    media: mediaRows.map((row) => ({
       id: row.id,
-      displayName: row.displayName,
-      slug: row.slug,
+      label: formatEditorMediaLabel(row),
+      mediaType: row.mediaType,
+      width: row.width,
+      height: row.height,
+      role: row.role,
+      sortOrder: row.sortOrder,
+      caption: row.caption,
+      altText: row.altText,
+      credit: row.credit,
     })),
   };
 }

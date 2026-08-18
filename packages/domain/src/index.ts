@@ -36,11 +36,17 @@ export {
   type ScheduledPublishExecutionInput,
 } from "./schedule-generation";
 export {
+  publicPublishedVersionId,
   publishedStateIsCoherent,
   versionPointersAreSeparated,
   type PublishedState,
   type VersionPointers,
 } from "./content-item-invariants";
+export {
+  PUBLIC_CACHE_TAG,
+  publicArticleSlugCacheTag,
+  publicContentCacheTag,
+} from "./public-cache";
 export { STAFF_STATUS, STAFF_STATUSES, type StaffStatus } from "./staff-status";
 export {
   STAFF_SCOPE_MODE,

@@ -1,17 +1,22 @@
 "use client";
 
-export default function ContentError({
+export default function WorkspaceError({
   error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const isForbidden =
+    error.name === "AuthorizationError" || error.message === "Forbidden";
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
-      <div className="flex flex-col items-center justify-center rounded border border-zinc-200 bg-white py-16">
+      <div className="flex flex-col items-center justify-center py-16">
         <p className="text-sm font-medium text-zinc-700">
-          İçerikler yüklenirken bir hata oluştu.
+          {isForbidden
+            ? "Bu sayfaya erişim yetkiniz yok."
+            : "Sayfa yüklenirken bir hata oluştu."}
         </p>
         <p className="mt-1 text-xs text-zinc-500">
           {error.digest ? `Hata kodu: ${error.digest}` : "Lütfen tekrar deneyin."}

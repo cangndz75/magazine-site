@@ -2,6 +2,12 @@
 
 import { useState, useRef } from "react";
 import type { ContentPageFilters } from "@/lib/content/page-params";
+import type {
+  AuthorLookupOption,
+  CategoryLookupOption,
+} from "@/lib/content/lookup-labels";
+import { formatCategoryLabel } from "@/lib/content/lookup-labels";
+import { AuthorFilterPicker, CategoryFilterPicker } from "./filter-pickers";
 
 type Props = {
   filters: ContentPageFilters;
@@ -9,17 +15,21 @@ type Props = {
   onClearAll: () => void;
   isPending: boolean;
   hasFilters: boolean;
+  categoryOptions: CategoryLookupOption[];
+  authorOptions: AuthorLookupOption[];
+  selectedCategory: CategoryLookupOption | null;
+  selectedAuthor: AuthorLookupOption | null;
 };
 
 const PUBLICATION_OPTIONS = [
-  { value: "", label: "Tümü" },
-  { value: "NEVER_PUBLISHED", label: "Yayınlanmamış" },
+  { value: "", label: "Yayın: tümü" },
+  { value: "NEVER_PUBLISHED", label: "Hiç yayınlanmadı" },
   { value: "PUBLISHED", label: "Yayında" },
-  { value: "UNPUBLISHED", label: "Kaldırıldı" },
+  { value: "UNPUBLISHED", label: "Yayından kaldırıldı" },
 ] as const;
 
 const WORKFLOW_OPTIONS = [
-  { value: "", label: "Tümü" },
+  { value: "", label: "İş akışı: tümü" },
   { value: "DRAFT", label: "Taslak" },
   { value: "IN_REVIEW", label: "İncelemede" },
   { value: "APPROVED", label: "Onaylandı" },
@@ -31,6 +41,10 @@ export function ContentToolbar({
   onClearAll,
   isPending,
   hasFilters,
+  categoryOptions,
+  authorOptions,
+  selectedCategory,
+  selectedAuthor,
 }: Props) {
   return (
     <div className="mb-4 space-y-3">
@@ -72,6 +86,18 @@ export function ContentToolbar({
           ))}
         </select>
 
+        <CategoryFilterPicker
+          selected={selectedCategory}
+          initialOptions={categoryOptions}
+          onSelect={(id) => onUpdate({ categoryId: id })}
+        />
+
+        <AuthorFilterPicker
+          selected={selectedAuthor}
+          initialOptions={authorOptions}
+          onSelect={(id) => onUpdate({ authorId: id })}
+        />
+
         <label className="flex h-8 items-center gap-1.5 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 has-[:checked]:border-zinc-500 has-[:checked]:bg-zinc-50">
           <input
             type="checkbox"
@@ -86,7 +112,7 @@ export function ContentToolbar({
       </div>
 
       {hasFilters && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-zinc-500">Aktif filtreler:</span>
           {filters.search && (
             <FilterTag
@@ -99,7 +125,7 @@ export function ContentToolbar({
               label={
                 PUBLICATION_OPTIONS.find(
                   (o) => o.value === filters.publicationStatus,
-                )?.label ?? filters.publicationStatus
+                )?.label ?? "Yayın"
               }
               onRemove={() => onUpdate({ publicationStatus: null })}
             />
@@ -109,9 +135,33 @@ export function ContentToolbar({
               label={
                 WORKFLOW_OPTIONS.find(
                   (o) => o.value === filters.workflowStatus,
-                )?.label ?? filters.workflowStatus
+                )?.label ?? "İş akışı"
               }
               onRemove={() => onUpdate({ workflowStatus: null })}
+            />
+          )}
+          {filters.categoryId && selectedCategory && (
+            <FilterTag
+              label={formatCategoryLabel(selectedCategory)}
+              onRemove={() => onUpdate({ categoryId: null })}
+            />
+          )}
+          {filters.categoryId && !selectedCategory && (
+            <FilterTag
+              label="Kategori"
+              onRemove={() => onUpdate({ categoryId: null })}
+            />
+          )}
+          {filters.authorId && selectedAuthor && (
+            <FilterTag
+              label={selectedAuthor.displayName}
+              onRemove={() => onUpdate({ authorId: null })}
+            />
+          )}
+          {filters.authorId && !selectedAuthor && (
+            <FilterTag
+              label="Yazar"
+              onRemove={() => onUpdate({ authorId: null })}
             />
           )}
           {filters.scheduledOnly && (
@@ -154,7 +204,7 @@ function SearchInput({
   }
 
   return (
-    <div className="relative flex-1 min-w-[200px] max-w-sm">
+    <div className="relative min-w-[200px] max-w-sm flex-1">
       <label htmlFor="content-search" className="sr-only">
         İçerik ara
       </label>

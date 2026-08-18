@@ -18,6 +18,7 @@ export {
   unpublishContent,
   type PublishResult,
   type ScheduledPublishExecutionResult,
+  type UnpublishResult,
 } from "./publish";
 export {
   rescheduleVersion,

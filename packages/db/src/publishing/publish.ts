@@ -31,6 +31,7 @@ import {
 
 export type PublishResult = {
   contentItemId: string;
+  slug: string;
   publishedVersionId: string;
   publicationStatus: typeof PUBLICATION_STATUS.PUBLISHED;
   publishedAt: Date;
@@ -39,6 +40,19 @@ export type PublishResult = {
   scheduledVersionId: string | null;
   scheduledAt: Date | null;
   scheduleGeneration: number;
+  updatedAt: Date;
+};
+
+export type UnpublishResult = {
+  contentItemId: string;
+  slug: string;
+  publicationStatus: typeof PUBLICATION_STATUS.UNPUBLISHED;
+  publishedVersionId: string | null;
+  publishedAt: Date | null;
+  publicDateModified: Date | null;
+  scheduledVersionId: string | null;
+  scheduledAt: Date | null;
+  updatedAt: Date;
 };
 
 async function loadOwnedVersion(
@@ -121,6 +135,7 @@ async function publishLockedVersion(
 
   return {
     contentItemId: item.id,
+    slug: item.slug,
     publishedVersionId: plan.publishedVersionId,
     publicationStatus: plan.publicationStatus,
     publishedAt: plan.publishedAt,
@@ -134,6 +149,7 @@ async function publishLockedVersion(
           ? new Date(plan.scheduledAt)
           : null,
     scheduleGeneration: plan.scheduleGeneration,
+    updatedAt: nextUpdatedAt,
   };
 }
 
@@ -171,15 +187,7 @@ export async function unpublishContent(
   contentItemId: string,
   scope: EditorStaffScope,
   actorId: string,
-): Promise<{
-  contentItemId: string;
-  publicationStatus: typeof PUBLICATION_STATUS.UNPUBLISHED;
-  publishedVersionId: string | null;
-  publishedAt: Date | null;
-  publicDateModified: Date | null;
-  scheduledVersionId: string | null;
-  scheduledAt: Date | null;
-}> {
+): Promise<UnpublishResult> {
   const db = getDb();
 
   return db.transaction(async (tx) => {
@@ -209,12 +217,14 @@ export async function unpublishContent(
 
     return {
       contentItemId: item.id,
+      slug: item.slug,
       publicationStatus: PUBLICATION_STATUS.UNPUBLISHED,
       publishedVersionId: item.publishedVersionId,
       publishedAt: item.publishedAt,
       publicDateModified: item.publicDateModified,
       scheduledVersionId: item.scheduledVersionId,
       scheduledAt: item.scheduledAt,
+      updatedAt: nextUpdatedAt,
     };
   });
 }

@@ -18,6 +18,7 @@ import type {
   EditorContentDetail,
   EditorVersionSummary,
 } from "./types";
+import { formatEditorMediaLabel } from "./media-label";
 
 export async function getEditorContentDetail(
   contentItemId: string,
@@ -142,7 +143,6 @@ async function loadCurrentVersion(
         .select({
           id: media.id,
           mediaType: media.mediaType,
-          storageKey: media.storageKey,
           width: media.width,
           height: media.height,
           role: contentVersionMedia.role,
@@ -190,7 +190,18 @@ async function loadCurrentVersion(
     categories: categoryRows,
     tags: tagRows,
     entities: entityRows,
-    media: mediaRows,
+    media: mediaRows.map((row) => ({
+      id: row.id,
+      mediaType: row.mediaType,
+      label: formatEditorMediaLabel(row),
+      width: row.width,
+      height: row.height,
+      role: row.role,
+      sortOrder: row.sortOrder,
+      caption: row.caption,
+      altText: row.altText,
+      credit: row.credit,
+    })),
     authors: authorRows,
   };
 }

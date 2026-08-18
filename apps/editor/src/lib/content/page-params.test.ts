@@ -11,6 +11,7 @@ describe("parsePageSearchParams", () => {
     assert.equal(result.publicationStatus, undefined);
     assert.equal(result.workflowStatus, undefined);
     assert.equal(result.categoryId, undefined);
+    assert.equal(result.authorId, undefined);
     assert.equal(result.scheduledOnly, false);
   });
 
@@ -53,6 +54,17 @@ describe("parsePageSearchParams", () => {
   it("ignores non-UUID categoryId", () => {
     const result = parsePageSearchParams({ categoryId: "not-a-uuid" });
     assert.equal(result.categoryId, undefined);
+  });
+
+  it("parses valid authorId UUID", () => {
+    const id = "01234567-89ab-cdef-0123-456789abcdef";
+    const result = parsePageSearchParams({ authorId: id });
+    assert.equal(result.authorId, id);
+  });
+
+  it("ignores non-UUID authorId", () => {
+    const result = parsePageSearchParams({ authorId: "raw-author-id" });
+    assert.equal(result.authorId, undefined);
   });
 
   it("parses scheduledOnly=1", () => {

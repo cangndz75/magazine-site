@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { ContentListItem } from "./content-workspace";
 import { deriveContentStatus } from "@/lib/content/status";
 import { formatRelativeDate } from "@/lib/content/format-date";
+import { buildArticleHref } from "@/lib/content/content-href";
+import { StatusBadge } from "./status-badge";
 
 type Props = {
   items: ContentListItem[];
@@ -14,7 +16,7 @@ type Props = {
 export function ContentList({ items, isPending, returnTo }: Props) {
   return (
     <div
-      className={`overflow-x-auto rounded border border-zinc-200 bg-white ${isPending ? "opacity-60" : ""}`}
+      className={`overflow-x-auto border-y border-zinc-200 bg-white ${isPending ? "opacity-60" : ""}`}
       role="region"
       aria-label="İçerik listesi"
     >
@@ -54,23 +56,31 @@ function ContentRow({
     scheduledAt: item.scheduledAt,
     displayVersionId: item.displayVersion.id,
   });
+  const href = buildArticleHref({
+    contentItemId: item.id,
+    returnTo,
+  });
+  const title = item.displayVersion.title || "Başlıksız";
 
   return (
-    <tr className="border-b border-zinc-50 hover:bg-zinc-25 transition-colors last:border-b-0">
+    <tr className="relative border-b border-zinc-50 last:border-b-0 hover:bg-zinc-50">
       <td className="px-4 py-3">
         <div className="min-w-0">
           <Link
-            href={`/content/${item.id}?returnTo=${encodeURIComponent(returnTo)}`}
-            className="block truncate font-medium text-zinc-900 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            href={href}
+            aria-label={`${title} içeriğini aç`}
+            className="font-medium text-zinc-900 underline-offset-2 after:absolute after:inset-0 hover:underline focus:outline-none focus-visible:relative focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-zinc-500"
           >
             {item.displayVersion.title || (
               <span className="italic text-zinc-400">Başlıksız</span>
             )}
           </Link>
-          <p className="mt-0.5 truncate text-xs text-zinc-500">{item.slug}</p>
+          <p className="pointer-events-none mt-0.5 truncate text-xs text-zinc-500">
+            {item.slug}
+          </p>
         </div>
       </td>
-      <td className="hidden px-4 py-3 md:table-cell">
+      <td className="pointer-events-none hidden px-4 py-3 md:table-cell">
         {item.primaryCategory ? (
           <span className="text-xs text-zinc-600">
             {item.primaryCategory.name}
@@ -79,7 +89,7 @@ function ContentRow({
           <span className="text-xs text-zinc-300">—</span>
         )}
       </td>
-      <td className="px-4 py-3">
+      <td className="pointer-events-none px-4 py-3">
         <div className="flex flex-wrap items-center gap-1">
           <StatusBadge
             label={status.publicationLabel}
@@ -93,13 +103,16 @@ function ContentRow({
             <StatusBadge label={status.scheduledLabel} variant="info" />
           )}
           {status.hasNewerDraft && (
-            <span className="text-[10px] text-zinc-400" title="Yayındaki versiyondan farklı bir taslak mevcut">
-              +taslak
+            <span
+              className="text-[10px] text-zinc-500"
+              title="Yayındaki sürümden farklı bir taslak mevcut"
+            >
+              Yeni taslak
             </span>
           )}
         </div>
       </td>
-      <td className="hidden px-4 py-3 lg:table-cell">
+      <td className="pointer-events-none hidden px-4 py-3 lg:table-cell">
         {item.authors.length > 0 ? (
           <span className="text-xs text-zinc-600">
             {item.authors.map((a) => a.displayName).join(", ")}
@@ -108,7 +121,7 @@ function ContentRow({
           <span className="text-xs text-zinc-300">—</span>
         )}
       </td>
-      <td className="hidden px-4 py-3 sm:table-cell">
+      <td className="pointer-events-none hidden px-4 py-3 sm:table-cell">
         <time
           dateTime={item.updatedAt}
           className="text-xs text-zinc-500"
@@ -118,28 +131,5 @@ function ContentRow({
         </time>
       </td>
     </tr>
-  );
-}
-
-function StatusBadge({
-  label,
-  variant,
-}: {
-  label: string;
-  variant: "neutral" | "success" | "warning" | "info";
-}) {
-  const classes: Record<string, string> = {
-    neutral: "bg-zinc-100 text-zinc-600",
-    success: "bg-emerald-50 text-emerald-700",
-    warning: "bg-amber-50 text-amber-700",
-    info: "bg-blue-50 text-blue-700",
-  };
-
-  return (
-    <span
-      className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight ${classes[variant]}`}
-    >
-      {label}
-    </span>
   );
 }

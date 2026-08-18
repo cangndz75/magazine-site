@@ -14,7 +14,7 @@ describe("deriveContentStatus", () => {
       displayVersionId: "v1",
     };
     const result = deriveContentStatus(input);
-    assert.equal(result.publicationLabel, "Yayınlanmamış");
+    assert.equal(result.publicationLabel, "Hiç yayınlanmadı");
     assert.equal(result.publicationVariant, "neutral");
     assert.equal(result.workflowLabel, "Taslak");
     assert.equal(result.workflowVariant, "neutral");
@@ -33,7 +33,7 @@ describe("deriveContentStatus", () => {
       displayVersionId: "v1",
     };
     const result = deriveContentStatus(input);
-    assert.equal(result.publicationLabel, "Yayınlanmamış");
+    assert.equal(result.publicationLabel, "Hiç yayınlanmadı");
     assert.equal(result.workflowLabel, "İncelemede");
     assert.equal(result.workflowVariant, "info");
     assert.equal(result.hasNewerDraft, false);
@@ -100,7 +100,7 @@ describe("deriveContentStatus", () => {
       displayVersionId: "v2",
     };
     const result = deriveContentStatus(input);
-    assert.equal(result.publicationLabel, "Kaldırıldı");
+    assert.equal(result.publicationLabel, "Yayından kaldırıldı");
     assert.equal(result.publicationVariant, "warning");
     assert.equal(result.workflowLabel, "Taslak");
     assert.equal(result.hasNewerDraft, false);
@@ -135,6 +135,32 @@ describe("deriveContentStatus", () => {
     assert.notEqual(result.publicationLabel, result.workflowLabel);
     assert.equal(result.publicationLabel, "Yayında");
     assert.equal(result.workflowLabel, "Taslak");
+  });
+
+  it("distinguishes never published from unpublished", () => {
+    const neverPublished = deriveContentStatus({
+      publicationStatus: "NEVER_PUBLISHED",
+      workflowStatus: "DRAFT",
+      publishedVersionId: null,
+      draftVersionId: "v1",
+      scheduledVersionId: null,
+      scheduledAt: null,
+      displayVersionId: "v1",
+    });
+    const unpublished = deriveContentStatus({
+      publicationStatus: "UNPUBLISHED",
+      workflowStatus: "APPROVED",
+      publishedVersionId: "v1",
+      draftVersionId: null,
+      scheduledVersionId: null,
+      scheduledAt: null,
+      displayVersionId: "v1",
+    });
+    assert.equal(neverPublished.publicationLabel, "Hiç yayınlanmadı");
+    assert.equal(unpublished.publicationLabel, "Yayından kaldırıldı");
+    assert.notEqual(neverPublished.publicationLabel, unpublished.publicationLabel);
+    assert.equal(neverPublished.publicationLabel.includes("Yayında değil"), false);
+    assert.equal(unpublished.publicationLabel.includes("Yayında değil"), false);
   });
 
   it("scheduledAt without scheduledVersionId does not show scheduled", () => {

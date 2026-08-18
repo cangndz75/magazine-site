@@ -7,6 +7,7 @@
     "./schema": "./src/schema/index.ts",
     "./client": "./src/client.ts",
     "./publishing": "./src/publishing/index.ts",
+    "./public": "./src/public/index.ts",
     "./editor": "./src/editor/index.ts",
     "./staff-provisioning": "./src/staff-provisioning.ts"
   },

@@ -1,4 +1,8 @@
 import type { PublicationStatus, WorkflowStatus } from "@magazine/domain";
+import {
+  PUBLICATION_STATUS_LABELS,
+  WORKFLOW_STATUS_LABELS,
+} from "./revision-presentation";
 
 export type ContentStatusInfo = {
   publicationLabel: string;
@@ -19,12 +23,6 @@ export type ContentStatusInput = {
   displayVersionId: string;
 };
 
-const PUBLICATION_LABELS: Record<PublicationStatus, string> = {
-  NEVER_PUBLISHED: "Yayınlanmamış",
-  PUBLISHED: "Yayında",
-  UNPUBLISHED: "Kaldırıldı",
-};
-
 const PUBLICATION_VARIANTS: Record<
   PublicationStatus,
   "neutral" | "success" | "warning"
@@ -32,12 +30,6 @@ const PUBLICATION_VARIANTS: Record<
   NEVER_PUBLISHED: "neutral",
   PUBLISHED: "success",
   UNPUBLISHED: "warning",
-};
-
-const WORKFLOW_LABELS: Record<WorkflowStatus, string> = {
-  DRAFT: "Taslak",
-  IN_REVIEW: "İncelemede",
-  APPROVED: "Onaylandı",
 };
 
 const WORKFLOW_VARIANTS: Record<WorkflowStatus, "neutral" | "info" | "success"> = {
@@ -58,9 +50,9 @@ export function deriveContentStatus(input: ContentStatusInput): ContentStatusInf
   }
 
   return {
-    publicationLabel: PUBLICATION_LABELS[input.publicationStatus],
+    publicationLabel: PUBLICATION_STATUS_LABELS[input.publicationStatus],
     publicationVariant: PUBLICATION_VARIANTS[input.publicationStatus],
-    workflowLabel: WORKFLOW_LABELS[input.workflowStatus],
+    workflowLabel: WORKFLOW_STATUS_LABELS[input.workflowStatus],
     workflowVariant: WORKFLOW_VARIANTS[input.workflowStatus],
     scheduledLabel,
     hasNewerDraft,

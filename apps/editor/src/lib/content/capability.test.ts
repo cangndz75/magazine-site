@@ -26,4 +26,9 @@ describe("editor content capability mapping", () => {
       }
     }
   });
+
+  it("does not treat CONTENT_REVIEW as publication permission", () => {
+    assert.equal(hasCapability([STAFF_ROLE.AUTHOR], CAPABILITY.CONTENT_REVIEW), false);
+    assert.equal(hasCapability([STAFF_ROLE.EDITOR], CAPABILITY.CONTENT_PUBLISH), true);
+  });
 });

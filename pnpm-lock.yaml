@@ -98,6 +98,12 @@ importers:
       '@magazine/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@magazine/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@magazine/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       next:
         specifier: 16.3.1
         version: 16.3.1(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -132,6 +138,9 @@ importers:
       tailwindcss:
         specifier: ^4
         version: 4.3.3
+      tsx:
+        specifier: ^4.23.12
+        version: 4.23.12
       typescript:
         specifier: ^5
         version: 5.9.3

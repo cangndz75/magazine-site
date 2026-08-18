@@ -22,12 +22,20 @@ export {
 } from "./review-history";
 export { listReviewQueue, type EditorReviewQueueResult } from "./review-queue";
 export {
+  getEditorAuthorSummary,
+  getEditorCategorySummary,
   lookupEditorAuthors,
   lookupEditorCategories,
   lookupEditorEntities,
   lookupEditorMedia,
   lookupEditorTags,
+  type EditorAuthorLookup,
+  type EditorCategoryLookup,
+  type EditorEntityLookup,
+  type EditorMediaLookup,
+  type EditorTagLookup,
 } from "./lookups";
+export { formatEditorMediaLabel } from "./media-label";
 export type {
   EditorContentAccess,
   EditorContentDetail,

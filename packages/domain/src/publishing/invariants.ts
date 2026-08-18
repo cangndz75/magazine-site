@@ -346,6 +346,7 @@ export type UnschedulePlan = {
   scheduledVersionId: null;
   scheduledAt: null;
   scheduleGeneration: number;
+  draftVersionId: string | null;
 };
 
 export function decideUnschedule(
@@ -360,12 +361,17 @@ export function decideUnschedule(
     return { ok: false, code: PUBLISHING_ERROR.NO_SCHEDULE };
   }
 
+  // Restore the unscheduled version as the active draft pointer when none exists.
+  // Keep a separate live draft untouched. Do not change workflowStatus: a
+  // scheduled version is APPROVED and remains APPROVED, matching pre-schedule
+  // approve → schedule behavior.
   return {
     ok: true,
     value: {
       scheduledVersionId: null,
       scheduledAt: null,
       scheduleGeneration: nextScheduleGeneration(item.scheduleGeneration),
+      draftVersionId: item.draftVersionId ?? item.scheduledVersionId,
     },
   };
 }

@@ -1,12 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Credibility } from "@magazine/domain";
+import type { AuthorRole, Credibility, EntityKind, EntityRole, MediaRole } from "@magazine/domain";
 import { formatDateTime } from "@/lib/content/format-date";
 import { deriveContentStatus } from "@/lib/content/status";
 import { ArticleAuditHistory } from "@/components/article-audit-history";
+import { ArticleMetadataEditor } from "@/components/article-metadata-editor";
+import { ArticleRevisionPanel } from "@/components/article-revision-panel";
+import { ArticleReviewPanel, type ReviewHistoryItem } from "@/components/article-review-panel";
 import { StructuredBodyEditor } from "@/components/structured-body-editor";
+import { StatusBadge } from "@/components/status-badge";
 import {
   bodyEditorDocumentsEqual,
   bodyToEditorDocument,
@@ -21,6 +26,26 @@ import {
   validateArticleEditorFields,
   type ArticleEditorFields,
 } from "@/lib/content/article-editor-state";
+import {
+  ARTICLE_EDITOR_EMPTY_RELATIONS,
+  articleEditorRelationsEqual,
+  cloneArticleEditorRelations,
+  toDraftRelationPayload,
+  type ArticleEditorRelations,
+} from "@/lib/content/article-relation-state";
+import {
+  isSuccessfulSaveResponse,
+  presentSaveFailure,
+} from "@/lib/content/save-presentation";
+import {
+  AUTHOR_ROLE_LABELS,
+  PUBLICATION_STATUS_LABELS,
+  WORKFLOW_STATUS_LABELS,
+  type RevisionHistoryItem,
+} from "@/lib/content/revision-presentation";
+import { ArticleWorkflowPanel } from "@/components/article-workflow-panel";
+import { formatEditorialDateTime } from "@/lib/content/editorial-timezone";
+import type { WorkflowEligibilityInput } from "@/lib/content/workflow-eligibility";
 
 type ArticleEditorModel = {
   contentItem: {
@@ -47,8 +72,40 @@ type ArticleEditorModel = {
     canEdit: boolean;
     concurrencyToken: string;
     relations: {
-      categories: { id: string; name: string; slug: string; isPrimary: boolean }[];
-      authors: { id: string; displayName: string; slug: string }[];
+      categories: {
+        id: string;
+        name: string;
+        slug: string;
+        parentName: string | null;
+        isPrimary: boolean;
+      }[];
+      authors: {
+        id: string;
+        displayName: string;
+        slug: string;
+        role: AuthorRole;
+        sortOrder: number;
+      }[];
+      tags: { id: string; name: string; slug: string }[];
+      entities: {
+        id: string;
+        name: string;
+        kind: EntityKind;
+        role: EntityRole;
+        sortOrder: number;
+      }[];
+      media: {
+        id: string;
+        label: string;
+        mediaType: string;
+        width: number | null;
+        height: number | null;
+        role: MediaRole;
+        sortOrder: number;
+        caption: string | null;
+        altText: string | null;
+        credit: string | null;
+      }[];
     };
   } | null;
   publishedVersion: {
@@ -74,6 +131,18 @@ type ArticleEditorModel = {
 type Props = {
   model: ArticleEditorModel;
   returnHref: string;
+  fromReview: boolean;
+  focusedVersionId: string | null;
+  revisions: {
+    versions: RevisionHistoryItem[];
+    nextCursor: string | null;
+  };
+  reviewEvents: ReviewHistoryItem[];
+  permissions: {
+    canEdit: boolean;
+    canReview: boolean;
+    canPublish: boolean;
+  };
 };
 
 type SaveState =
@@ -82,25 +151,32 @@ type SaveState =
   | { kind: "conflict"; message: string }
   | { kind: "error"; message: string };
 
-const WORKFLOW_LABELS = {
-  DRAFT: "Taslak",
-  IN_REVIEW: "İncelemede",
-  APPROVED: "Onaylandı",
-} as const;
+const PUBLICATION_AXIS_LABEL = "Yayın durumu";
+const WORKFLOW_AXIS_LABEL = "İş akışı";
 
-const PUBLICATION_LABELS = {
-  NEVER_PUBLISHED: "Yayınlanmamış",
-  PUBLISHED: "Yayında",
-  UNPUBLISHED: "Kaldırıldı",
-} as const;
-
-export function ArticleEditor({ model, returnHref }: Props) {
+export function ArticleEditor({
+  model,
+  returnHref,
+  fromReview,
+  focusedVersionId,
+  revisions,
+  reviewEvents,
+  permissions,
+}: Props) {
+  const router = useRouter();
   const version = model.editableVersion;
+  const initialRelations = version?.relations ?? ARTICLE_EDITOR_EMPTY_RELATIONS;
   const [baseline, setBaseline] = useState<ArticleEditorFields | null>(
     version?.fields ?? null,
   );
   const [fields, setFields] = useState<ArticleEditorFields | null>(
     version?.fields ?? null,
+  );
+  const [baselineRelations, setBaselineRelations] = useState<ArticleEditorRelations>(
+    cloneArticleEditorRelations(initialRelations),
+  );
+  const [relations, setRelations] = useState<ArticleEditorRelations>(
+    cloneArticleEditorRelations(initialRelations),
   );
   const bodyParse = useMemo(
     () => (version ? bodyToEditorDocument(version.body) : null),
@@ -113,10 +189,27 @@ export function ArticleEditor({ model, returnHref }: Props) {
     bodyParse?.ok ? cloneBodyEditorDocument(bodyParse.document) : null,
   );
   const [token, setToken] = useState(version?.concurrencyToken ?? "");
+  const [boundVersionId, setBoundVersionId] = useState(version?.id ?? null);
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const [isSaving, setIsSaving] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+
+  if (boundVersionId !== (version?.id ?? null)) {
+    setBoundVersionId(version?.id ?? null);
+    setFields(version?.fields ?? null);
+    setBaseline(version?.fields ?? null);
+    setRelations(cloneArticleEditorRelations(initialRelations));
+    setBaselineRelations(cloneArticleEditorRelations(initialRelations));
+    setBaselineBody(
+      bodyParse?.ok ? cloneBodyEditorDocument(bodyParse.document) : null,
+    );
+    setBodyDocument(
+      bodyParse?.ok ? cloneBodyEditorDocument(bodyParse.document) : null,
+    );
+    setToken(version?.concurrencyToken ?? "");
+    setSaveState({ kind: "idle" });
+  }
 
   const validation = useMemo(
     () => (fields ? validateArticleEditorFields(fields) : { ok: true, errors: {} }),
@@ -126,12 +219,27 @@ export function ArticleEditor({ model, returnHref }: Props) {
     fields &&
       baseline &&
       ((!articleEditorFieldsEqual(fields, baseline)) ||
+        !articleEditorRelationsEqual(relations, baselineRelations) ||
         (bodyDocument &&
           baselineBody &&
           !bodyEditorDocumentsEqual(bodyDocument, baselineBody))),
   );
+
+  if (
+    boundVersionId === (version?.id ?? null) &&
+    !isDirty &&
+    version?.concurrencyToken &&
+    version.concurrencyToken !== token
+  ) {
+    setToken(version.concurrencyToken);
+  }
   const canEdit = Boolean(
-    version?.canEdit && fields && baseline && bodyDocument && baselineBody,
+    permissions.canEdit &&
+      version?.canEdit &&
+      fields &&
+      baseline &&
+      bodyDocument &&
+      baselineBody,
   );
 
   useEffect(() => {
@@ -159,6 +267,44 @@ export function ArticleEditor({ model, returnHref }: Props) {
       })
     : null;
 
+  const eligibility = useMemo<WorkflowEligibilityInput>(
+    () => ({
+      contentItemId: model.contentItem.id,
+      publicationStatus: model.contentItem.publicationStatus,
+      workflowStatus: version?.workflowStatus ?? null,
+      focusedVersionId: version?.id ?? focusedVersionId,
+      focusedVersionNumber: version?.versionNumber ?? null,
+      draftVersionId: model.contentItem.draftVersionId,
+      publishedVersionId: model.contentItem.publishedVersionId,
+      scheduledVersionId: model.contentItem.scheduledVersionId,
+      scheduledAt: model.contentItem.scheduledAt,
+      publishedVersionNumber: model.publishedVersion?.versionNumber ?? null,
+      draftVersionNumber: model.draftVersion?.versionNumber ?? null,
+      scheduledVersionNumber: model.scheduledVersion?.versionNumber ?? null,
+      categories: baselineRelations.categories,
+      permissions,
+      isDirty,
+      hasConcurrencyToken: Boolean(token),
+    }),
+    [
+      baselineRelations,
+      focusedVersionId,
+      isDirty,
+      model.contentItem.draftVersionId,
+      model.contentItem.id,
+      model.contentItem.publicationStatus,
+      model.contentItem.publishedVersionId,
+      model.contentItem.scheduledAt,
+      model.contentItem.scheduledVersionId,
+      model.draftVersion?.versionNumber,
+      model.publishedVersion?.versionNumber,
+      model.scheduledVersion?.versionNumber,
+      permissions,
+      token,
+      version,
+    ],
+  );
+
   function patchField<K extends keyof ArticleEditorFields>(
     key: K,
     value: ArticleEditorFields[K],
@@ -183,11 +329,13 @@ export function ArticleEditor({ model, returnHref }: Props) {
     }
 
     const nextBodyDocument = cloneBodyEditorDocument(bodyDocument);
+    const nextRelations = cloneArticleEditorRelations(relations);
     const payload = {
       ...normalizeArticleEditorFields(fields),
       body: editorDocumentToBody(nextBodyDocument),
       versionId: version.id,
       expectedUpdatedAt: token,
+      ...toDraftRelationPayload(nextRelations),
     };
 
     setIsSaving(true);
@@ -207,29 +355,36 @@ export function ArticleEditor({ model, returnHref }: Props) {
         error?: { code: string; message: string };
       };
 
-      if (!response.ok || !body.ok || !body.data) {
-        const code = body.error?.code;
-        setSaveState({
-          kind: code === "CONTENT_WRITE_CONFLICT" ? "conflict" : "error",
-          message:
-            code === "CONTENT_WRITE_CONFLICT"
-              ? "Bu içerik başka bir oturumda güncellendi. Değişikliklerin kaybolmadı; sayfayı yenileyip son sürümle karşılaştırman gerekiyor."
-              : (body.error?.message ?? "Kayıt sırasında beklenmeyen bir hata oluştu."),
-        });
+      if (!isSuccessfulSaveResponse({
+        okHttp: response.ok,
+        okBody: body.ok,
+        hasData: Boolean(body.data),
+      }) || !body.data) {
+        const presented = presentSaveFailure(
+          body.error?.code,
+          body.error?.message,
+        );
+        setSaveState(presented);
         return;
       }
 
       setFields(body.data.fields);
       setBaseline(body.data.fields);
+      setRelations(cloneArticleEditorRelations(nextRelations));
+      setBaselineRelations(cloneArticleEditorRelations(nextRelations));
       setBodyDocument(cloneBodyEditorDocument(nextBodyDocument));
       setBaselineBody(cloneBodyEditorDocument(nextBodyDocument));
       setToken(body.data.updatedAt);
-      setSaveState({ kind: "saved", message: "Değişiklikler kaydedildi." });
+      setSaveState({ kind: "saved", message: "Taslak kaydedildi. Yayındaki sürüm değişmedi." });
       setHistoryRefreshKey((current) => current + 1);
+      router.refresh();
     } finally {
       setIsSaving(false);
     }
   }
+
+  const backLabel = fromReview ? "İnceleme kuyruğuna dön" : "İçeriklere dön";
+  const awaitingReview = version?.workflowStatus === "IN_REVIEW";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-5 lg:py-7">
@@ -238,28 +393,50 @@ export function ArticleEditor({ model, returnHref }: Props) {
           href={returnHref}
           className="rounded px-2 py-1 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500"
         >
-          İçeriklere dön
+          {backLabel}
         </Link>
-        <div className="text-xs text-zinc-500">
+        <p className="text-xs text-zinc-500" aria-live="polite">
           {isDirty ? "Kaydedilmemiş değişiklikler var" : "Kaydedildi"}
-        </div>
+        </p>
       </div>
+
+      {(fromReview || awaitingReview) && (
+        <div
+          role="status"
+          className="mb-5 border-l-2 border-sky-600 bg-sky-50 px-3 py-2 text-sm text-sky-950"
+        >
+          {fromReview
+            ? "Bu sürüm inceleme kuyruğundan açıldı. Açık sürüm değiştirilmedi."
+            : "Bu sürüm inceleme bekliyor."}
+        </div>
+      )}
 
       <header className="border-b border-zinc-200 pb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">
-              Article Editor
-            </p>
             <h1 className="truncate text-2xl font-semibold tracking-tight text-zinc-950 md:text-3xl">
               {fields?.title || version?.fields.title || model.contentItem.slug}
             </h1>
             <p className="mt-1 text-sm text-zinc-500">{model.contentItem.slug}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge label={PUBLICATION_LABELS[model.contentItem.publicationStatus]} />
-            {status && <Badge label={status.workflowLabel} />}
-            {status?.scheduledLabel && <Badge label={status.scheduledLabel} />}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-zinc-500">{PUBLICATION_AXIS_LABEL}</span>
+            <StatusBadge
+              label={PUBLICATION_STATUS_LABELS[model.contentItem.publicationStatus]}
+              variant={status?.publicationVariant ?? "neutral"}
+            />
+            <span className="text-xs text-zinc-500">{WORKFLOW_AXIS_LABEL}</span>
+            <StatusBadge
+              label={
+                version
+                  ? WORKFLOW_STATUS_LABELS[version.workflowStatus]
+                  : "—"
+              }
+              variant={status?.workflowVariant ?? "neutral"}
+            />
+            {status?.scheduledLabel && (
+              <StatusBadge label={status.scheduledLabel} variant="info" />
+            )}
           </div>
         </div>
       </header>
@@ -276,8 +453,11 @@ export function ArticleEditor({ model, returnHref }: Props) {
             >
               {!canEdit && (
                 <Notice>
-                  Bu sürüm şu anda düzenlenemez. Scalar düzenleme yalnızca DRAFT
-                  durumundaki mevcut taslak sürüm için açıktır.
+                  {awaitingReview
+                    ? "Bu sürüm incelemede olduğu için salt okunur."
+                    : version && version.id !== model.contentItem.draftVersionId
+                      ? "Açık sürüm güncel taslak değil. Alanlar salt okunur."
+                      : "Bu sürüm şu anda düzenlenemez."}
                 </Notice>
               )}
 
@@ -325,6 +505,15 @@ export function ArticleEditor({ model, returnHref }: Props) {
                   onChange={(value) => patchField("excerpt", value)}
                 />
               </section>
+
+              <ArticleMetadataEditor
+                relations={relations}
+                disabled={!canEdit}
+                onChange={(next) => {
+                  setRelations(next);
+                  setSaveState({ kind: "idle" });
+                }}
+              />
 
               <section className="border-t border-zinc-200 pt-6">
                 <h2 className="mb-4 text-sm font-semibold text-zinc-900">
@@ -470,26 +659,140 @@ export function ArticleEditor({ model, returnHref }: Props) {
                     disabled={!canEdit || !isDirty || !validation.ok || isSaving}
                     className="h-9 rounded bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:bg-zinc-300"
                   >
-                    {isSaving ? "Kaydediliyor..." : "Kaydet"}
+                    {isSaving ? "Kaydediliyor..." : "Taslağı kaydet"}
                   </button>
                 </div>
               </div>
             </form>
           ) : (
             <Notice>
-              Bu içerik için mevcut bir taslak sürüm yok. Yayındaki sürümü
-              doğrudan düzenlemek bu geçişte desteklenmiyor.
+              Bu içerik için gösterilecek bir sürüm yok.
             </Notice>
           )}
         </main>
 
-        <aside className="space-y-4">
+        <aside className="space-y-8 lg:border-l lg:border-zinc-200 lg:pl-6">
+          <ArticleWorkflowPanel
+            contentItemId={model.contentItem.id}
+            eligibility={eligibility}
+            expectedUpdatedAt={token}
+            fromReview={fromReview}
+            returnHref={returnHref}
+            onConcurrencyToken={setToken}
+            onHistoryRefresh={() =>
+              setHistoryRefreshKey((current) => current + 1)
+            }
+          />
+
           <section>
-            <div className="flex items-start justify-between gap-3 rounded border border-zinc-200 bg-white p-4">
+            <h2 className="text-sm font-semibold text-zinc-900">Yayın ve iş akışı</h2>
+            <dl className="mt-3 space-y-2">
+              <Meta
+                label="Yayın durumu"
+                value={PUBLICATION_STATUS_LABELS[model.contentItem.publicationStatus]}
+              />
+              <Meta
+                label="İş akışı"
+                value={
+                  version
+                    ? WORKFLOW_STATUS_LABELS[version.workflowStatus]
+                    : "—"
+                }
+              />
+              <Meta
+                label="Açık sürüm"
+                value={version ? `Sürüm ${version.versionNumber}` : "Yok"}
+              />
+              <Meta
+                label="Yayındaki sürüm"
+                value={
+                  model.publishedVersion
+                    ? `Sürüm ${model.publishedVersion.versionNumber}`
+                    : "Yok"
+                }
+              />
+              <Meta
+                label="Güncel taslak"
+                value={
+                  model.draftVersion
+                    ? `Sürüm ${model.draftVersion.versionNumber}`
+                    : "Yok"
+                }
+              />
+              <Meta
+                label="Zamanlanmış sürüm"
+                value={
+                  model.scheduledVersion
+                    ? `Sürüm ${model.scheduledVersion.versionNumber}`
+                    : "Yok"
+                }
+              />
+              <Meta
+                label="Yayın tarihi"
+                value={formatDateTime(model.contentItem.publishedAt)}
+              />
+              <Meta
+                label="Zamanlama"
+                value={formatEditorialDateTime(model.contentItem.scheduledAt)}
+              />
+              <Meta
+                label="Son güncelleme"
+                value={formatDateTime(model.contentItem.updatedAt)}
+              />
+            </dl>
+          </section>
+
+          {version && (
+            <section>
+              <h2 className="text-sm font-semibold text-zinc-900">Künye</h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Açık sürümün künyesi. Yayındaki sürüm ayrı durur.
+              </p>
+              <dl className="mt-3 space-y-2">
+                <Meta
+                  label="Ana kategori"
+                  value={
+                    relations.categories.find((item) => item.isPrimary)?.name ??
+                    "Belirtilmedi"
+                  }
+                />
+                <Meta
+                  label="Yazar"
+                  value={
+                    relations.authors.length > 0
+                      ? relations.authors
+                          .map(
+                            (item) =>
+                              `${item.displayName} (${AUTHOR_ROLE_LABELS[item.role]})`,
+                          )
+                          .join(", ")
+                      : "Belirtilmedi"
+                  }
+                />
+              </dl>
+            </section>
+          )}
+
+          <ArticleRevisionPanel
+            contentItemId={model.contentItem.id}
+            focusedVersionId={focusedVersionId ?? version?.id ?? null}
+            initialVersions={revisions.versions}
+            nextCursor={revisions.nextCursor}
+          />
+
+          <div aria-label={permissions.canReview ? "İnceleme paneli" : "İnceleme geçmişi"}>
+            <ArticleReviewPanel
+              events={reviewEvents}
+              awaitingReview={Boolean(awaitingReview)}
+            />
+          </div>
+
+          <section>
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-zinc-900">Geçmiş</h2>
+                <h2 className="text-sm font-semibold text-zinc-900">Kayıt akışı</h2>
                 <p className="mt-1 text-xs text-zinc-500">
-                  İçerik için kayıtlı audit akışı.
+                  Kaydetme ve yayın işlemlerinin kaydı.
                 </p>
               </div>
               <button
@@ -512,57 +815,6 @@ export function ArticleEditor({ model, returnHref }: Props) {
               </div>
             )}
           </section>
-
-          <Panel title="Sürüm bağlamı">
-            <Meta label="Düzenlenen sürüm" value={version ? `v${version.versionNumber}` : "Yok"} />
-            <Meta label="İş akışı" value={version ? WORKFLOW_LABELS[version.workflowStatus] : "—"} />
-            <Meta
-              label="Yayındaki sürüm"
-              value={
-                model.publishedVersion
-                  ? `v${model.publishedVersion.versionNumber}`
-                  : "Yok"
-              }
-            />
-            <Meta
-              label="Zamanlanmış sürüm"
-              value={
-                model.scheduledVersion
-                  ? `v${model.scheduledVersion.versionNumber}`
-                  : "Yok"
-              }
-            />
-            <Meta label="Son güncelleme" value={formatDateTime(model.contentItem.updatedAt)} />
-          </Panel>
-
-          <Panel title="Yayın durumu">
-            <Meta
-              label="Yayın"
-              value={PUBLICATION_LABELS[model.contentItem.publicationStatus]}
-            />
-            <Meta label="Yayın tarihi" value={formatDateTime(model.contentItem.publishedAt)} />
-            <Meta label="Zamanlama" value={formatDateTime(model.contentItem.scheduledAt)} />
-          </Panel>
-
-          {version && (
-            <Panel title="İlişkiler">
-              <Meta
-                label="Kategori"
-                value={
-                  version.relations.categories.find((item) => item.isPrimary)?.name ??
-                  "Belirtilmedi"
-                }
-              />
-              <Meta
-                label="Yazar"
-                value={
-                  version.relations.authors.length > 0
-                    ? version.relations.authors.map((item) => item.displayName).join(", ")
-                    : "Belirtilmedi"
-                }
-              />
-            </Panel>
-          )}
         </aside>
       </div>
     </div>
@@ -685,28 +937,11 @@ function SaveMessage({ state, isDirty }: { state: SaveState; isDirty: boolean })
   );
 }
 
-function Badge({ label }: { label: string }) {
-  return (
-    <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
-      {label}
-    </span>
-  );
-}
-
 function Notice({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+    <div className="border-l-2 border-amber-600 bg-amber-50 px-3 py-2 text-sm text-amber-950">
       {children}
     </div>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="rounded border border-zinc-200 bg-white p-4">
-      <h2 className="mb-3 text-sm font-semibold text-zinc-900">{title}</h2>
-      <div className="space-y-2">{children}</div>
-    </section>
   );
 }
 
@@ -718,3 +953,5 @@ function Meta({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
+export { ArticleEditor as ArticleWorkspace };

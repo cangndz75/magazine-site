@@ -84,6 +84,11 @@ const SAFE_MESSAGES: Record<string, string> = {
     "This draft was updated elsewhere. Reload and try again.",
   [PUBLISHING_ERROR.CATEGORY_OUT_OF_SCOPE]:
     "One or more categories are outside your assigned scope.",
+  [PUBLISHING_ERROR.RELATION_NOT_FOUND]:
+    "A selected category, tag, author, entity, or media record no longer exists.",
+  [PUBLISHING_ERROR.DUPLICATE_RELATION]:
+    "The same relation cannot be attached twice.",
+  [PUBLISHING_ERROR.INVALID_RELATION]: "A relation in the request is invalid.",
   [PUBLISHING_ERROR.SELECTED_SCOPE_PRIMARY_REQUIRED]:
     "A primary category in your assigned scope is required.",
   [PUBLISHING_ERROR.INVALID_REVIEW_NOTE]:

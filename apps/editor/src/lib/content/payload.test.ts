@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EDITOR_LIST_MAX_LIMIT, PUBLISHING_ERROR, STAFF_ROLE, STAFF_SCOPE_MODE } from "@magazine/domain";
 import { parseEditorListSearchParams, parseReviewQueueSearchParams, parseRevisionHistorySearchParams, parseDiffSearchParams } from "./list-params";
-import { parseArticleEditorSaveBody, parseCreateContentBody, parseDraftSaveBody, parseRequestChangesBody, parseSubmitReviewBody } from "./payload";
+import { parseArticleEditorSaveBody, parseCreateContentBody, parseDraftSaveBody, parseRequestChangesBody, parseRevisionBody, parseScheduleBody, parseSubmitReviewBody } from "./payload";
 
 const CAT = "11111111-1111-4111-8111-111111111111";
 const VER = "22222222-2222-4222-8222-222222222222";
@@ -150,10 +150,46 @@ describe("create/draft payload validation", () => {
       expectedUpdatedAt: "2026-08-16T12:00:00.000Z",
       title: "Hello",
       body: { blocks: [{ type: "paragraph", text: "Gövde" }] },
+      categories: [],
+      tags: [],
+      entities: [],
+      media: [],
+      authors: [],
     });
     assert.deepEqual(parsed.body, {
       blocks: [{ type: "paragraph", text: "Gövde" }],
     });
+    assert.deepEqual(parsed.categories, []);
+  });
+
+  it("requires version-owned relations on article editor saves", () => {
+    assert.throws(() =>
+      parseArticleEditorSaveBody({
+        versionId: VER,
+        expectedUpdatedAt: "2026-08-16T12:00:00.000Z",
+        title: "Hello",
+        body: { blocks: [] },
+      }),
+    );
+  });
+
+  it("ignores client workflowStatus on article editor saves", () => {
+    const parsed = parseArticleEditorSaveBody({
+      versionId: VER,
+      expectedUpdatedAt: "2026-08-16T12:00:00.000Z",
+      title: "Hello",
+      body: { blocks: [] },
+      workflowStatus: "APPROVED",
+      publicationStatus: "PUBLISHED",
+      categories: [{ categoryId: CAT, isPrimary: true }],
+      tags: [],
+      entities: [],
+      media: [],
+      authors: [],
+    });
+    assert.equal("workflowStatus" in parsed, false);
+    assert.equal("publicationStatus" in parsed, false);
+    assert.equal(parsed.categories[0]?.categoryId, CAT);
   });
 
   it("requires expectedUpdatedAt for submit-review", () => {
@@ -182,5 +218,36 @@ describe("create/draft payload validation", () => {
     });
     assert.equal(parsed.note, "Please restore the dek");
     assert.equal("staffUserId" in parsed, false);
+  });
+
+  it("ignores client-supplied scheduleGeneration on schedule", () => {
+    const parsed = parseScheduleBody({
+      versionId: VER,
+      scheduledAt: "2026-08-18T12:30:00.000Z",
+      scheduleGeneration: 99,
+      workflowStatus: "APPROVED",
+      role: "SUPER_ADMIN",
+    });
+    assert.equal(parsed.versionId, VER);
+    assert.equal(parsed.scheduledAt.toISOString(), "2026-08-18T12:30:00.000Z");
+    assert.equal("scheduleGeneration" in parsed, false);
+    assert.equal("workflowStatus" in parsed, false);
+    assert.equal("role" in parsed, false);
+  });
+
+  it("accepts optional revision sourceVersionId and ignores client lifecycle fields", () => {
+    const parsed = parseRevisionBody({
+      sourceVersionId: VER,
+      workflowStatus: "APPROVED",
+      scheduleGeneration: 9,
+      staffUserId: "attacker",
+    });
+    assert.equal(parsed.sourceVersionId, VER);
+    assert.equal("workflowStatus" in parsed, false);
+    assert.equal("scheduleGeneration" in parsed, false);
+    assert.equal("staffUserId" in parsed, false);
+    const implicit = parseRevisionBody({});
+    assert.equal("sourceVersionId" in implicit, true);
+    assert.equal(implicit.sourceVersionId, undefined);
   });
 });

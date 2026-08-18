@@ -199,4 +199,73 @@ describe("editor content route contracts", () => {
     assert.equal(requestChanges.includes("CAPABILITY.CONTENT_REVIEW"), true);
     assert.equal(requestChanges.includes("session.staffUserId"), true);
   });
+
+  it("authorizes article workspace and review pages on the server", () => {
+    const workspaceRoot = path.join(
+      fileURLToPath(new URL("../../app/(workspace)", import.meta.url)),
+    );
+    const articlePage = readFileSync(
+      path.join(workspaceRoot, "content", "[contentItemId]", "page.tsx"),
+      "utf8",
+    );
+    const reviewPage = readFileSync(
+      path.join(workspaceRoot, "review", "page.tsx"),
+      "utf8",
+    );
+    const listPage = readFileSync(path.join(workspaceRoot, "page.tsx"), "utf8");
+
+    assert.equal(articlePage.includes("requireCapability(CAPABILITY.CONTENT_READ)"), true);
+    assert.equal(articlePage.includes("loadAccessibleContent"), true);
+    assert.equal(articlePage.includes("isUuid(contentItemId)"), true);
+    assert.equal(articlePage.includes("notFound()"), true);
+    assert.equal(articlePage.includes("focusVersionId"), true);
+    assert.equal(articlePage.includes("listContentRevisionHistory"), true);
+    assert.equal(articlePage.includes("hasCapability(session.roles"), true);
+    assert.equal(articlePage.includes("CAPABILITY.CONTENT_PUBLISH"), true);
+    assert.equal(articlePage.includes("canPublish"), true);
+
+    const unpublish = readFileSync(
+      path.join(apiRoot, "content", "[contentItemId]", "unpublish", "route.ts"),
+      "utf8",
+    );
+    assert.equal(unpublish.includes("CAPABILITY.CONTENT_PUBLISH"), true);
+    assert.equal(unpublish.includes("unpublishContent"), true);
+    assert.equal(unpublish.includes("CAPABILITY.CONTENT_EDIT"), false);
+    assert.equal(unpublish.includes("CAPABILITY.CONTENT_REVIEW"), false);
+    assert.equal(unpublish.includes("expectedUpdatedAt"), false);
+
+    assert.equal(reviewPage.includes("requireCapability(CAPABILITY.CONTENT_REVIEW)"), true);
+    assert.equal(reviewPage.includes("listReviewQueue"), true);
+    assert.equal(reviewPage.includes("queryScopeFromSession"), true);
+
+    assert.equal(listPage.includes("authorId: filters.authorId"), true);
+    assert.equal(listPage.includes("lookupEditorCategories"), true);
+    assert.equal(listPage.includes("lookupEditorAuthors"), true);
+    assert.equal(listPage.includes("getEditorCategorySummary"), true);
+    assert.equal(listPage.includes("getEditorAuthorSummary"), true);
+  });
+
+  it("keeps workflow panel posts on existing routes without client-trusted lifecycle fields", () => {
+    const panel = readFileSync(
+      path.join(
+        fileURLToPath(new URL("../../components/article-workflow-panel.tsx", import.meta.url)),
+      ),
+      "utf8",
+    );
+    assert.equal(panel.includes("/submit-review"), true);
+    assert.equal(panel.includes("/approve"), true);
+    assert.equal(panel.includes("/request-changes"), true);
+    assert.equal(panel.includes("/publish"), true);
+    assert.equal(panel.includes("/schedule"), true);
+    assert.equal(panel.includes("/reschedule"), true);
+    assert.equal(panel.includes("/unschedule"), true);
+    assert.equal(panel.includes("/revision"), true);
+    assert.equal(panel.includes("/unpublish"), true);
+    assert.equal(panel.includes("expectedUpdatedAt"), true);
+    assert.equal(panel.includes("scheduleGeneration"), false);
+    assert.equal(panel.includes("workflowStatus"), false);
+    assert.equal(panel.includes("publicationStatus"), false);
+    assert.equal(panel.includes("staffUserId"), false);
+    assert.equal(panel.includes("scopedCategoryIds"), false);
+  });
 });

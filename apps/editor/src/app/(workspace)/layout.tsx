@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CAPABILITY, hasCapability } from "@magazine/domain";
 import { requireStaffSession } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,7 @@ export default async function WorkspaceLayout({
   children: React.ReactNode;
 }) {
   const session = await requireStaffSession();
+  const canReview = hasCapability(session.roles, CAPABILITY.CONTENT_REVIEW);
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">
@@ -24,6 +26,14 @@ export default async function WorkspaceLayout({
             >
               İçerikler
             </Link>
+            {canReview && (
+              <Link
+                href="/review"
+                className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+              >
+                İnceleme
+              </Link>
+            )}
           </nav>
         </div>
         <div className="flex items-center gap-4">

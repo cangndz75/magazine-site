@@ -27,6 +27,7 @@ export type ScheduleResult = {
   scheduledAt: Date;
   scheduleGeneration: number;
   draftVersionId: string | null;
+  updatedAt: Date;
 };
 
 export async function scheduleVersion(
@@ -95,6 +96,7 @@ export async function scheduleVersion(
       scheduledAt: plan.scheduledAt,
       scheduleGeneration: plan.scheduleGeneration,
       draftVersionId: plan.draftVersionId,
+      updatedAt: nextUpdatedAt,
     };
   });
 }
@@ -145,6 +147,7 @@ export async function rescheduleVersion(
       scheduledAt: plan.scheduledAt,
       scheduleGeneration: plan.scheduleGeneration,
       draftVersionId: plan.draftVersionId,
+      updatedAt: nextUpdatedAt,
     };
   });
 }
@@ -158,6 +161,8 @@ export async function unscheduleVersion(
   scheduledVersionId: null;
   scheduledAt: null;
   scheduleGeneration: number;
+  draftVersionId: string | null;
+  updatedAt: Date;
 }> {
   const db = getDb();
 
@@ -179,6 +184,7 @@ export async function unscheduleVersion(
         scheduledVersionId: plan.scheduledVersionId,
         scheduledAt: plan.scheduledAt,
         scheduleGeneration: plan.scheduleGeneration,
+        draftVersionId: plan.draftVersionId,
         updatedAt: nextUpdatedAt,
       })
       .where(eq(contentItems.id, item.id));
@@ -195,6 +201,8 @@ export async function unscheduleVersion(
       scheduledVersionId: null,
       scheduledAt: null,
       scheduleGeneration: plan.scheduleGeneration,
+      draftVersionId: plan.draftVersionId,
+      updatedAt: nextUpdatedAt,
     };
   });
 }

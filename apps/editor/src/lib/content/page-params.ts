@@ -17,6 +17,7 @@ export type ContentPageFilters = {
   publicationStatus: PublicationStatus | undefined;
   workflowStatus: WorkflowStatus | undefined;
   categoryId: string | undefined;
+  authorId: string | undefined;
   scheduledOnly: boolean;
 };
 
@@ -48,6 +49,10 @@ export function parsePageSearchParams(
     typeof params.categoryId === "string" ? params.categoryId : undefined;
   const categoryId = catRaw && isUuid(catRaw) ? catRaw : undefined;
 
+  const authorRaw =
+    typeof params.authorId === "string" ? params.authorId : undefined;
+  const authorId = authorRaw && isUuid(authorRaw) ? authorRaw : undefined;
+
   const scheduledRaw =
     typeof params.scheduledOnly === "string" ? params.scheduledOnly : undefined;
   const scheduledOnly = scheduledRaw === "1" || scheduledRaw === "true";
@@ -59,6 +64,7 @@ export function parsePageSearchParams(
     publicationStatus: publicationStatus === null ? undefined : publicationStatus,
     workflowStatus: workflowStatus === null ? undefined : workflowStatus,
     categoryId,
+    authorId,
     scheduledOnly,
   };
 }

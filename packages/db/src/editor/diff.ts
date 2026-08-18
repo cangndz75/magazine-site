@@ -24,6 +24,7 @@ import { media } from "../schema/media";
 import { categories, tags } from "../schema/taxonomy";
 import { unwrapPublishingDecision } from "../publishing/errors";
 import { getEditorContentAccess } from "./access";
+import { formatEditorMediaLabel } from "./media-label";
 import type { EditorContentAccess } from "./types";
 
 type VersionRow = {
@@ -156,7 +157,9 @@ async function loadLabeledRelations(versionIds: readonly string[]) {
         .select({
           contentVersionId: contentVersionMedia.contentVersionId,
           id: media.id,
-          label: media.storageKey,
+          mediaType: media.mediaType,
+          width: media.width,
+          height: media.height,
           role: contentVersionMedia.role,
           sortOrder: contentVersionMedia.sortOrder,
           caption: contentVersionMedia.caption,
@@ -184,7 +187,16 @@ async function loadLabeledRelations(versionIds: readonly string[]) {
     categories: categoryRows,
     tags: tagRows,
     entities: entityRows,
-    media: mediaRows,
+    media: mediaRows.map((row) => ({
+      contentVersionId: row.contentVersionId,
+      id: row.id,
+      label: formatEditorMediaLabel(row),
+      role: row.role,
+      sortOrder: row.sortOrder,
+      caption: row.caption,
+      altText: row.altText,
+      credit: row.credit,
+    })),
     authors: authorRows,
   };
 }

@@ -1,5 +1,5 @@
 import { CAPABILITY } from "@magazine/domain";
-import { updateDraftScalarFields } from "@magazine/db/publishing";
+import { updateDraftContent } from "@magazine/db/publishing";
 import { withEditorWrite } from "@/lib/content/api-auth";
 import {
   editorScopeFromSession,
@@ -24,7 +24,7 @@ export async function PATCH(
       await loadAccessibleContent(session, id);
       const parsed = parseArticleEditorSaveBody(body);
 
-      const result = await updateDraftScalarFields({
+      const result = await updateDraftContent({
         contentItemId: id,
         scope: editorScopeFromSession(session),
         actorId: session.staffUserId,
@@ -32,8 +32,32 @@ export async function PATCH(
       });
 
       return editorOk({
-        ...result,
+        contentItemId: result.contentItemId,
+        versionId: result.versionId,
         updatedAt: result.updatedAt.toISOString(),
+        fields: {
+          title: parsed.title,
+          subtitle: parsed.subtitle,
+          excerpt: parsed.excerpt,
+          seoTitle: parsed.seoTitle,
+          seoDescription: parsed.seoDescription,
+          canonicalUrl: parsed.canonicalUrl,
+          robots: parsed.robots,
+          credibility: parsed.credibility,
+          credibilitySource: parsed.credibilitySource,
+          source: parsed.source,
+          sourceOrganization: parsed.sourceOrganization,
+          sourceUrl: parsed.sourceUrl,
+          syndicated: parsed.syndicated,
+          isMaterialUpdate: parsed.isMaterialUpdate,
+        },
+        relations: {
+          categories: parsed.categories,
+          tags: parsed.tags,
+          entities: parsed.entities,
+          media: parsed.media,
+          authors: parsed.authors,
+        },
       });
     },
   );

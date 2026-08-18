@@ -180,7 +180,7 @@ export type EditorContentDetail = {
     media: {
       id: string;
       mediaType: MediaType;
-      storageKey: string;
+      label: string;
       width: number | null;
       height: number | null;
       role: MediaRole;

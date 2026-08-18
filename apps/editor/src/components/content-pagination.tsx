@@ -5,7 +5,8 @@ import type { EditorListCursor } from "@magazine/domain";
 
 type Props = {
   nextCursor: string | null;
-  currentCursor: EditorListCursor | null;
+  currentCursor: EditorListCursor | { submittedAt: string; id: string } | null;
+  firstPageHref: string;
   onNavigate: (cursor: string) => void;
   isPending: boolean;
 };
@@ -13,6 +14,7 @@ type Props = {
 export function ContentPagination({
   nextCursor,
   currentCursor,
+  firstPageHref,
   onNavigate,
   isPending,
 }: Props) {
@@ -23,7 +25,7 @@ export function ContentPagination({
       <div className="text-xs text-zinc-500">
         {currentCursor && (
           <Link
-            href="/"
+            href={firstPageHref}
             className="text-zinc-600 underline hover:text-zinc-800"
           >
             ← Başa dön

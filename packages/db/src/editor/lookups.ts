@@ -8,6 +8,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import {
   clampEditorLookupLimit,
   sanitizeEditorSearch,
@@ -18,6 +19,43 @@ import { authors } from "../schema/authors";
 import { entities, entityAliases } from "../schema/entities";
 import { media } from "../schema/media";
 import { categories, tags } from "../schema/taxonomy";
+import { formatEditorMediaLabel } from "./media-label";
+
+const parentCategory = alias(categories, "editor_parent_category");
+
+export type EditorCategoryLookup = {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  parentName: string | null;
+};
+
+export type EditorAuthorLookup = {
+  id: string;
+  displayName: string;
+  slug: string;
+};
+
+export type EditorTagLookup = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+export type EditorEntityLookup = {
+  id: string;
+  name: string;
+  kind: string;
+};
+
+export type EditorMediaLookup = {
+  id: string;
+  label: string;
+  mediaType: string;
+  width: number | null;
+  height: number | null;
+};
 
 export type LookupQuery = {
   search?: string;
@@ -33,7 +71,7 @@ export async function lookupEditorCategories(input: {
   search?: string;
   limit?: number;
   scopedCategoryIds: readonly string[] | null;
-}): Promise<{ id: string; name: string; slug: string }[]> {
+}): Promise<EditorCategoryLookup[]> {
   if (
     input.scopedCategoryIds !== null &&
     input.scopedCategoryIds.length === 0
@@ -54,6 +92,7 @@ export async function lookupEditorCategories(input: {
     const searchClause = or(
       ilike(categories.name, like),
       ilike(categories.slug, like),
+      ilike(parentCategory.name, like),
     );
     if (searchClause) {
       filters.push(searchClause);
@@ -65,16 +104,47 @@ export async function lookupEditorCategories(input: {
       id: categories.id,
       name: categories.name,
       slug: categories.slug,
+      parentId: categories.parentId,
+      parentName: parentCategory.name,
     })
     .from(categories)
+    .leftJoin(parentCategory, eq(parentCategory.id, categories.parentId))
     .where(and(...filters))
     .orderBy(categories.name)
     .limit(limit);
 }
 
+export async function getEditorCategorySummary(
+  categoryId: string,
+  scopedCategoryIds: readonly string[] | null,
+): Promise<EditorCategoryLookup | null> {
+  if (
+    scopedCategoryIds !== null &&
+    (scopedCategoryIds.length === 0 || !scopedCategoryIds.includes(categoryId))
+  ) {
+    return null;
+  }
+
+  const db = getDb();
+  const [row] = await db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      slug: categories.slug,
+      parentId: categories.parentId,
+      parentName: parentCategory.name,
+    })
+    .from(categories)
+    .leftJoin(parentCategory, eq(parentCategory.id, categories.parentId))
+    .where(and(eq(categories.id, categoryId), eq(categories.isActive, true)))
+    .limit(1);
+
+  return row ?? null;
+}
+
 export async function lookupEditorTags(
   input: LookupQuery,
-): Promise<{ id: string; name: string; slug: string }[]> {
+): Promise<EditorTagLookup[]> {
   const db = getDb();
   const limit = clampEditorLookupLimit(input.limit);
   const like = pattern(input.search);
@@ -98,7 +168,7 @@ export async function lookupEditorTags(
 
 export async function lookupEditorAuthors(
   input: LookupQuery,
-): Promise<{ id: string; displayName: string; slug: string }[]> {
+): Promise<EditorAuthorLookup[]> {
   const db = getDb();
   const limit = clampEditorLookupLimit(input.limit);
   const like = pattern(input.search);
@@ -125,9 +195,26 @@ export async function lookupEditorAuthors(
     .limit(limit);
 }
 
+export async function getEditorAuthorSummary(
+  authorId: string,
+): Promise<EditorAuthorLookup | null> {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      id: authors.id,
+      displayName: authors.displayName,
+      slug: authors.slug,
+    })
+    .from(authors)
+    .where(and(eq(authors.id, authorId), eq(authors.isActive, true)))
+    .limit(1);
+
+  return row ?? null;
+}
+
 export async function lookupEditorEntities(
   input: LookupQuery,
-): Promise<{ id: string; name: string; kind: string }[]> {
+): Promise<EditorEntityLookup[]> {
   const db = getDb();
   const limit = clampEditorLookupLimit(input.limit);
   const like = pattern(input.search);
@@ -173,15 +260,7 @@ export async function lookupEditorMedia(input: {
   search?: string;
   limit?: number;
   mediaType?: MediaType;
-}): Promise<
-  {
-    id: string;
-    mediaType: string;
-    storageKey: string;
-    width: number | null;
-    height: number | null;
-  }[]
-> {
+}): Promise<EditorMediaLookup[]> {
   const db = getDb();
   const limit = clampEditorLookupLimit(input.limit);
   const like = pattern(input.search);
@@ -199,15 +278,21 @@ export async function lookupEditorMedia(input: {
     .select({
       id: media.id,
       mediaType: media.mediaType,
-      storageKey: media.storageKey,
       width: media.width,
       height: media.height,
     })
     .from(media);
 
-  if (filters.length > 0) {
-    return query.where(and(...filters)).orderBy(media.createdAt).limit(limit);
-  }
+  const rows =
+    filters.length > 0
+      ? await query.where(and(...filters)).orderBy(media.createdAt).limit(limit)
+      : await query.orderBy(media.createdAt).limit(limit);
 
-  return query.orderBy(media.createdAt).limit(limit);
+  return rows.map((row) => ({
+    id: row.id,
+    mediaType: row.mediaType,
+    width: row.width,
+    height: row.height,
+    label: formatEditorMediaLabel(row),
+  }));
 }

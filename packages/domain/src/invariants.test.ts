@@ -17,9 +17,14 @@ import {
   shouldExecuteScheduledPublish,
 } from "./schedule-generation";
 import {
+  publicPublishedVersionId,
   publishedStateIsCoherent,
   versionPointersAreSeparated,
 } from "./content-item-invariants";
+import {
+  publicArticleSlugCacheTag,
+  publicContentCacheTag,
+} from "./public-cache";
 import { WORKFLOW_STATUS, WORKFLOW_STATUSES } from "./workflow-status";
 
 describe("publication and workflow axes", () => {
@@ -200,6 +205,60 @@ describe("published state coherence", () => {
         publishedAt: "2026-08-16T00:00:00.000Z",
       }),
       true,
+    );
+  });
+});
+
+describe("public published version resolution", () => {
+  it("exposes the published version only while publicationStatus is PUBLISHED", () => {
+    assert.equal(
+      publicPublishedVersionId({
+        publicationStatus: PUBLICATION_STATUS.PUBLISHED,
+        publishedVersionId: "v7",
+      }),
+      "v7",
+    );
+  });
+
+  it("does not treat a preserved publishedVersionId as publicly live after unpublish", () => {
+    assert.equal(
+      publicPublishedVersionId({
+        publicationStatus: PUBLICATION_STATUS.UNPUBLISHED,
+        publishedVersionId: "v7",
+      }),
+      null,
+    );
+    assert.equal(
+      publicPublishedVersionId({
+        publicationStatus: PUBLICATION_STATUS.NEVER_PUBLISHED,
+        publishedVersionId: null,
+      }),
+      null,
+    );
+  });
+
+  it("does not resolve deleted items as public", () => {
+    assert.equal(
+      publicPublishedVersionId({
+        publicationStatus: PUBLICATION_STATUS.PUBLISHED,
+        publishedVersionId: "v7",
+        deletedAt: "2026-08-18T00:00:00.000Z",
+      }),
+      null,
+    );
+  });
+});
+
+describe("public cache tags", () => {
+  it("builds deterministic article slug and content tags", () => {
+    assert.equal(
+      publicArticleSlugCacheTag("kanonik-haber"),
+      "article-slug:kanonik-haber",
+    );
+    assert.equal(publicArticleSlugCacheTag("Hello World"), null);
+    assert.equal(
+      publicContentCacheTag("11111111-1111-4111-8111-111111111111"),
+      "content:11111111-1111-4111-8111-111111111111",
     );
   });
 });

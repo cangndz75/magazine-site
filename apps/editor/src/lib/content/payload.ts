@@ -239,7 +239,7 @@ export type ParsedDraftSave = {
 export type ParsedArticleEditorSave = {
   versionId: string;
   expectedUpdatedAt: string;
-  body?: Record<string, unknown> | unknown[];
+  body: Record<string, unknown> | unknown[];
   title: string;
   subtitle: string | null;
   excerpt: string | null;
@@ -254,61 +254,29 @@ export type ParsedArticleEditorSave = {
   sourceUrl: string | null;
   syndicated: boolean;
   isMaterialUpdate: boolean;
+  categories: { categoryId: string; isPrimary: boolean }[];
+  tags: { tagId: string }[];
+  entities: {
+    entityId: string;
+    role: (typeof ENTITY_ROLES)[number];
+    sortOrder?: number;
+  }[];
+  media: {
+    mediaId: string;
+    role: (typeof MEDIA_ROLES)[number];
+    sortOrder?: number;
+    caption: string | null;
+    altText: string | null;
+    credit: string | null;
+  }[];
+  authors: {
+    authorId: string;
+    role: (typeof AUTHOR_ROLES)[number];
+    sortOrder?: number;
+  }[];
 };
 
-export function parseArticleEditorSaveBody(
-  body: unknown,
-): ParsedArticleEditorSave {
-  const record = asRecord(body);
-  const title = unwrap(canonicalizeDraftTitle(requiredString(record, "title")));
-  const canonicalUrl = unwrap(
-    assertOptionalHttpUrl(optionalTrimmedText(optionalString(record, "canonicalUrl"))),
-  );
-  const sourceUrl = unwrap(
-    assertOptionalHttpUrl(optionalTrimmedText(optionalString(record, "sourceUrl"))),
-  );
-  const parsedBody =
-    record.body === undefined
-      ? undefined
-      : unwrap(assertStructuredArticleBody(record.body));
-
-  return {
-    versionId: requiredUuid(record, "versionId"),
-    expectedUpdatedAt: requiredExpectedUpdatedAt(record),
-    ...(parsedBody === undefined ? {} : { body: parsedBody }),
-    title,
-    subtitle: optionalTrimmedText(optionalString(record, "subtitle")),
-    excerpt: optionalTrimmedText(optionalString(record, "excerpt")),
-    seoTitle: optionalTrimmedText(optionalString(record, "seoTitle")),
-    seoDescription: optionalTrimmedText(optionalString(record, "seoDescription")),
-    canonicalUrl,
-    robots: optionalTrimmedText(optionalString(record, "robots")),
-    credibility: unwrap(parseCredibility(record.credibility)),
-    credibilitySource: optionalTrimmedText(
-      optionalString(record, "credibilitySource"),
-    ),
-    source: optionalTrimmedText(optionalString(record, "source")),
-    sourceOrganization: optionalTrimmedText(
-      optionalString(record, "sourceOrganization"),
-    ),
-    sourceUrl,
-    syndicated: requiredBoolean(record, "syndicated", false),
-    isMaterialUpdate: requiredBoolean(record, "isMaterialUpdate", false),
-  };
-}
-
-export function parseDraftSaveBody(body: unknown): ParsedDraftSave {
-  const record = asRecord(body);
-  const title = unwrap(canonicalizeDraftTitle(requiredString(record, "title")));
-  const parsedBody = unwrap(assertStructuredArticleBody(record.body));
-  const canonicalUrl = unwrap(
-    assertOptionalHttpUrl(optionalTrimmedText(optionalString(record, "canonicalUrl"))),
-  );
-  const sourceUrl = unwrap(
-    assertOptionalHttpUrl(optionalTrimmedText(optionalString(record, "sourceUrl"))),
-  );
-  const credibility = unwrap(parseCredibility(record.credibility));
-
+function parseVersionRelations(record: Record<string, unknown>) {
   const categories = requiredArray(record, "categories").map((item) => {
     const row = asRecord(item);
     return {
@@ -358,6 +326,62 @@ export function parseDraftSaveBody(body: unknown): ParsedDraftSave {
     }),
   );
 
+  return { categories, tags, entities, media, authors };
+}
+
+export function parseArticleEditorSaveBody(
+  body: unknown,
+): ParsedArticleEditorSave {
+  const record = asRecord(body);
+  const title = unwrap(canonicalizeDraftTitle(requiredString(record, "title")));
+  const canonicalUrl = unwrap(
+    assertOptionalHttpUrl(optionalTrimmedText(optionalString(record, "canonicalUrl"))),
+  );
+  const sourceUrl = unwrap(
+    assertOptionalHttpUrl(optionalTrimmedText(optionalString(record, "sourceUrl"))),
+  );
+  const parsedBody = unwrap(assertStructuredArticleBody(record.body));
+  const relations = parseVersionRelations(record);
+
+  return {
+    versionId: requiredUuid(record, "versionId"),
+    expectedUpdatedAt: requiredExpectedUpdatedAt(record),
+    body: parsedBody,
+    title,
+    subtitle: optionalTrimmedText(optionalString(record, "subtitle")),
+    excerpt: optionalTrimmedText(optionalString(record, "excerpt")),
+    seoTitle: optionalTrimmedText(optionalString(record, "seoTitle")),
+    seoDescription: optionalTrimmedText(optionalString(record, "seoDescription")),
+    canonicalUrl,
+    robots: optionalTrimmedText(optionalString(record, "robots")),
+    credibility: unwrap(parseCredibility(record.credibility)),
+    credibilitySource: optionalTrimmedText(
+      optionalString(record, "credibilitySource"),
+    ),
+    source: optionalTrimmedText(optionalString(record, "source")),
+    sourceOrganization: optionalTrimmedText(
+      optionalString(record, "sourceOrganization"),
+    ),
+    sourceUrl,
+    syndicated: requiredBoolean(record, "syndicated", false),
+    isMaterialUpdate: requiredBoolean(record, "isMaterialUpdate", false),
+    ...relations,
+  };
+}
+
+export function parseDraftSaveBody(body: unknown): ParsedDraftSave {
+  const record = asRecord(body);
+  const title = unwrap(canonicalizeDraftTitle(requiredString(record, "title")));
+  const parsedBody = unwrap(assertStructuredArticleBody(record.body));
+  const canonicalUrl = unwrap(
+    assertOptionalHttpUrl(optionalTrimmedText(optionalString(record, "canonicalUrl"))),
+  );
+  const sourceUrl = unwrap(
+    assertOptionalHttpUrl(optionalTrimmedText(optionalString(record, "sourceUrl"))),
+  );
+  const credibility = unwrap(parseCredibility(record.credibility));
+  const relations = parseVersionRelations(record);
+
   const expectedUpdatedAt = requiredString(record, "expectedUpdatedAt");
   if (Number.isNaN(new Date(expectedUpdatedAt).getTime())) {
     throw new EditorHttpError(
@@ -389,11 +413,7 @@ export function parseDraftSaveBody(body: unknown): ParsedDraftSave {
     sourceUrl,
     syndicated: requiredBoolean(record, "syndicated", false),
     isMaterialUpdate: requiredBoolean(record, "isMaterialUpdate", false),
-    categories,
-    tags,
-    entities,
-    media,
-    authors,
+    ...relations,
   };
 }
 

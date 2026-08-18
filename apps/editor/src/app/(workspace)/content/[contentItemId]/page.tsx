@@ -3,21 +3,29 @@ import {
   CAPABILITY,
   PUBLISHING_ERROR,
   PublishingError,
+  hasCapability,
   isUuid,
-  safeInternalPath,
 } from "@magazine/domain";
-import { getArticleEditorModel } from "@magazine/db/editor";
+import {
+  getArticleEditorModel,
+  listContentReviewHistory,
+  listContentRevisionHistory,
+} from "@magazine/db/editor";
 import { requireCapability } from "@/lib/auth/authorization";
-import { loadAccessibleContent } from "@/lib/content/authorize";
+import {
+  editorScopeFromSession,
+  loadAccessibleContent,
+} from "@/lib/content/authorize";
+import { parseArticleSearchParams } from "@/lib/content/article-page-params";
 import { ArticleEditor } from "@/components/article-editor";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "İçerik düzenle",
+  title: "İçerik",
 };
 
-export default async function ArticleEditorPage({
+export default async function ArticleWorkspacePage({
   params,
   searchParams,
 }: {
@@ -28,6 +36,13 @@ export default async function ArticleEditorPage({
   const { contentItemId } = await params;
 
   if (!isUuid(contentItemId)) {
+    notFound();
+  }
+
+  const resolvedSearchParams = await searchParams;
+  const query = parseArticleSearchParams(resolvedSearchParams);
+
+  if (query.versionIdInvalid) {
     notFound();
   }
 
@@ -43,17 +58,35 @@ export default async function ArticleEditorPage({
     throw error;
   }
 
-  const model = await getArticleEditorModel(contentItemId);
+  const scope = editorScopeFromSession(session);
+  let model;
+  let revisionHistory;
+  let reviewHistory;
+
+  try {
+    [model, revisionHistory, reviewHistory] = await Promise.all([
+      getArticleEditorModel(contentItemId, {
+        focusVersionId: query.versionId,
+      }),
+      listContentRevisionHistory(contentItemId, scope, { limit: 8 }),
+      listContentReviewHistory(contentItemId, scope, {
+        versionId: query.versionId,
+      }),
+    ]);
+  } catch (error) {
+    if (
+      error instanceof PublishingError &&
+      (error.code === PUBLISHING_ERROR.CONTENT_NOT_FOUND ||
+        error.code === PUBLISHING_ERROR.VERSION_NOT_FOUND)
+    ) {
+      notFound();
+    }
+    throw error;
+  }
 
   if (!model) {
     notFound();
   }
-
-  const resolvedSearchParams = await searchParams;
-  const rawReturnTo = resolvedSearchParams.returnTo;
-  const returnHref = safeInternalPath(
-    typeof rawReturnTo === "string" ? rawReturnTo : null,
-  );
 
   return (
     <ArticleEditor
@@ -80,7 +113,37 @@ export default async function ArticleEditorPage({
         draftVersion: model.draftVersion,
         scheduledVersion: model.scheduledVersion,
       }}
-      returnHref={returnHref}
+      returnHref={query.returnHref}
+      fromReview={query.fromReview}
+      focusedVersionId={
+        query.versionId ?? model.editableVersion?.id ?? model.displayVersionId
+      }
+      revisions={{
+        versions: revisionHistory.versions.map((version) => ({
+          id: version.id,
+          versionNumber: version.versionNumber,
+          workflowStatus: version.workflowStatus,
+          title: version.title,
+          createdAt: version.createdAt.toISOString(),
+          isCurrentDraft: version.isCurrentDraft,
+          isScheduledVersion: version.isScheduledVersion,
+          isPublishedVersion: version.isPublishedVersion,
+        })),
+        nextCursor: revisionHistory.nextCursor,
+      }}
+      reviewEvents={reviewHistory.events.map((event) => ({
+        id: event.id,
+        contentVersionId: event.contentVersionId,
+        eventType: event.eventType,
+        actorDisplayName: event.actor.displayName,
+        note: event.note,
+        createdAt: event.createdAt.toISOString(),
+      }))}
+      permissions={{
+        canEdit: hasCapability(session.roles, CAPABILITY.CONTENT_EDIT),
+        canReview: hasCapability(session.roles, CAPABILITY.CONTENT_REVIEW),
+        canPublish: hasCapability(session.roles, CAPABILITY.CONTENT_PUBLISH),
+      }}
     />
   );
 }

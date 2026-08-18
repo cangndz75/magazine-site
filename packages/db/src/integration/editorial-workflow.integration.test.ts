@@ -10,6 +10,7 @@ import {
   scopedCategoryIdsForQuery,
 } from "@magazine/domain";
 import {
+  getArticleEditorModel,
   listContentRevisionHistory,
   listReviewQueue,
 } from "../editor";
@@ -17,6 +18,7 @@ import {
   approveVersion,
   createDraftRevision,
   publishVersion,
+  scheduleVersion,
   submitForReview,
   updateDraftContent,
 } from "../publishing";
@@ -477,6 +479,43 @@ describe("editorial workflow PostgreSQL reads", () => {
           page1.items[1]!.latestSubmittedAt.getTime(),
         true,
       );
+    });
+  });
+
+  describe("article editor model", () => {
+    it("falls back to the scheduled version after scheduling clears the draft pointer", async () => {
+      const created = await createDraftItem(fixture, {
+        scope: fixture.superAdmin,
+        includeRelations: true,
+      });
+      const submitted = await submitCurrent(
+        created.contentItemId,
+        created.versionId,
+        created.updatedAt,
+      );
+      await approveCurrent(
+        created.contentItemId,
+        created.versionId,
+        submitted.updatedAt,
+      );
+      const scheduled = await scheduleVersion(
+        created.contentItemId,
+        created.versionId,
+        new Date(Date.now() + 60_000),
+        fixture.superAdmin,
+        fixture.ids.staffReviewerA,
+      );
+
+      assert.equal(scheduled.draftVersionId, null);
+      assert.equal(scheduled.scheduledVersionId, created.versionId);
+
+      const model = await getArticleEditorModel(created.contentItemId);
+      assert.equal(model?.contentItem.draftVersionId, null);
+      assert.equal(model?.editableVersion?.id, created.versionId);
+      assert.equal(model?.editableVersion?.canEdit, false);
+      assert.equal(model?.editableVersion?.workflowStatus, WORKFLOW_STATUS.APPROVED);
+      assert.equal(model?.scheduledVersion?.id, created.versionId);
+      assert.equal(model?.displayVersionId, created.versionId);
     });
   });
 });

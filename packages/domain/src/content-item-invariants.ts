@@ -48,3 +48,24 @@ export function publishedStateIsCoherent(state: PublishedState): boolean {
 
   return state.publishedVersionId !== null && state.publishedAt !== null;
 }
+
+/**
+ * Public readers must resolve the live version only when publicationStatus is
+ * PUBLISHED. A preserved publishedVersionId on UNPUBLISHED is historical
+ * identity, not a public pointer.
+ */
+export function publicPublishedVersionId(state: {
+  publicationStatus: PublicationStatus;
+  publishedVersionId: string | null;
+  deletedAt?: Date | string | null;
+}): string | null {
+  if (state.deletedAt != null) {
+    return null;
+  }
+
+  if (state.publicationStatus !== PUBLICATION_STATUS.PUBLISHED) {
+    return null;
+  }
+
+  return state.publishedVersionId;
+}
