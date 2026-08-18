@@ -11,6 +11,7 @@ const contentRoots = [
   path.join(apiRoot, "content"),
   path.join(apiRoot, "lookups"),
   path.join(apiRoot, "review-queue"),
+  path.join(apiRoot, "homepage"),
 ];
 
 function walkRouteFiles(dir: string): string[] {
@@ -237,6 +238,15 @@ describe("editor content route contracts", () => {
     assert.equal(reviewPage.includes("requireCapability(CAPABILITY.CONTENT_REVIEW)"), true);
     assert.equal(reviewPage.includes("listReviewQueue"), true);
     assert.equal(reviewPage.includes("queryScopeFromSession"), true);
+
+    const homepagePage = readFileSync(
+      path.join(workspaceRoot, "homepage", "page.tsx"),
+      "utf8",
+    );
+    assert.equal(
+      homepagePage.includes("requireCapability(CAPABILITY.HOMEPAGE_MANAGE)"),
+      true,
+    );
 
     assert.equal(listPage.includes("authorId: filters.authorId"), true);
     assert.equal(listPage.includes("lookupEditorCategories"), true);

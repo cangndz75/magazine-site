@@ -1,0 +1,591 @@
+import { and, eq, inArray } from "drizzle-orm";
+import {
+  CONTENT_AUDIT_ACTOR_KIND,
+  HOMEPAGE_AUDIT_EVENT_TYPE,
+  HOMEPAGE_BUILDER_ERROR,
+  HOMEPAGE_CONFIG_ID,
+  HOMEPAGE_SLOT_KEYS,
+  HomepageBuilderError,
+  type HomepageAuditChangeSet,
+  type HomepageBuilderDecision,
+  type HomepageSlotAssignment,
+  type HomepageSlotKey,
+  assignmentMapFromSlots,
+  assertHomepageExpectedUpdatedAt,
+  assertHomepageSlotAssignmentsUnique,
+  assertHomepageSlotKey,
+  authorizeHomepageBuilderWrite,
+  canonicalizeHomepageSlotContentItemId,
+  emptyHomepageSlotMap,
+  publicHomepagePlacementPointer,
+  slotsFromAssignmentMap,
+  type EditorStaffScope,
+  nextMonotonicUpdatedAt,
+} from "@magazine/domain";
+import { getDb } from "../client";
+import { contentItems } from "../schema/content";
+import {
+  homepageAuditEvents,
+  homepageSlots,
+  homepageVersions,
+  homepages,
+} from "../schema/homepage-builder";
+import type { PublishingTx } from "../publishing/db-types";
+
+export type EditorHomepageBuilderSlot = {
+  slotKey: HomepageSlotKey;
+  contentItemId: string | null;
+};
+
+export type EditorHomepageBuilderVersion = {
+  versionId: string;
+  publishedAt: Date | null;
+  slots: EditorHomepageBuilderSlot[];
+};
+
+export type EditorHomepageBuilderState = {
+  updatedAt: Date;
+  published: EditorHomepageBuilderVersion | null;
+  draft: EditorHomepageBuilderVersion;
+};
+
+export type SetHomepageSlotInput = {
+  scope: EditorStaffScope;
+  actorId: string;
+  expectedUpdatedAt: Date | string;
+  slotKey: HomepageSlotKey;
+  contentItemId: string | null;
+};
+
+export type ClearHomepageSlotInput = {
+  scope: EditorStaffScope;
+  actorId: string;
+  expectedUpdatedAt: Date | string;
+  slotKey: HomepageSlotKey;
+};
+
+export type PublishHomepageInput = {
+  scope: EditorStaffScope;
+  actorId: string;
+  expectedUpdatedAt: Date | string;
+};
+
+function unwrapDecision<T>(decision: HomepageBuilderDecision<T>): T {
+  if (!decision.ok) {
+    throw new HomepageBuilderError(decision.code);
+  }
+  return decision.value;
+}
+
+function authorize(scope: EditorStaffScope): void {
+  unwrapDecision(authorizeHomepageBuilderWrite(scope));
+}
+
+async function lockHomepage(tx: PublishingTx) {
+  const [row] = await tx
+    .select()
+    .from(homepages)
+    .where(eq(homepages.id, HOMEPAGE_CONFIG_ID))
+    .for("update");
+  if (!row) {
+    throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.NO_DRAFT);
+  }
+  return row;
+}
+
+async function loadSlotsForVersion(
+  tx: PublishingTx,
+  versionId: string,
+): Promise<HomepageSlotAssignment[]> {
+  const rows = await tx
+    .select({
+      slotKey: homepageSlots.slotKey,
+      contentItemId: homepageSlots.contentItemId,
+    })
+    .from(homepageSlots)
+    .where(eq(homepageSlots.homepageVersionId, versionId));
+
+  const map = emptyHomepageSlotMap();
+  for (const row of rows) {
+    map[row.slotKey] = row.contentItemId;
+  }
+  return slotsFromAssignmentMap(map);
+}
+
+async function assertDraftContentItemExists(
+  tx: PublishingTx,
+  contentItemId: string | null,
+): Promise<void> {
+  if (contentItemId === null) {
+    return;
+  }
+  const [item] = await tx
+    .select({ id: contentItems.id, deletedAt: contentItems.deletedAt })
+    .from(contentItems)
+    .where(eq(contentItems.id, contentItemId))
+    .limit(1);
+  if (!item || item.deletedAt !== null) {
+    throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM);
+  }
+}
+
+async function assertPublishSafeAssignments(
+  tx: PublishingTx,
+  assignments: readonly HomepageSlotAssignment[],
+): Promise<void> {
+  const ids = assignments
+    .map((slot) => slot.contentItemId)
+    .filter((id): id is string => id !== null);
+  if (ids.length === 0) {
+    return;
+  }
+
+  const rows = await tx
+    .select({
+      id: contentItems.id,
+      publicationStatus: contentItems.publicationStatus,
+      publishedVersionId: contentItems.publishedVersionId,
+      deletedAt: contentItems.deletedAt,
+    })
+    .from(contentItems)
+    .where(inArray(contentItems.id, ids));
+
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  for (const id of ids) {
+    const row = byId.get(id);
+    if (!row) {
+      throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED);
+    }
+    const pointer = publicHomepagePlacementPointer({
+      contentItemId: row.id,
+      publicationStatus: row.publicationStatus,
+      publishedVersionId: row.publishedVersionId,
+      deletedAt: row.deletedAt,
+    });
+    if (!pointer) {
+      throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED);
+    }
+  }
+}
+
+async function cloneSlots(
+  tx: PublishingTx,
+  sourceVersionId: string,
+  targetVersionId: string,
+): Promise<void> {
+  const rows = await tx
+    .select()
+    .from(homepageSlots)
+    .where(eq(homepageSlots.homepageVersionId, sourceVersionId));
+  if (rows.length === 0) {
+    return;
+  }
+  await tx.insert(homepageSlots).values(
+    rows.map((row) => ({
+      homepageVersionId: targetVersionId,
+      slotKey: row.slotKey,
+      contentItemId: row.contentItemId,
+    })),
+  );
+}
+
+async function createHomepageVersion(
+  tx: PublishingTx,
+  createdByStaffUserId: string,
+): Promise<string> {
+  const [version] = await tx
+    .insert(homepageVersions)
+    .values({
+      homepageId: HOMEPAGE_CONFIG_ID,
+      createdByStaffUserId,
+    })
+    .returning({ id: homepageVersions.id });
+  return version.id;
+}
+
+async function ensureHomepageConfig(tx: PublishingTx): Promise<typeof homepages.$inferSelect> {
+  const [existing] = await tx
+    .select()
+    .from(homepages)
+    .where(eq(homepages.id, HOMEPAGE_CONFIG_ID))
+    .limit(1);
+  if (existing) {
+    return existing;
+  }
+  const created = await tx
+    .insert(homepages)
+    .values({ id: HOMEPAGE_CONFIG_ID })
+    .returning();
+  const row = created[0];
+  if (!row) {
+    throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.NO_DRAFT);
+  }
+  return row;
+}
+
+async function ensureDraftVersion(
+  tx: PublishingTx,
+  config: typeof homepages.$inferSelect,
+  actorId: string,
+): Promise<string> {
+  if (config.draftVersionId) {
+    return config.draftVersionId;
+  }
+
+  const draftVersionId = await createHomepageVersion(tx, actorId);
+  if (config.publishedVersionId) {
+    await cloneSlots(tx, config.publishedVersionId, draftVersionId);
+  }
+
+  await tx
+    .update(homepages)
+    .set({
+      draftVersionId,
+      updatedAt: nextMonotonicUpdatedAt(config.updatedAt),
+    })
+    .where(eq(homepages.id, HOMEPAGE_CONFIG_ID));
+
+  return draftVersionId;
+}
+
+async function appendHomepageAudit(
+  tx: PublishingTx,
+  input: {
+    homepageVersionId: string | null;
+    eventType: typeof HOMEPAGE_AUDIT_EVENT_TYPE.HOMEPAGE_DRAFT_UPDATED | typeof HOMEPAGE_AUDIT_EVENT_TYPE.HOMEPAGE_PUBLISHED;
+    actorStaffUserId: string;
+    changeSet: HomepageAuditChangeSet | null;
+  },
+): Promise<void> {
+  await tx.insert(homepageAuditEvents).values({
+    homepageVersionId: input.homepageVersionId,
+    eventType: input.eventType,
+    actorKind: CONTENT_AUDIT_ACTOR_KIND.STAFF,
+    actorStaffUserId: input.actorStaffUserId,
+    changeSet: input.changeSet,
+  });
+}
+
+function toEditorVersion(
+  versionId: string,
+  publishedAt: Date | null,
+  slots: HomepageSlotAssignment[],
+): EditorHomepageBuilderVersion {
+  return {
+    versionId,
+    publishedAt,
+    slots: slots.map((slot) => ({
+      slotKey: slot.slotKey,
+      contentItemId: slot.contentItemId,
+    })),
+  };
+}
+
+async function buildEditorState(
+  tx: PublishingTx,
+  locked: typeof homepages.$inferSelect,
+): Promise<EditorHomepageBuilderState> {
+  if (!locked.draftVersionId) {
+    throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.NO_DRAFT);
+  }
+  const draftSlots = await loadSlotsForVersion(tx, locked.draftVersionId);
+  let published: EditorHomepageBuilderVersion | null = null;
+  if (locked.publishedVersionId) {
+    const [publishedVersion] = await tx
+      .select({
+        id: homepageVersions.id,
+        publishedAt: homepageVersions.publishedAt,
+      })
+      .from(homepageVersions)
+      .where(eq(homepageVersions.id, locked.publishedVersionId))
+      .limit(1);
+    if (publishedVersion) {
+      const publishedSlots = await loadSlotsForVersion(tx, publishedVersion.id);
+      published = toEditorVersion(
+        publishedVersion.id,
+        publishedVersion.publishedAt,
+        publishedSlots,
+      );
+    }
+  }
+  return {
+    updatedAt: locked.updatedAt,
+    published,
+    draft: toEditorVersion(locked.draftVersionId, null, draftSlots),
+  };
+}
+
+export async function getHomepageBuilder(
+  scope: EditorStaffScope,
+  actorId: string,
+): Promise<EditorHomepageBuilderState> {
+  authorize(scope);
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const config = await ensureHomepageConfig(tx);
+    await ensureDraftVersion(tx, config, actorId);
+    const locked = await lockHomepage(tx);
+    return buildEditorState(tx, locked);
+  });
+}
+
+export async function setHomepageSlot(
+  input: SetHomepageSlotInput,
+): Promise<EditorHomepageBuilderState> {
+  authorize(input.scope);
+  unwrapDecision(assertHomepageSlotKey(input.slotKey));
+  const contentItemId = unwrapDecision(
+    canonicalizeHomepageSlotContentItemId(input.contentItemId),
+  );
+
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const config = await ensureHomepageConfig(tx);
+    const draftVersionId = await ensureDraftVersion(tx, config, input.actorId);
+    const locked = await lockHomepage(tx);
+    unwrapDecision(
+      assertHomepageExpectedUpdatedAt({
+        currentUpdatedAt: locked.updatedAt,
+        expectedUpdatedAt: input.expectedUpdatedAt,
+      }),
+    );
+
+    const currentRows = await tx
+      .select({
+        slotKey: homepageSlots.slotKey,
+        contentItemId: homepageSlots.contentItemId,
+      })
+      .from(homepageSlots)
+      .where(eq(homepageSlots.homepageVersionId, draftVersionId));
+    const currentSlots = slotsFromAssignmentMap(
+      assignmentMapFromSlots(
+        currentRows.map((row) => ({
+          slotKey: row.slotKey,
+          contentItemId: row.contentItemId,
+        })),
+      ),
+    );
+    const nextMap = assignmentMapFromSlots(currentSlots);
+    nextMap[input.slotKey] = contentItemId;
+    const nextSlots = slotsFromAssignmentMap(nextMap);
+    unwrapDecision(assertHomepageSlotAssignmentsUnique(nextSlots));
+    await assertDraftContentItemExists(tx, contentItemId);
+
+    const previousContentItemId =
+      currentRows.find((row) => row.slotKey === input.slotKey)?.contentItemId ??
+      null;
+    const existingRow = currentRows.some((row) => row.slotKey === input.slotKey);
+
+    if (contentItemId === null) {
+      if (existingRow) {
+        await tx
+          .delete(homepageSlots)
+          .where(
+            and(
+              eq(homepageSlots.homepageVersionId, draftVersionId),
+              eq(homepageSlots.slotKey, input.slotKey),
+            ),
+          );
+      }
+    } else if (existingRow) {
+      await tx
+        .update(homepageSlots)
+        .set({ contentItemId })
+        .where(
+          and(
+            eq(homepageSlots.homepageVersionId, draftVersionId),
+            eq(homepageSlots.slotKey, input.slotKey),
+          ),
+        );
+    } else {
+      await tx.insert(homepageSlots).values({
+        homepageVersionId: draftVersionId,
+        slotKey: input.slotKey,
+        contentItemId,
+      });
+    }
+
+    const nextUpdatedAt = nextMonotonicUpdatedAt(locked.updatedAt);
+    await tx
+      .update(homepageVersions)
+      .set({ updatedAt: nextUpdatedAt })
+      .where(eq(homepageVersions.id, draftVersionId));
+    await tx
+      .update(homepages)
+      .set({ updatedAt: nextUpdatedAt })
+      .where(eq(homepages.id, HOMEPAGE_CONFIG_ID));
+
+    await appendHomepageAudit(tx, {
+      homepageVersionId: draftVersionId,
+      eventType: HOMEPAGE_AUDIT_EVENT_TYPE.HOMEPAGE_DRAFT_UPDATED,
+      actorStaffUserId: input.actorId,
+      changeSet: {
+        slots: [
+          {
+            slotKey: input.slotKey,
+            previousContentItemId,
+            nextContentItemId: contentItemId,
+          },
+        ],
+      },
+    });
+
+    const [refreshed] = await tx
+      .select()
+      .from(homepages)
+      .where(eq(homepages.id, HOMEPAGE_CONFIG_ID))
+      .limit(1);
+    if (!refreshed) {
+      throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.NO_DRAFT);
+    }
+    return buildEditorState(tx, refreshed);
+  });
+}
+
+export async function clearHomepageSlot(
+  input: ClearHomepageSlotInput,
+): Promise<EditorHomepageBuilderState> {
+  return setHomepageSlot({
+    scope: input.scope,
+    actorId: input.actorId,
+    expectedUpdatedAt: input.expectedUpdatedAt,
+    slotKey: input.slotKey,
+    contentItemId: null,
+  });
+}
+
+export async function publishHomepage(
+  input: PublishHomepageInput,
+): Promise<EditorHomepageBuilderState> {
+  authorize(input.scope);
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const config = await ensureHomepageConfig(tx);
+    const draftVersionId = await ensureDraftVersion(tx, config, input.actorId);
+    const locked = await lockHomepage(tx);
+    unwrapDecision(
+      assertHomepageExpectedUpdatedAt({
+        currentUpdatedAt: locked.updatedAt,
+        expectedUpdatedAt: input.expectedUpdatedAt,
+      }),
+    );
+
+    const draftSlots = await loadSlotsForVersion(tx, draftVersionId);
+    unwrapDecision(assertHomepageSlotAssignmentsUnique(draftSlots));
+    await assertPublishSafeAssignments(tx, draftSlots);
+
+    const now = new Date();
+    await tx
+      .update(homepageVersions)
+      .set({ publishedAt: now, updatedAt: now })
+      .where(eq(homepageVersions.id, draftVersionId));
+
+    const nextDraftVersionId = await createHomepageVersion(tx, input.actorId);
+    await cloneSlots(tx, draftVersionId, nextDraftVersionId);
+
+    const nextUpdatedAt = nextMonotonicUpdatedAt(locked.updatedAt, now);
+    await tx
+      .update(homepages)
+      .set({
+        publishedVersionId: draftVersionId,
+        draftVersionId: nextDraftVersionId,
+        updatedAt: nextUpdatedAt,
+      })
+      .where(eq(homepages.id, HOMEPAGE_CONFIG_ID));
+
+    await appendHomepageAudit(tx, {
+      homepageVersionId: draftVersionId,
+      eventType: HOMEPAGE_AUDIT_EVENT_TYPE.HOMEPAGE_PUBLISHED,
+      actorStaffUserId: input.actorId,
+      changeSet: {
+        publishedVersionId: draftVersionId,
+        slots: draftSlots.map((slot) => ({
+          slotKey: slot.slotKey,
+          previousContentItemId: null,
+          nextContentItemId: slot.contentItemId,
+        })),
+      },
+    });
+
+    const [refreshed] = await tx
+      .select()
+      .from(homepages)
+      .where(eq(homepages.id, HOMEPAGE_CONFIG_ID))
+      .limit(1);
+    if (!refreshed) {
+      throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.NO_DRAFT);
+    }
+    return buildEditorState(tx, refreshed);
+  });
+}
+
+export async function loadPublishedHomepageSlotMap(): Promise<Record<
+  HomepageSlotKey,
+  string | null
+> | null> {
+  const db = getDb();
+  const [config] = await db
+    .select({ publishedVersionId: homepages.publishedVersionId })
+    .from(homepages)
+    .where(eq(homepages.id, HOMEPAGE_CONFIG_ID))
+    .limit(1);
+  if (!config?.publishedVersionId) {
+    return null;
+  }
+  const rows = await db
+    .select({
+      slotKey: homepageSlots.slotKey,
+      contentItemId: homepageSlots.contentItemId,
+    })
+    .from(homepageSlots)
+    .where(eq(homepageSlots.homepageVersionId, config.publishedVersionId));
+  const map = emptyHomepageSlotMap();
+  for (const row of rows) {
+    map[row.slotKey] = row.contentItemId;
+  }
+  return map;
+}
+
+export async function loadPublicSafeEditorialContentItemIds(
+  editorialMap: Readonly<Record<HomepageSlotKey, string | null>>,
+): Promise<Record<HomepageSlotKey, string | null>> {
+  const ids = HOMEPAGE_SLOT_KEYS
+    .map((key) => editorialMap[key])
+    .filter((id): id is string => id !== null);
+  if (ids.length === 0) {
+    return editorialMap;
+  }
+  const db = getDb();
+  const rows = await db
+    .select({
+      id: contentItems.id,
+      publicationStatus: contentItems.publicationStatus,
+      publishedVersionId: contentItems.publishedVersionId,
+      deletedAt: contentItems.deletedAt,
+    })
+    .from(contentItems)
+    .where(inArray(contentItems.id, ids));
+
+  const publicIds = new Set<string>();
+  for (const row of rows) {
+    if (
+      publicHomepagePlacementPointer({
+        contentItemId: row.id,
+        publicationStatus: row.publicationStatus,
+        publishedVersionId: row.publishedVersionId,
+        deletedAt: row.deletedAt,
+      })
+    ) {
+      publicIds.add(row.id);
+    }
+  }
+
+  const resolved = { ...editorialMap };
+  for (const key of HOMEPAGE_SLOT_KEYS) {
+    const id = editorialMap[key];
+    if (id !== null && !publicIds.has(id)) {
+      resolved[key] = null;
+    }
+  }
+  return resolved;
+}

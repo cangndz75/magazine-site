@@ -16,6 +16,8 @@ const JOURNALED_SQL_FILES = [
 const REVIEW_EVENTS_SQL = "0003_content-review-events.sql";
 const AUDIT_EVENTS_SQL = "0004_content-audit-events.sql";
 const PUBLIC_CACHE_OUTBOX_SQL = "0005_public-cache-outbox.sql";
+const HOMEPAGE_CONVERSATION_SQL = "0006_homepage-conversation.sql";
+const HOMEPAGE_BUILDER_SQL = "0007_homepage-builder.sql";
 
 async function publicTableExists(
   client: Client,
@@ -87,5 +89,18 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   );
   if (!hasPublicCacheOutbox) {
     await applySqlFile(client, PUBLIC_CACHE_OUTBOX_SQL);
+  }
+
+  const hasHomepageConversation = await publicTableExists(
+    client,
+    "homepage_conversation_items",
+  );
+  if (!hasHomepageConversation) {
+    await applySqlFile(client, HOMEPAGE_CONVERSATION_SQL);
+  }
+
+  const hasHomepages = await publicTableExists(client, "homepages");
+  if (!hasHomepages) {
+    await applySqlFile(client, HOMEPAGE_BUILDER_SQL);
   }
 }

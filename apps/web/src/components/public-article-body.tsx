@@ -118,30 +118,18 @@ export function PublicArticleBody({ body }: { body: unknown }) {
   }
 
   return (
-    <div>
+    <div className="public-article-body">
       {blocks.map((block, index) => {
         const children = block.inlines.map((inline, inlineIndex) => (
           <InlineText key={inlineIndex} inline={inline} />
         ));
         if (block.type === "heading" && block.level === 3) {
-          return (
-            <h3 key={index} className="mt-6 text-lg font-semibold text-zinc-900">
-              {children}
-            </h3>
-          );
+          return <h3 key={index}>{children}</h3>;
         }
         if (block.type === "heading") {
-          return (
-            <h2 key={index} className="mt-8 text-xl font-semibold text-zinc-900">
-              {children}
-            </h2>
-          );
+          return <h2 key={index}>{children}</h2>;
         }
-        return (
-          <p key={index} className="mt-4 text-base leading-7 text-zinc-800">
-            {children}
-          </p>
-        );
+        return <p key={index}>{children}</p>;
       })}
     </div>
   );

@@ -11,6 +11,7 @@ export default async function WorkspaceLayout({
 }) {
   const session = await requireStaffSession();
   const canReview = hasCapability(session.roles, CAPABILITY.CONTENT_REVIEW);
+  const canManageHomepage = hasCapability(session.roles, CAPABILITY.HOMEPAGE_MANAGE);
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50">
@@ -32,6 +33,14 @@ export default async function WorkspaceLayout({
                 className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
               >
                 İnceleme
+              </Link>
+            )}
+            {canManageHomepage && (
+              <Link
+                href="/homepage"
+                className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+              >
+                Homepage
               </Link>
             )}
           </nav>

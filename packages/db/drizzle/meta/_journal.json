@@ -36,6 +36,20 @@
       "when": 1787013303362,
       "tag": "0005_public-cache-outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787047012760,
+      "tag": "0006_homepage-conversation",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787053068664,
+      "tag": "0007_homepage-builder",
+      "breakpoints": true
     }
   ]
 }

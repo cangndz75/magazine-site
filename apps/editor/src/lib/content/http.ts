@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import {
   EDITOR_JSON_MAX_BYTES,
+  HOMEPAGE_BUILDER_ERROR,
+  HomepageBuilderError,
   PUBLISHING_ERROR,
   PublishingError,
+  type HomepageBuilderErrorCode,
   type PublishingErrorCode,
 } from "@magazine/domain";
 
@@ -68,6 +71,16 @@ const PUBLISHING_STATUS: Record<PublishingErrorCode, number> = {
   [PUBLISHING_ERROR.CONTENT_BODY_CORRUPT]: 422,
 };
 
+const HOMEPAGE_BUILDER_STATUS: Record<HomepageBuilderErrorCode, number> = {
+  [HOMEPAGE_BUILDER_ERROR.FORBIDDEN]: 403,
+  [HOMEPAGE_BUILDER_ERROR.INVALID_SLOT]: 400,
+  [HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM]: 400,
+  [HOMEPAGE_BUILDER_ERROR.DUPLICATE_CONTENT_ITEM]: 409,
+  [HOMEPAGE_BUILDER_ERROR.WRITE_CONFLICT]: 409,
+  [HOMEPAGE_BUILDER_ERROR.NO_DRAFT]: 409,
+  [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]: 422,
+};
+
 const SAFE_MESSAGES: Record<string, string> = {
   [EDITOR_API_ERROR.UNAUTHENTICATED]: "Authentication required.",
   [EDITOR_API_ERROR.FORBIDDEN]: "You are not allowed to perform this action.",
@@ -95,6 +108,14 @@ const SAFE_MESSAGES: Record<string, string> = {
     "Provide a plain-text review note between 3 and 4000 characters.",
   [PUBLISHING_ERROR.CONTENT_BODY_CORRUPT]:
     "Stored article body could not be compared.",
+  [HOMEPAGE_BUILDER_ERROR.WRITE_CONFLICT]:
+    "The homepage draft was updated elsewhere. Reload and try again.",
+  [HOMEPAGE_BUILDER_ERROR.DUPLICATE_CONTENT_ITEM]:
+    "The same story cannot occupy multiple homepage slots.",
+  [HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM]:
+    "The selected content item was not found.",
+  [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]:
+    "The homepage draft cannot be published until all assignments are publicly eligible.",
 };
 
 export function editorJson(body: unknown, status = 200): NextResponse {
@@ -129,6 +150,14 @@ export function mapEditorError(error: unknown): NextResponse {
   if (error instanceof PublishingError) {
     return editorErrorResponse(
       PUBLISHING_STATUS[error.code] ?? 400,
+      error.code,
+      SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof HomepageBuilderError) {
+    return editorErrorResponse(
+      HOMEPAGE_BUILDER_STATUS[error.code] ?? 400,
       error.code,
       SAFE_MESSAGES[error.code],
     );

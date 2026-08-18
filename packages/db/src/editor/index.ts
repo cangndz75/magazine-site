@@ -36,6 +36,28 @@ export {
   type EditorTagLookup,
 } from "./lookups";
 export { formatEditorMediaLabel } from "./media-label";
+export {
+  createHomepageConversationItem,
+  deleteHomepageConversationItem,
+  listHomepageConversationItems,
+  reorderHomepageConversationItems,
+  updateHomepageConversationItem,
+  type CreateHomepageConversationItemInput,
+  type EditorHomepageConversationItem,
+  type UpdateHomepageConversationItemInput,
+} from "./homepage-conversation";
+export {
+  clearHomepageSlot,
+  getHomepageBuilder,
+  loadPublishedHomepageSlotMap,
+  publishHomepage,
+  setHomepageSlot,
+  type ClearHomepageSlotInput,
+  type EditorHomepageBuilderState,
+  type EditorHomepageBuilderVersion,
+  type PublishHomepageInput,
+  type SetHomepageSlotInput,
+} from "./homepage-builder";
 export type {
   EditorContentAccess,
   EditorContentDetail,

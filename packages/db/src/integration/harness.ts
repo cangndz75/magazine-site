@@ -545,6 +545,15 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
   const pool = getRacerPool();
   const itemIds = fixture.createdItemIds;
 
+  await pool.query("DELETE FROM homepage_conversation_items");
+  await pool.query("DELETE FROM homepage_audit_events");
+  await pool.query("DELETE FROM homepage_slots");
+  await pool.query(
+    "UPDATE homepages SET published_version_id = NULL, draft_version_id = NULL",
+  );
+  await pool.query("DELETE FROM homepage_versions");
+  await pool.query("DELETE FROM homepages");
+
   if (itemIds.length > 0) {
     await pool.query(
       `UPDATE content_items
