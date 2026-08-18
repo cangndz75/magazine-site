@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "./client";
 import {
   publicCacheOutbox,
@@ -32,6 +32,7 @@ export type PublicCacheOutboxEvent = {
   payload: PublicArticleCacheInvalidatePayload;
   status: PublicCacheOutboxStatus;
   attemptCount: number;
+  lockedAt: Date;
   createdAt: Date;
 };
 
@@ -117,19 +118,24 @@ export async function claimPublicCacheOutboxEvents(
         outbox.payload,
         outbox.status,
         outbox.attempt_count AS "attemptCount",
+        outbox.locked_at AS "lockedAt",
         outbox.created_at AS "createdAt"
     `);
 
-    return result.rows as PublicCacheOutboxEvent[];
+    return (result.rows as PublicCacheOutboxEvent[]).map((row) => ({
+      ...row,
+      lockedAt: new Date(row.lockedAt),
+      createdAt: new Date(row.createdAt),
+    }));
   });
 }
 
 export async function markPublicCacheOutboxEventCompleted(
-  eventId: string,
+  event: Pick<PublicCacheOutboxEvent, "id" | "attemptCount" | "lockedAt">,
   now: Date = new Date(),
-): Promise<void> {
+): Promise<boolean> {
   const db = getDb();
-  await db
+  const result = await db
     .update(publicCacheOutbox)
     .set({
       status: PUBLIC_CACHE_OUTBOX_STATUS.COMPLETED,
@@ -138,14 +144,23 @@ export async function markPublicCacheOutboxEventCompleted(
       lastError: null,
       updatedAt: now,
     })
-    .where(eq(publicCacheOutbox.id, eventId));
+    .where(
+      and(
+        eq(publicCacheOutbox.id, event.id),
+        eq(publicCacheOutbox.status, PUBLIC_CACHE_OUTBOX_STATUS.PROCESSING),
+        eq(publicCacheOutbox.attemptCount, event.attemptCount),
+        eq(publicCacheOutbox.lockedAt, event.lockedAt),
+      ),
+    );
+
+  return result.rowCount === 1;
 }
 
 export async function markPublicCacheOutboxEventFailed(
-  event: Pick<PublicCacheOutboxEvent, "id" | "attemptCount">,
+  event: Pick<PublicCacheOutboxEvent, "id" | "attemptCount" | "lockedAt">,
   error: unknown,
   now: Date = new Date(),
-): Promise<PublicCacheOutboxStatus> {
+): Promise<PublicCacheOutboxStatus | null> {
   const db = getDb();
   const lastError = serializeOutboxError(error);
   const dead = event.attemptCount >= PUBLIC_CACHE_OUTBOX_MAX_ATTEMPTS;
@@ -156,7 +171,7 @@ export async function markPublicCacheOutboxEventFailed(
     ? now
     : new Date(now.getTime() + retryDelayMs(event.attemptCount));
 
-  await db
+  const result = await db
     .update(publicCacheOutbox)
     .set({
       status,
@@ -165,7 +180,18 @@ export async function markPublicCacheOutboxEventFailed(
       nextAttemptAt,
       updatedAt: now,
     })
-    .where(eq(publicCacheOutbox.id, event.id));
+    .where(
+      and(
+        eq(publicCacheOutbox.id, event.id),
+        eq(publicCacheOutbox.status, PUBLIC_CACHE_OUTBOX_STATUS.PROCESSING),
+        eq(publicCacheOutbox.attemptCount, event.attemptCount),
+        eq(publicCacheOutbox.lockedAt, event.lockedAt),
+      ),
+    );
+
+  if (result.rowCount !== 1) {
+    return null;
+  }
 
   return status;
 }

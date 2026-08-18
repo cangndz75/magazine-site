@@ -114,11 +114,12 @@ describe("public cache outbox PostgreSQL", () => {
       };
       status: string;
       attempt_count: number;
+      locked_at: Date | null;
       next_attempt_at: Date;
       completed_at: Date | null;
       last_error: string | null;
     }>(
-      `SELECT id, event_type, payload, status, attempt_count, next_attempt_at, completed_at, last_error
+      `SELECT id, event_type, payload, status, attempt_count, locked_at, next_attempt_at, completed_at, last_error
        FROM public_cache_outbox
        WHERE (payload->>'contentItemId')::uuid = $1
        ORDER BY created_at, id`,
@@ -234,11 +235,12 @@ describe("public cache outbox PostgreSQL", () => {
     assert.equal(firstClaim[0]?.payload.contentItemId, created.contentItemId);
 
     const now = new Date();
-    await markPublicCacheOutboxEventFailed(
+    const retryStatus = await markPublicCacheOutboxEventFailed(
       firstClaim[0]!,
       new Error("cache unavailable"),
       now,
     );
+    assert.equal(retryStatus, PUBLIC_CACHE_OUTBOX_STATUS.PENDING);
     assert.equal((await claimPublicCacheOutboxEvents({ limit: 1, now })).length, 0);
 
     const retry = await claimPublicCacheOutboxEvents({
@@ -246,7 +248,7 @@ describe("public cache outbox PostgreSQL", () => {
       now: new Date(now.getTime() + 61_000),
     });
     assert.equal(retry.length, 1);
-    await markPublicCacheOutboxEventCompleted(retry[0]!.id);
+    assert.equal(await markPublicCacheOutboxEventCompleted(retry[0]!), true);
 
     let rows = await outboxRows(created.contentItemId);
     assert.equal(rows[0]?.status, PUBLIC_CACHE_OUTBOX_STATUS.COMPLETED);
@@ -254,10 +256,17 @@ describe("public cache outbox PostgreSQL", () => {
 
     const poisonCreated = await publishApproved("Poison event");
     const poison = (await claimPublicCacheOutboxEvents({ limit: 1 }))[0]!;
-    await markPublicCacheOutboxEventFailed(
+    await getRacerPool().query(
+      `UPDATE public_cache_outbox
+       SET attempt_count = $1
+       WHERE id = $2`,
+      [PUBLIC_CACHE_OUTBOX_MAX_ATTEMPTS, poison.id],
+    );
+    const deadStatus = await markPublicCacheOutboxEventFailed(
       { ...poison, attemptCount: PUBLIC_CACHE_OUTBOX_MAX_ATTEMPTS },
       new Error("permanent"),
     );
+    assert.equal(deadStatus, PUBLIC_CACHE_OUTBOX_STATUS.DEAD);
     rows = await outboxRows(poisonCreated.contentItemId);
     assert.equal(rows.some((row) => row.status === PUBLIC_CACHE_OUTBOX_STATUS.DEAD), true);
     assert.equal(rows.some((row) => row.last_error === "permanent"), true);
@@ -290,6 +299,43 @@ describe("public cache outbox PostgreSQL", () => {
       2,
     );
 
+    assert.equal(
+      await markPublicCacheOutboxEventCompleted(claimed),
+      false,
+    );
+    assert.equal(
+      (await outboxRows(created.contentItemId))[0]?.status,
+      PUBLIC_CACHE_OUTBOX_STATUS.PROCESSING,
+    );
+    assert.equal(
+      await markPublicCacheOutboxEventFailed(claimed, new Error("old attempt")),
+      null,
+    );
+    let rows = await outboxRows(created.contentItemId);
+    assert.equal(rows[0]?.status, PUBLIC_CACHE_OUTBOX_STATUS.PROCESSING);
+    assert.equal(rows[0]?.attempt_count, 2);
+    assert.equal(rows[0]?.last_error, null);
+
+    assert.equal(await markPublicCacheOutboxEventCompleted(reclaimed[0]!), true);
+    rows = await outboxRows(created.contentItemId);
+    assert.equal(rows[0]?.status, PUBLIC_CACHE_OUTBOX_STATUS.COMPLETED);
+    assert.equal(rows[0]?.completed_at instanceof Date, true);
+
+    assert.equal(
+      await markPublicCacheOutboxEventFailed(
+        claimed,
+        new Error("old attempt after completion"),
+      ),
+      null,
+    );
+    rows = await outboxRows(created.contentItemId);
+    assert.equal(rows[0]?.status, PUBLIC_CACHE_OUTBOX_STATUS.COMPLETED);
+    assert.equal(rows[0]?.last_error, null);
+
+    const finalAttemptCreated = await publishApproved("Final stale processing");
+    const [finalAttempt] = await claimPublicCacheOutboxEvents({ limit: 1 });
+    assert.equal(finalAttempt?.payload.contentItemId, finalAttemptCreated.contentItemId);
+
     await getRacerPool().query(
       `UPDATE public_cache_outbox
        SET attempt_count = $1, locked_at = $2
@@ -297,7 +343,7 @@ describe("public cache outbox PostgreSQL", () => {
       [
         PUBLIC_CACHE_OUTBOX_MAX_ATTEMPTS,
         new Date(Date.now() - PUBLIC_CACHE_OUTBOX_LOCK_TIMEOUT_MS - 1000),
-        claimed.id,
+        finalAttempt!.id,
       ],
     );
     assert.equal(
@@ -305,7 +351,7 @@ describe("public cache outbox PostgreSQL", () => {
       0,
     );
     assert.equal(
-      (await outboxRows(created.contentItemId))[0]?.status,
+      (await outboxRows(finalAttemptCreated.contentItemId))[0]?.status,
       PUBLIC_CACHE_OUTBOX_STATUS.DEAD,
     );
   });

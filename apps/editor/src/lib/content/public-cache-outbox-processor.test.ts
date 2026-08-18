@@ -18,6 +18,7 @@ function event(overrides: Partial<PublicCacheOutboxEvent> = {}): PublicCacheOutb
     },
     status: PUBLIC_CACHE_OUTBOX_STATUS.PROCESSING,
     attemptCount: 1,
+    lockedAt: new Date("2026-08-18T10:00:00.000Z"),
     createdAt: new Date("2026-08-18T10:00:00.000Z"),
     ...overrides,
   };
@@ -34,8 +35,9 @@ describe("public cache outbox processor", () => {
         deliver: async (target) => {
           delivered.push(target);
         },
-        markCompleted: async (eventId) => {
-          completed.push(eventId);
+        markCompleted: async (claimed) => {
+          completed.push(claimed.id);
+          return true;
         },
       },
     );

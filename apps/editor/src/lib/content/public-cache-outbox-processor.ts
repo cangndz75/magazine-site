@@ -42,10 +42,14 @@ export async function processPublicCacheOutboxBatch(
   for (const event of events) {
     try {
       await deliverEvent(event, deliver);
-      await markCompleted(event.id);
-      summary.succeeded += 1;
+      if (await markCompleted(event)) {
+        summary.succeeded += 1;
+      }
     } catch (error) {
       const status = await markFailed(event, error);
+      if (status === null) {
+        continue;
+      }
       logOutboxDeliveryFailure(event, error, status);
       if (status === PUBLIC_CACHE_OUTBOX_STATUS.DEAD) {
         summary.dead += 1;
