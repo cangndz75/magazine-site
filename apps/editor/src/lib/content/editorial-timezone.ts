@@ -11,6 +11,53 @@ export const EDITORIAL_TIMEZONE_LABEL = "Türkiye saati (Europe/Istanbul)";
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^\d{2}:\d{2}$/;
 
+const TURKISH_MONTH_SHORT = [
+  "Oca",
+  "Şub",
+  "Mar",
+  "Nis",
+  "May",
+  "Haz",
+  "Tem",
+  "Ağu",
+  "Eyl",
+  "Eki",
+  "Kas",
+  "Ara",
+] as const;
+
+function editorialWallClockParts(instant: Date): {
+  day: string;
+  month: string;
+  year: string;
+  hour: string;
+  minute: string;
+} | null {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: EDITORIAL_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+
+  const monthNumber = Number(readPart(parts, "month"));
+  const month =
+    monthNumber >= 1 && monthNumber <= 12
+      ? TURKISH_MONTH_SHORT[monthNumber - 1]
+      : readPart(parts, "month");
+
+  return {
+    day: String(Number(readPart(parts, "day"))),
+    month,
+    year: readPart(parts, "year"),
+    hour: readPart(parts, "hour"),
+    minute: readPart(parts, "minute"),
+  };
+}
+
 function readPart(
   parts: Intl.DateTimeFormatPart[],
   type: Intl.DateTimeFormatPartTypes,
@@ -132,15 +179,12 @@ export function formatEditorialDateTime(iso: string | null): string {
     return "—";
   }
 
-  const formatted = new Intl.DateTimeFormat("tr-TR", {
-    timeZone: EDITORIAL_TIMEZONE,
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(instant);
+  const wall = editorialWallClockParts(instant);
+  if (!wall) {
+    return "—";
+  }
 
+  const formatted = `${wall.day} ${wall.month} ${wall.year} ${wall.hour}:${wall.minute}`;
   return `${formatted} ${EDITORIAL_TIMEZONE_LABEL}`;
 }
 

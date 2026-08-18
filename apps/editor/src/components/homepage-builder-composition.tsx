@@ -159,21 +159,16 @@ function SlotShell({
 }) {
   return (
     <div
-      className={`relative rounded-lg border bg-white transition-colors ${
+      className={`group flex flex-col rounded-lg border bg-white transition-colors ${
         selected
           ? "border-zinc-900 ring-1 ring-zinc-900"
           : "border-zinc-200 hover:border-zinc-300"
-      } ${pending ? "opacity-60" : ""} ${size === "lead" ? "min-h-[220px]" : "min-h-[120px]"}`}
+      } ${pending ? "opacity-60" : ""} ${
+        size === "lead" ? "min-h-[220px]" : "min-h-[120px]"
+      }`}
     >
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onSelect}
-        className="flex h-full w-full flex-col p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-500"
-        aria-pressed={selected}
-        aria-label={`${label} slotunu seç`}
-      >
-        <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-zinc-100 px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
             {label}
           </span>
@@ -183,23 +178,42 @@ function SlotShell({
             </span>
           )}
         </div>
-        {hasContent ? children : (
+        {hasContent && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClear();
+            }}
+            className={`shrink-0 rounded px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 hover:text-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 ${
+              selected
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+            }`}
+            aria-label={`${label} slotunu boşalt`}
+          >
+            Boşalt
+          </button>
+        )}
+      </div>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onSelect}
+        className="flex min-h-0 flex-1 flex-col p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-500"
+        aria-pressed={selected}
+        aria-label={`${label} slotunu seç`}
+      >
+        {hasContent ? (
+          children
+        ) : (
           <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
             <p className="text-sm font-medium text-zinc-700">{emptyLabel}</p>
             <p className="mt-1 text-xs text-zinc-400">İçerik havuzundan seç</p>
           </div>
         )}
       </button>
-      {hasContent && (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={onClear}
-          className="absolute right-2 top-2 rounded px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
-        >
-          Boşalt
-        </button>
-      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { PUBLICATION_STATUS, type HomepageSlotKey } from "@magazine/domain";
+import { formatEditorialDateTime } from "@/lib/content/editorial-timezone";
 import type {
   HomepageBuilderView,
   HomepageStorySummary,
@@ -103,4 +104,13 @@ export function isStoryPublishEligible(story: HomepageStorySummary): boolean {
 
 export function isStoryPublished(story: HomepageStorySummary): boolean {
   return story.publicationStatus === PUBLICATION_STATUS.PUBLISHED;
+}
+
+export function formatHomepageLivePublishedLabel(
+  publishedAt: string | null | undefined,
+): string | null {
+  if (!publishedAt) {
+    return null;
+  }
+  return formatEditorialDateTime(publishedAt);
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { HomepageSlotKey } from "@magazine/domain";
 import { StatusBadge } from "@/components/status-badge";
 import { buildArticleHref } from "@/lib/content/content-href";
+import { formatEditorialDateTime } from "@/lib/content/editorial-timezone";
 import { deriveContentStatus } from "@/lib/content/status";
 import type { HomepageBuilderView } from "@/lib/homepage/builder-types";
 import { HOMEPAGE_SLOT_LABEL } from "@/lib/homepage/slot-meta";
@@ -109,14 +110,14 @@ export function HomepageBuilderInspector({
 
             {story.publishedAt && (
               <p className="text-xs text-zinc-500">
-                Yayın: {new Date(story.publishedAt).toLocaleString("tr-TR")}
+                Yayın: {formatEditorialDateTime(story.publishedAt)}
               </p>
             )}
 
             {!story.isPublishEligible && (
               <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                 Bu içerik henüz yayında değil. Ana sayfa taslağında kalabilir
-                ancak homepage yayınlanamaz.
+                ancak ana sayfa yayınlanamaz.
               </div>
             )}
 

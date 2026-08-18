@@ -11,6 +11,7 @@ import {
   countDraftChanges,
   analyzePublishEligibility,
   findSlotForContentItem,
+  formatHomepageLivePublishedLabel,
   slotAssignmentLabel,
   type SaveState,
 } from "@/lib/homepage/builder-utils";
@@ -36,14 +37,12 @@ type Props = {
   initialBuilder: HomepageBuilderView;
   categoryOptions: ContentPoolCategoryOption[];
   siteUrl: string;
-  livePublishedLabel: string | null;
 };
 
 export function HomepageBuilderWorkspace({
   initialBuilder,
   categoryOptions,
   siteUrl,
-  livePublishedLabel,
 }: Props) {
   const [builder, setBuilder] = useState(initialBuilder);
   const [selectedSlotKey, setSelectedSlotKey] = useState<HomepageSlotKey | null>(
@@ -62,6 +61,10 @@ export function HomepageBuilderWorkspace({
 
   const eligibility = useMemo(() => analyzePublishEligibility(builder), [builder]);
   const draftChanges = useMemo(() => countDraftChanges(builder), [builder]);
+  const livePublishedLabel = useMemo(
+    () => formatHomepageLivePublishedLabel(builder.published?.publishedAt),
+    [builder.published?.publishedAt],
+  );
   const isBusy =
     saveState.kind === "saving" || publishPending || pendingSlotKey !== null;
 
@@ -351,8 +354,6 @@ export function HomepageBuilderWorkspace({
     }
   }, [builder.updatedAt]);
 
-  const livePublishedAt = livePublishedLabel;
-
   return (
     <div className="flex min-h-[calc(100vh-3rem)] flex-col">
       {saveState.kind === "conflict" && (
@@ -382,7 +383,9 @@ export function HomepageBuilderWorkspace({
                 Canlı
               </span>
               <span className="ml-2">
-                {livePublishedAt ? `Son yayın: ${livePublishedAt}` : "Henüz yayınlanmadı"}
+                {livePublishedLabel
+                  ? `Son yayın: ${livePublishedLabel}`
+                  : "Henüz yayınlanmadı"}
               </span>
             </div>
             <div className="rounded border border-zinc-200 px-2.5 py-1.5">

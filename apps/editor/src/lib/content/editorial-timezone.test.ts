@@ -37,5 +37,6 @@ describe("editorial timezone", () => {
     const labeled = formatEditorialDateTime("2026-08-18T12:30:00.000Z");
     assert.equal(labeled.includes("Türkiye saati"), true);
     assert.equal(labeled.includes("Europe/Istanbul"), true);
+    assert.equal(labeled.startsWith("18 Ağu 2026 15:30"), true);
   });
 });
