@@ -10,6 +10,7 @@ import {
   type HomepageBuilderDecision,
   type HomepageSlotAssignment,
   type HomepageSlotKey,
+  applyHomepageFeaturedSlotSwap,
   assignmentMapFromSlots,
   assertHomepageExpectedUpdatedAt,
   assertHomepageSlotAssignmentsUnique,
@@ -18,6 +19,7 @@ import {
   canonicalizeHomepageSlotContentItemId,
   emptyHomepageSlotMap,
   publicHomepagePlacementPointer,
+  resolveHomepageFeaturedNeighborMove,
   slotsFromAssignmentMap,
   type EditorStaffScope,
   nextMonotonicUpdatedAt,
@@ -68,6 +70,14 @@ export type PublishHomepageInput = {
   scope: EditorStaffScope;
   actorId: string;
   expectedUpdatedAt: Date | string;
+};
+
+export type MoveHomepageFeaturedSlotInput = {
+  scope: EditorStaffScope;
+  actorId: string;
+  expectedUpdatedAt: Date | string;
+  slotKey: string;
+  direction: string;
 };
 
 function unwrapDecision<T>(decision: HomepageBuilderDecision<T>): T {
@@ -164,6 +174,40 @@ async function assertPublishSafeAssignments(
     });
     if (!pointer) {
       throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED);
+    }
+  }
+}
+
+async function persistHomepageSlotPair(
+  tx: PublishingTx,
+  draftVersionId: string,
+  currentRows: readonly { slotKey: HomepageSlotKey }[],
+  from: HomepageSlotKey,
+  to: HomepageSlotKey,
+  nextMap: Readonly<Record<HomepageSlotKey, string | null>>,
+): Promise<void> {
+  for (const slotKey of [from, to]) {
+    const existingRow = currentRows.some((row) => row.slotKey === slotKey);
+    if (existingRow) {
+      await tx
+        .delete(homepageSlots)
+        .where(
+          and(
+            eq(homepageSlots.homepageVersionId, draftVersionId),
+            eq(homepageSlots.slotKey, slotKey),
+          ),
+        );
+    }
+  }
+
+  for (const slotKey of [from, to]) {
+    const contentItemId = nextMap[slotKey];
+    if (contentItemId !== null) {
+      await tx.insert(homepageSlots).values({
+        homepageVersionId: draftVersionId,
+        slotKey,
+        contentItemId,
+      });
     }
   }
 }
@@ -451,6 +495,108 @@ export async function clearHomepageSlot(
     expectedUpdatedAt: input.expectedUpdatedAt,
     slotKey: input.slotKey,
     contentItemId: null,
+  });
+}
+
+export async function moveHomepageFeaturedSlot(
+  input: MoveHomepageFeaturedSlotInput,
+): Promise<EditorHomepageBuilderState> {
+  authorize(input.scope);
+  const move = unwrapDecision(
+    resolveHomepageFeaturedNeighborMove({
+      slotKey: input.slotKey,
+      direction: input.direction,
+    }),
+  );
+
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const config = await ensureHomepageConfig(tx);
+    const draftVersionId = await ensureDraftVersion(tx, config, input.actorId);
+    const locked = await lockHomepage(tx);
+    unwrapDecision(
+      assertHomepageExpectedUpdatedAt({
+        currentUpdatedAt: locked.updatedAt,
+        expectedUpdatedAt: input.expectedUpdatedAt,
+      }),
+    );
+
+    const currentRows = await tx
+      .select({
+        slotKey: homepageSlots.slotKey,
+        contentItemId: homepageSlots.contentItemId,
+      })
+      .from(homepageSlots)
+      .where(eq(homepageSlots.homepageVersionId, draftVersionId));
+    const currentMap = assignmentMapFromSlots(
+      currentRows.map((row) => ({
+        slotKey: row.slotKey,
+        contentItemId: row.contentItemId,
+      })),
+    );
+    const nextMap = applyHomepageFeaturedSlotSwap(
+      currentMap,
+      move.from,
+      move.to,
+    );
+    const previousFrom = currentMap[move.from] ?? null;
+    const previousTo = currentMap[move.to] ?? null;
+    const nextFrom = nextMap[move.from] ?? null;
+    const nextTo = nextMap[move.to] ?? null;
+
+    if (previousFrom === nextFrom && previousTo === nextTo) {
+      return buildEditorState(tx, locked);
+    }
+
+    unwrapDecision(assertHomepageSlotAssignmentsUnique(slotsFromAssignmentMap(nextMap)));
+    await persistHomepageSlotPair(
+      tx,
+      draftVersionId,
+      currentRows,
+      move.from,
+      move.to,
+      nextMap,
+    );
+
+    const nextUpdatedAt = nextMonotonicUpdatedAt(locked.updatedAt);
+    await tx
+      .update(homepageVersions)
+      .set({ updatedAt: nextUpdatedAt })
+      .where(eq(homepageVersions.id, draftVersionId));
+    await tx
+      .update(homepages)
+      .set({ updatedAt: nextUpdatedAt })
+      .where(eq(homepages.id, HOMEPAGE_CONFIG_ID));
+
+    await appendHomepageAudit(tx, {
+      homepageVersionId: draftVersionId,
+      eventType: HOMEPAGE_AUDIT_EVENT_TYPE.HOMEPAGE_DRAFT_UPDATED,
+      actorStaffUserId: input.actorId,
+      changeSet: {
+        slots: [
+          {
+            slotKey: move.from,
+            previousContentItemId: previousFrom,
+            nextContentItemId: nextFrom,
+          },
+          {
+            slotKey: move.to,
+            previousContentItemId: previousTo,
+            nextContentItemId: nextTo,
+          },
+        ],
+      },
+    });
+
+    const [refreshed] = await tx
+      .select()
+      .from(homepages)
+      .where(eq(homepages.id, HOMEPAGE_CONFIG_ID))
+      .limit(1);
+    if (!refreshed) {
+      throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.NO_DRAFT);
+    }
+    return buildEditorState(tx, refreshed);
   });
 }
 

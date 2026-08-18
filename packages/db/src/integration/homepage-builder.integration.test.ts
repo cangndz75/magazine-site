@@ -4,14 +4,18 @@ import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import {
   HOMEPAGE_AUDIT_EVENT_TYPE,
   HOMEPAGE_BUILDER_ERROR,
+  HOMEPAGE_CONFIG_ID,
   HOMEPAGE_SLOT_KEY,
   HomepageBuilderError,
+  assertHomepageSlotAssignmentsUnique,
+  nextMonotonicUpdatedAt,
 } from "@magazine/domain";
 import { eq } from "drizzle-orm";
 import { getDb } from "../client";
 import {
   clearHomepageSlot,
   getHomepageBuilder,
+  moveHomepageFeaturedSlot,
   publishHomepage,
   setHomepageSlot,
 } from "../editor";
@@ -35,7 +39,9 @@ import {
   createDraftItem,
   createFixture,
   ensureEditorContentTestDatabase,
+  getRacerPool,
   selectedEditorScope,
+  waitUntilBlockedByHolder,
   type IntegrationFixture,
 } from "./harness";
 
@@ -139,6 +145,29 @@ describe("homepage builder PostgreSQL", () => {
     return ids;
   }
 
+  function slotContent(
+    state: Awaited<ReturnType<typeof getHomepageBuilder>>,
+    slotKey: string,
+  ) {
+    return (
+      state.draft.slots.find((slot) => slot.slotKey === slotKey)?.contentItemId ??
+      null
+    );
+  }
+
+  async function listDraftAuditEvents() {
+    const events = await getDb()
+      .select({
+        eventType: homepageAuditEvents.eventType,
+        changeSet: homepageAuditEvents.changeSet,
+      })
+      .from(homepageAuditEvents);
+    return events.filter(
+      (event) =>
+        event.eventType === HOMEPAGE_AUDIT_EVENT_TYPE.HOMEPAGE_DRAFT_UPDATED,
+    );
+  }
+
   it("draft edits do not affect the public homepage before publish", async () => {
     const articles = await publishMany(3);
     const before = await getPublicHomepage();
@@ -202,7 +231,7 @@ describe("homepage builder PostgreSQL", () => {
       expectedUpdatedAt: builder.updatedAt,
     });
 
-    builder = await setHomepageSlot({
+    await setHomepageSlot({
       scope: fixture.superAdmin,
       actorId: fixture.ids.staffEditor,
       expectedUpdatedAt: builder.updatedAt,
@@ -926,5 +955,409 @@ describe("homepage builder PostgreSQL", () => {
 
     const publicHomepage = await getPublicHomepage();
     assert.notEqual(publicHomepage.featured[0]?.id, draftOnly.contentItemId);
+  });
+
+  it("swaps two populated Featured slots atomically without touching ATF slots", async () => {
+    const articles = await publishMany(4);
+    let builder = await openBuilder();
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.LEAD,
+      contentItemId: articles[0]?.contentItemId,
+    });
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.SUPPORT_1,
+      contentItemId: articles[1]?.contentItemId,
+    });
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      contentItemId: articles[2]?.contentItemId,
+    });
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_2,
+      contentItemId: articles[3]?.contentItemId,
+    });
+
+    const auditsBefore = await listDraftAuditEvents();
+    const moved = await moveHomepageFeaturedSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      direction: "right",
+    });
+
+    assert.equal(slotContent(moved, HOMEPAGE_SLOT_KEY.FEATURED_1), articles[3]?.contentItemId);
+    assert.equal(slotContent(moved, HOMEPAGE_SLOT_KEY.FEATURED_2), articles[2]?.contentItemId);
+    assert.equal(slotContent(moved, HOMEPAGE_SLOT_KEY.LEAD), articles[0]?.contentItemId);
+    assert.equal(slotContent(moved, HOMEPAGE_SLOT_KEY.SUPPORT_1), articles[1]?.contentItemId);
+    assert.deepEqual(
+      assertHomepageSlotAssignmentsUnique(moved.draft.slots),
+      { ok: true, value: true },
+    );
+
+    const auditsAfter = await listDraftAuditEvents();
+    assert.equal(auditsAfter.length, auditsBefore.length + 1);
+    assert.equal(
+      auditsAfter.some((event) => event.changeSet?.slots?.length === 2),
+      true,
+    );
+  });
+
+  it("moves Featured assignments into and out of an empty neighbor slot", async () => {
+    const articles = await publishMany(1);
+    let builder = await openBuilder();
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      contentItemId: articles[0]?.contentItemId,
+    });
+
+    const movedRight = await moveHomepageFeaturedSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      direction: "right",
+    });
+    assert.equal(slotContent(movedRight, HOMEPAGE_SLOT_KEY.FEATURED_1), null);
+    assert.equal(
+      slotContent(movedRight, HOMEPAGE_SLOT_KEY.FEATURED_2),
+      articles[0]?.contentItemId,
+    );
+
+    const movedLeft = await moveHomepageFeaturedSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: movedRight.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_2,
+      direction: "left",
+    });
+    assert.equal(
+      slotContent(movedLeft, HOMEPAGE_SLOT_KEY.FEATURED_1),
+      articles[0]?.contentItemId,
+    );
+    assert.equal(slotContent(movedLeft, HOMEPAGE_SLOT_KEY.FEATURED_2), null);
+  });
+
+  it("leaves both Featured slots unchanged on WRITE_CONFLICT", async () => {
+    const articles = await publishMany(3);
+    let builder = await openBuilder();
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      contentItemId: articles[0]?.contentItemId,
+    });
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_2,
+      contentItemId: articles[1]?.contentItemId,
+    });
+    const staleUpdatedAt = builder.updatedAt;
+    await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.LEAD,
+      contentItemId: articles[2]?.contentItemId,
+    });
+
+    const auditsBefore = await listDraftAuditEvents();
+    await assert.rejects(
+      () =>
+        moveHomepageFeaturedSlot({
+          scope: fixture.superAdmin,
+          actorId: fixture.ids.staffEditor,
+          expectedUpdatedAt: staleUpdatedAt,
+          slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+          direction: "right",
+        }),
+      (error: unknown) =>
+        error instanceof HomepageBuilderError &&
+        error.code === HOMEPAGE_BUILDER_ERROR.WRITE_CONFLICT,
+    );
+
+    const after = await openBuilder();
+    assert.equal(slotContent(after, HOMEPAGE_SLOT_KEY.FEATURED_1), articles[0]?.contentItemId);
+    assert.equal(slotContent(after, HOMEPAGE_SLOT_KEY.FEATURED_2), articles[1]?.contentItemId);
+    const auditsAfter = await listDraftAuditEvents();
+    assert.equal(auditsAfter.length, auditsBefore.length);
+  });
+
+  it("does not expose a draft Featured reorder on the public homepage until publish", async () => {
+    const articles = await publishMany(4);
+    let builder = await openBuilder();
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.LEAD,
+      contentItemId: articles[0]?.contentItemId,
+    });
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      contentItemId: articles[2]?.contentItemId,
+    });
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_2,
+      contentItemId: articles[3]?.contentItemId,
+    });
+    builder = await publishHomepage({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+    });
+
+    const published = await getPublicHomepage();
+    const publishedFeatured = published.featured.map((story) => story.id);
+
+    await moveHomepageFeaturedSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      direction: "right",
+    });
+
+    const afterDraftMove = await getPublicHomepage();
+    assert.deepEqual(
+      afterDraftMove.featured.map((story) => story.id),
+      publishedFeatured,
+    );
+    assert.equal(afterDraftMove.lead?.id, articles[0]?.contentItemId);
+  });
+
+  it("rejects Featured moves that are not adjacent Featured neighbors", async () => {
+    const builder = await openBuilder();
+    await assert.rejects(
+      () =>
+        moveHomepageFeaturedSlot({
+          scope: fixture.superAdmin,
+          actorId: fixture.ids.staffEditor,
+          expectedUpdatedAt: builder.updatedAt,
+          slotKey: HOMEPAGE_SLOT_KEY.LEAD,
+          direction: "right",
+        }),
+      (error: unknown) =>
+        error instanceof HomepageBuilderError &&
+        error.code === HOMEPAGE_BUILDER_ERROR.INVALID_SLOT,
+    );
+    await assert.rejects(
+      () =>
+        moveHomepageFeaturedSlot({
+          scope: fixture.superAdmin,
+          actorId: fixture.ids.staffEditor,
+          expectedUpdatedAt: builder.updatedAt,
+          slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+          direction: "left",
+        }),
+      (error: unknown) =>
+        error instanceof HomepageBuilderError &&
+        error.code === HOMEPAGE_BUILDER_ERROR.INVALID_SLOT,
+    );
+  });
+
+  it("rolls back both Featured slots when a later statement in the transaction fails", async () => {
+    const articles = await publishMany(2);
+    let builder = await openBuilder();
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      contentItemId: articles[0]?.contentItemId,
+    });
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_2,
+      contentItemId: articles[1]?.contentItemId,
+    });
+
+    await assert.rejects(() =>
+      moveHomepageFeaturedSlot({
+        scope: fixture.superAdmin,
+        actorId: randomUUID(),
+        expectedUpdatedAt: builder.updatedAt,
+        slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+        direction: "right",
+      }),
+    );
+
+    const after = await openBuilder();
+    assert.equal(slotContent(after, HOMEPAGE_SLOT_KEY.FEATURED_1), articles[0]?.contentItemId);
+    assert.equal(slotContent(after, HOMEPAGE_SLOT_KEY.FEATURED_2), articles[1]?.contentItemId);
+  });
+
+  it("blocks a competing Featured move until the homepage lock is released, then keeps both slots unchanged on conflict", async () => {
+    const articles = await publishMany(2);
+    let builder = await openBuilder();
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      contentItemId: articles[0]?.contentItemId,
+    });
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_2,
+      contentItemId: articles[1]?.contentItemId,
+    });
+
+    const holder = await getRacerPool().connect();
+    try {
+      await holder.query("BEGIN");
+      await holder.query(
+        "SELECT id FROM homepages WHERE id = $1 FOR UPDATE",
+        [HOMEPAGE_CONFIG_ID],
+      );
+      const pidResult = await holder.query<{ pid: number }>(
+        "SELECT pg_backend_pid() AS pid",
+      );
+      const holderPid = pidResult.rows[0]?.pid;
+      assert.equal(typeof holderPid, "number");
+
+      const competing = moveHomepageFeaturedSlot({
+        scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
+        expectedUpdatedAt: builder.updatedAt,
+        slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+        direction: "right",
+      });
+      let competingSettled = false;
+      const competingObserved = competing.then(
+        (value) => {
+          competingSettled = true;
+          return value;
+        },
+        (error: unknown) => {
+          competingSettled = true;
+          throw error;
+        },
+      );
+
+      await waitUntilBlockedByHolder(holderPid!);
+      assert.equal(competingSettled, false);
+
+      const nextUpdatedAt = nextMonotonicUpdatedAt(builder.updatedAt);
+      await holder.query(
+        "UPDATE homepages SET updated_at = $1 WHERE id = $2",
+        [nextUpdatedAt, HOMEPAGE_CONFIG_ID],
+      );
+      await holder.query("COMMIT");
+
+      await assert.rejects(competingObserved, (error: unknown) => {
+        return (
+          error instanceof HomepageBuilderError &&
+          error.code === HOMEPAGE_BUILDER_ERROR.WRITE_CONFLICT
+        );
+      });
+
+      const after = await openBuilder();
+      assert.equal(
+        slotContent(after, HOMEPAGE_SLOT_KEY.FEATURED_1),
+        articles[0]?.contentItemId,
+      );
+      assert.equal(
+        slotContent(after, HOMEPAGE_SLOT_KEY.FEATURED_2),
+        articles[1]?.contentItemId,
+      );
+    } finally {
+      try {
+        await holder.query("ROLLBACK");
+      } catch {
+        // Transaction already committed or rolled back.
+      }
+      holder.release();
+    }
+  });
+
+  it("lets only one concurrent Featured move commit a complete swap", async () => {
+    const articles = await publishMany(2);
+    let builder = await openBuilder();
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+      contentItemId: articles[0]?.contentItemId,
+    });
+    builder = await setHomepageSlot({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      slotKey: HOMEPAGE_SLOT_KEY.FEATURED_2,
+      contentItemId: articles[1]?.contentItemId,
+    });
+
+    const results = await Promise.allSettled([
+      moveHomepageFeaturedSlot({
+        scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
+        expectedUpdatedAt: builder.updatedAt,
+        slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+        direction: "right",
+      }),
+      moveHomepageFeaturedSlot({
+        scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
+        expectedUpdatedAt: builder.updatedAt,
+        slotKey: HOMEPAGE_SLOT_KEY.FEATURED_1,
+        direction: "right",
+      }),
+    ]);
+    const fulfilled = results.filter(
+      (result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof moveHomepageFeaturedSlot>>> =>
+        result.status === "fulfilled",
+    );
+    const rejected = results.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    assert.equal(fulfilled.length, 1);
+    assert.equal(rejected.length, 1);
+    assert.equal(
+      rejected[0]?.reason instanceof HomepageBuilderError &&
+        rejected[0].reason.code === HOMEPAGE_BUILDER_ERROR.WRITE_CONFLICT,
+      true,
+    );
+
+    const winner = fulfilled[0]?.value;
+    assert.equal(slotContent(winner!, HOMEPAGE_SLOT_KEY.FEATURED_1), articles[1]?.contentItemId);
+    assert.equal(slotContent(winner!, HOMEPAGE_SLOT_KEY.FEATURED_2), articles[0]?.contentItemId);
+
+    const after = await openBuilder();
+    assert.equal(slotContent(after, HOMEPAGE_SLOT_KEY.FEATURED_1), articles[1]?.contentItemId);
+    assert.equal(slotContent(after, HOMEPAGE_SLOT_KEY.FEATURED_2), articles[0]?.contentItemId);
+    assert.deepEqual(
+      assertHomepageSlotAssignmentsUnique(after.draft.slots),
+      { ok: true, value: true },
+    );
   });
 });

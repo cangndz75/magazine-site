@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { parsePublishHomepageBody, parseSetHomepageSlotBody } from "./builder-payload";
+import {
+  parseMoveHomepageFeaturedBody,
+  parsePublishHomepageBody,
+  parseSetHomepageSlotBody,
+} from "./builder-payload";
+import { EditorHttpError } from "@/lib/content/http";
 import { analyzePublishEligibility, countEmptySlots } from "./builder-utils";
 import type { HomepageBuilderView } from "./builder-types";
 
@@ -27,6 +32,49 @@ describe("homepage builder payload", () => {
       expectedUpdatedAt: "2026-08-18T12:00:00.000Z",
     });
     assert.equal(parsed.expectedUpdatedAt, "2026-08-18T12:00:00.000Z");
+  });
+
+  it("parses featured neighbor move body with concurrency token", () => {
+    const parsed = parseMoveHomepageFeaturedBody({
+      expectedUpdatedAt: "2026-08-18T12:00:00.000Z",
+      slotKey: "FEATURED_1",
+      direction: "right",
+    });
+    assert.equal(parsed.slotKey, "FEATURED_1");
+    assert.equal(parsed.direction, "right");
+    assert.equal(parsed.expectedUpdatedAt, "2026-08-18T12:00:00.000Z");
+  });
+
+  it("rejects a featured move without a concurrency token or neighbor", () => {
+    assert.throws(
+      () =>
+        parseMoveHomepageFeaturedBody({
+          slotKey: "FEATURED_1",
+          direction: "right",
+        }),
+      (error: unknown) =>
+        error instanceof EditorHttpError && error.code === "INVALID_REQUEST",
+    );
+    assert.throws(
+      () =>
+        parseMoveHomepageFeaturedBody({
+          expectedUpdatedAt: "2026-08-18T12:00:00.000Z",
+          slotKey: "LEAD",
+          direction: "right",
+        }),
+      (error: unknown) =>
+        error instanceof EditorHttpError && error.code === "INVALID_REQUEST",
+    );
+    assert.throws(
+      () =>
+        parseMoveHomepageFeaturedBody({
+          expectedUpdatedAt: "2026-08-18T12:00:00.000Z",
+          slotKey: "FEATURED_1",
+          direction: "left",
+        }),
+      (error: unknown) =>
+        error instanceof EditorHttpError && error.code === "INVALID_REQUEST",
+    );
   });
 });
 
@@ -83,6 +131,10 @@ describe("homepage builder eligibility", () => {
 describe("homepage builder API routes", () => {
   it("uses HOMEPAGE_MANAGE and editor write wrapper for mutations", () => {
     const slots = readFileSync(path.join(homepageApiRoot, "builder/slots/route.ts"), "utf8");
+    const move = readFileSync(
+      path.join(homepageApiRoot, "builder/slots/move/route.ts"),
+      "utf8",
+    );
     const publish = readFileSync(
       path.join(homepageApiRoot, "builder/publish/route.ts"),
       "utf8",
@@ -93,12 +145,41 @@ describe("homepage builder API routes", () => {
     assert.equal(slots.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
     assert.equal(slots.includes("session.staffUserId"), true);
 
+    assert.equal(move.includes("withEditorWrite"), true);
+    assert.equal(move.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
+    assert.equal(move.includes("session.staffUserId"), true);
+    assert.equal(move.includes("moveHomepageFeaturedSlot"), true);
+    assert.equal(move.includes(".update("), false);
+    assert.equal(move.includes(".insert("), false);
+
     assert.equal(publish.includes("withEditorWrite"), true);
     assert.equal(publish.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
     assert.equal(publish.includes("session.staffUserId"), true);
 
     assert.equal(get.includes("withEditorRead"), true);
     assert.equal(get.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
+  });
+});
+
+describe("homepage builder featured move client contract", () => {
+  it("performs one logical featured move mutation", () => {
+    const workspace = readFileSync(
+      path.join(
+        fileURLToPath(
+          new URL("../../components/homepage-builder-workspace.tsx", import.meta.url),
+        ),
+      ),
+      "utf8",
+    );
+    const start = workspace.indexOf("const handleMoveFeatured");
+    const end = workspace.indexOf("const handlePublish");
+    assert.equal(start >= 0, true);
+    assert.equal(end > start, true);
+    const moveFn = workspace.slice(start, end);
+    assert.equal(moveFn.includes("/api/homepage/builder/slots/move"), true);
+    assert.equal(moveFn.includes('fetch("/api/homepage/builder/slots"'), false);
+    assert.equal((moveFn.match(/fetch\(/g) ?? []).length, 1);
+    assert.equal(moveFn.includes("contentItemId:"), false);
   });
 });
 

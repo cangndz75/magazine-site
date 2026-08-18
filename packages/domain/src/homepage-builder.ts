@@ -103,6 +103,47 @@ export function assertHomepageSlotKey(
   return { ok: false, code: HOMEPAGE_BUILDER_ERROR.INVALID_SLOT };
 }
 
+export type HomepageFeaturedMoveDirection = "left" | "right";
+
+export type HomepageFeaturedNeighborMove = {
+  from: HomepageSlotKey;
+  to: HomepageSlotKey;
+};
+
+export function resolveHomepageFeaturedNeighborMove(input: {
+  slotKey: string;
+  direction: string;
+}): HomepageBuilderDecision<HomepageFeaturedNeighborMove> {
+  if (!(HOMEPAGE_FEATURED_SLOT_KEYS as readonly string[]).includes(input.slotKey)) {
+    return { ok: false, code: HOMEPAGE_BUILDER_ERROR.INVALID_SLOT };
+  }
+  if (input.direction !== "left" && input.direction !== "right") {
+    return { ok: false, code: HOMEPAGE_BUILDER_ERROR.INVALID_SLOT };
+  }
+  const from = input.slotKey as HomepageSlotKey;
+  const index = HOMEPAGE_FEATURED_SLOT_KEYS.indexOf(
+    from as (typeof HOMEPAGE_FEATURED_SLOT_KEYS)[number],
+  );
+  const neighborIndex = input.direction === "left" ? index - 1 : index + 1;
+  const to = HOMEPAGE_FEATURED_SLOT_KEYS[neighborIndex];
+  if (!to) {
+    return { ok: false, code: HOMEPAGE_BUILDER_ERROR.INVALID_SLOT };
+  }
+  return { ok: true, value: { from, to } };
+}
+
+export function applyHomepageFeaturedSlotSwap(
+  assignments: Readonly<Record<HomepageSlotKey, string | null>>,
+  from: HomepageSlotKey,
+  to: HomepageSlotKey,
+): Record<HomepageSlotKey, string | null> {
+  const next = { ...assignments };
+  const previousFrom = next[from] ?? null;
+  next[from] = next[to] ?? null;
+  next[to] = previousFrom;
+  return next;
+}
+
 export function canonicalizeHomepageSlotContentItemId(
   raw: string | null | undefined,
 ): HomepageBuilderDecision<string | null> {

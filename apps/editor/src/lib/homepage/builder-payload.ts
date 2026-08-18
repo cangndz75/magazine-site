@@ -1,6 +1,8 @@
 import {
   assertHomepageSlotKey,
   isUuid,
+  resolveHomepageFeaturedNeighborMove,
+  type HomepageFeaturedMoveDirection,
   type HomepageSlotKey,
 } from "@magazine/domain";
 import { EDITOR_API_ERROR, EditorHttpError } from "@/lib/content/http";
@@ -84,4 +86,53 @@ export function parsePublishHomepageBody(body: unknown): { expectedUpdatedAt: st
   }
 
   return { expectedUpdatedAt };
+}
+
+export function parseMoveHomepageFeaturedBody(body: unknown): {
+  expectedUpdatedAt: string;
+  slotKey: HomepageSlotKey;
+  direction: HomepageFeaturedMoveDirection;
+} {
+  if (!body || typeof body !== "object") {
+    throw new EditorHttpError(
+      400,
+      EDITOR_API_ERROR.INVALID_REQUEST,
+      "The request is invalid.",
+    );
+  }
+
+  const record = body as Record<string, unknown>;
+  const expectedUpdatedAt =
+    typeof record.expectedUpdatedAt === "string"
+      ? record.expectedUpdatedAt.trim()
+      : "";
+  if (!expectedUpdatedAt) {
+    throw new EditorHttpError(
+      400,
+      EDITOR_API_ERROR.INVALID_REQUEST,
+      "The request is invalid.",
+    );
+  }
+
+  const slotKeyRaw =
+    typeof record.slotKey === "string" ? record.slotKey.trim() : "";
+  const directionRaw =
+    typeof record.direction === "string" ? record.direction.trim() : "";
+  const moveDecision = resolveHomepageFeaturedNeighborMove({
+    slotKey: slotKeyRaw,
+    direction: directionRaw,
+  });
+  if (!moveDecision.ok) {
+    throw new EditorHttpError(
+      400,
+      EDITOR_API_ERROR.INVALID_REQUEST,
+      "The request is invalid.",
+    );
+  }
+
+  return {
+    expectedUpdatedAt,
+    slotKey: moveDecision.value.from,
+    direction: directionRaw === "left" ? "left" : "right",
+  };
 }

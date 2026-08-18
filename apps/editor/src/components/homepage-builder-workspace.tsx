@@ -227,74 +227,40 @@ export function HomepageBuilderWorkspace({
       setPendingSlotKey(slotKey);
       setSaveState({ kind: "saving" });
       try {
-        let working = builder;
-        const patch = async (
-          targetKey: HomepageSlotKey,
-          value: string | null,
-        ): Promise<boolean> => {
-          const response = await fetch("/api/homepage/builder/slots", {
-            method: "PATCH",
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              expectedUpdatedAt: working.updatedAt,
-              slotKey: targetKey,
-              contentItemId: value,
-            }),
-          });
-          const json = (await response.json()) as {
-            ok?: boolean;
-            data?: { builder: HomepageBuilderView };
-            error?: { code?: string };
-          };
-          if (!response.ok || !json.ok || !json.data?.builder) {
-            const code = json.error?.code;
-            if (isHomepageBuilderConflict(code)) {
-              setSaveState({
-                kind: "conflict",
-                message: HOMEPAGE_BUILDER_CONFLICT_MESSAGE,
-              });
-            } else {
-              setSaveState({
-                kind: "error",
-                message: presentHomepageBuilderError(code),
-              });
-            }
-            return false;
-          }
-          working = json.data.builder;
-          return true;
+        const response = await fetch("/api/homepage/builder/slots/move", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            expectedUpdatedAt: builder.updatedAt,
+            slotKey,
+            direction,
+          }),
+        });
+        const json = (await response.json()) as {
+          ok?: boolean;
+          data?: { builder: HomepageBuilderView };
+          error?: { code?: string };
         };
-
-        if (currentId && neighborId) {
-          if (!(await patch(slotKey, null))) {
-            return;
+        if (!response.ok || !json.ok || !json.data?.builder) {
+          const code = json.error?.code;
+          if (isHomepageBuilderConflict(code)) {
+            setSaveState({
+              kind: "conflict",
+              message: HOMEPAGE_BUILDER_CONFLICT_MESSAGE,
+            });
+          } else {
+            setSaveState({
+              kind: "error",
+              message: presentHomepageBuilderError(code),
+            });
           }
-          if (!(await patch(neighborKey, currentId))) {
-            return;
-          }
-          if (!(await patch(slotKey, neighborId))) {
-            return;
-          }
-        } else if (currentId) {
-          if (!(await patch(slotKey, null))) {
-            return;
-          }
-          if (!(await patch(neighborKey, currentId))) {
-            return;
-          }
-        } else if (neighborId) {
-          if (!(await patch(slotKey, neighborId))) {
-            return;
-          }
-          if (!(await patch(neighborKey, null))) {
-            return;
-          }
+          return;
         }
 
-        setBuilder(working);
+        setBuilder(json.data.builder);
         setSaveState({ kind: "saved" });
       } catch {
         setSaveState({

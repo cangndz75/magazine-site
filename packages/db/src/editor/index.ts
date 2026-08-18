@@ -50,11 +50,13 @@ export {
   clearHomepageSlot,
   getHomepageBuilder,
   loadPublishedHomepageSlotMap,
+  moveHomepageFeaturedSlot,
   publishHomepage,
   setHomepageSlot,
   type ClearHomepageSlotInput,
   type EditorHomepageBuilderState,
   type EditorHomepageBuilderVersion,
+  type MoveHomepageFeaturedSlotInput,
   type PublishHomepageInput,
   type SetHomepageSlotInput,
 } from "./homepage-builder";
