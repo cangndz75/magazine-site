@@ -26,6 +26,8 @@ export const media = pgTable(
     width: integer("width"),
     height: integer("height"),
     byteSize: integer("byte_size").notNull(),
+    originalFilename: text("original_filename"),
+    contentHash: text("content_hash"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -47,6 +49,14 @@ export const media = pgTable(
   (table) => [
     unique("media_storage_key_key").on(table.storageKey),
     check("media_byte_size_non_negative", sql`${table.byteSize} >= 0`),
+    check(
+      "media_original_filename_length",
+      sql`${table.originalFilename} IS NULL OR char_length(${table.originalFilename}) BETWEEN 1 AND 200`,
+    ),
+    check(
+      "media_content_hash_sha256",
+      sql`${table.contentHash} IS NULL OR char_length(${table.contentHash}) = 64`,
+    ),
     check("media_width_positive", sql`${table.width} IS NULL OR ${table.width} > 0`),
     check(
       "media_height_positive",

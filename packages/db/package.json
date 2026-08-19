@@ -10,6 +10,7 @@
     "./public": "./src/public/index.ts",
     "./public-cache-outbox": "./src/public-cache-outbox.ts",
     "./editor": "./src/editor/index.ts",
+    "./storage": "./src/storage/index.ts",
     "./staff-provisioning": "./src/staff-provisioning.ts",
     "./staff-password-reset": "./src/staff-password-reset.ts"
   },
@@ -19,13 +20,16 @@
     "generate": "drizzle-kit generate",
     "check": "drizzle-kit check",
     "migrate": "node ./scripts/require-database-url.mjs && drizzle-kit migrate",
+    "test": "tsx --test src/media/**/*.test.ts src/storage/**/*.test.ts src/editor/media-upload.test.ts",
     "test:integration": "node ./scripts/run-content-integration.mjs"
   },
   "dependencies": {
     "@magazine/config": "workspace:*",
     "@magazine/domain": "workspace:*",
+    "@aws-sdk/client-s3": "3.864.0",
     "drizzle-orm": "0.45.2",
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "sharp": "0.34.4"
   },
   "devDependencies": {
     "@types/node": "^24",

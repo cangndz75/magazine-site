@@ -19,6 +19,7 @@ const PUBLIC_CACHE_OUTBOX_SQL = "0005_public-cache-outbox.sql";
 const HOMEPAGE_CONVERSATION_SQL = "0006_homepage-conversation.sql";
 const HOMEPAGE_BUILDER_SQL = "0007_homepage-builder.sql";
 const MEDIA_RIGHTS_SQL = "0008_media-rights-foundation.sql";
+const MEDIA_UPLOAD_SQL = "0009_media-upload-original-filename.sql";
 
 async function publicTableExists(
   client: Client,
@@ -116,5 +117,18 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   );
   if (hasMediaRights.rows[0]?.exists !== true) {
     await applySqlFile(client, MEDIA_RIGHTS_SQL);
+  }
+
+  const hasOriginalFilename = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'media'
+         AND column_name = 'original_filename'
+     ) AS exists`,
+  );
+  if (hasOriginalFilename.rows[0]?.exists !== true) {
+    await applySqlFile(client, MEDIA_UPLOAD_SQL);
   }
 }

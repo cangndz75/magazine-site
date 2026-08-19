@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { EDITOR_JSON_MAX_BYTES, MEDIA_RIGHTS_ERROR, MediaRightsError, PUBLISHING_ERROR, PublishingError } from "@magazine/domain";
+import { EDITOR_JSON_MAX_BYTES, MEDIA_RIGHTS_ERROR, MEDIA_UPLOAD_ERROR, MediaRightsError, MediaUploadError, PUBLISHING_ERROR, PublishingError } from "@magazine/domain";
 import {
   EDITOR_API_ERROR,
   mapEditorError,
@@ -78,10 +78,20 @@ describe("editor content error mapper", () => {
       new MediaRightsError(MEDIA_RIGHTS_ERROR.INVALID_RIGHTS, "CHECK media_license_window_valid"),
     );
     assert.equal(response.status, 400);
+    const rightsBody = await response.json();
+    assert.equal(rightsBody.ok, false);
+    assert.equal(rightsBody.error.code, "INVALID_RIGHTS");
+    assert.equal(JSON.stringify(rightsBody).includes("media_license_window"), false);
+  });
+
+  it("maps MediaUploadError without leaking internals", async () => {
+    const response = mapEditorError(
+      new MediaUploadError(MEDIA_UPLOAD_ERROR.INVALID_IMAGE, "VipsJpeg: bad file"),
+    );
+    assert.equal(response.status, 400);
     const body = await response.json();
-    assert.equal(body.ok, false);
-    assert.equal(body.error.code, "INVALID_RIGHTS");
-    assert.equal(JSON.stringify(body).includes("media_license_window"), false);
+    assert.equal(body.error.code, "INVALID_IMAGE");
+    assert.equal(JSON.stringify(body).includes("VipsJpeg"), false);
   });
 });
 

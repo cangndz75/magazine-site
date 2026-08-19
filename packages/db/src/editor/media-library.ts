@@ -137,9 +137,16 @@ function unwrapRead(roles: readonly StaffRole[]): void {
   }
 }
 
-function displayLabel(storageKey: string): string {
-  const segments = storageKey.split("/").filter((part) => part.length > 0);
-  return segments.length > 0 ? segments[segments.length - 1] : storageKey;
+function displayLabel(row: {
+  originalFilename: string | null;
+  storageKey: string;
+}): string {
+  const original = row.originalFilename?.trim();
+  if (original) {
+    return original;
+  }
+  const segments = row.storageKey.split("/").filter((part) => part.length > 0);
+  return segments.length > 0 ? segments[segments.length - 1] : row.storageKey;
 }
 
 function rightsStatusSqlFilter(
@@ -245,6 +252,7 @@ type CursorPayload = {
   id: string;
   createdAt?: string;
   storageKey?: string;
+  filename?: string;
   licenseExpiresAt?: string | null;
 };
 
@@ -280,6 +288,7 @@ function searchFilter(term: string) {
   const pattern = `%${sanitized}%`;
   return or(
     ilike(media.storageKey, pattern),
+    ilike(media.originalFilename, pattern),
     ilike(media.creatorName, pattern),
     ilike(media.rightsHolder, pattern),
     ilike(media.sourceName, pattern),
@@ -293,6 +302,14 @@ function usageCountSubquery() {
     FROM ${contentVersionMedia}
     WHERE ${contentVersionMedia.mediaId} = ${media.id}
   )`;
+}
+
+function filenameSortExpression() {
+  return sql`coalesce(${media.originalFilename}, ${media.storageKey})`;
+}
+
+function filenameSortValue(row: typeof media.$inferSelect): string {
+  return row.originalFilename ?? row.storageKey;
 }
 
 function cursorCondition(
@@ -322,22 +339,28 @@ function cursorCondition(
           gt(media.id, cursor.id),
         ),
       );
-    case EDITOR_MEDIA_SORT.FILENAME_ASC:
-      if (!cursor.storageKey) {
+    case EDITOR_MEDIA_SORT.FILENAME_ASC: {
+      const cursorFilename = cursor.filename ?? cursor.storageKey;
+      if (!cursorFilename) {
         return undefined;
       }
+      const expr = filenameSortExpression();
       return or(
-        gt(media.storageKey, cursor.storageKey),
-        and(eq(media.storageKey, cursor.storageKey), gt(media.id, cursor.id)),
+        gt(expr, cursorFilename),
+        and(eq(expr, cursorFilename), gt(media.id, cursor.id)),
       );
-    case EDITOR_MEDIA_SORT.FILENAME_DESC:
-      if (!cursor.storageKey) {
+    }
+    case EDITOR_MEDIA_SORT.FILENAME_DESC: {
+      const cursorFilename = cursor.filename ?? cursor.storageKey;
+      if (!cursorFilename) {
         return undefined;
       }
+      const expr = filenameSortExpression();
       return or(
-        lt(media.storageKey, cursor.storageKey),
-        and(eq(media.storageKey, cursor.storageKey), lt(media.id, cursor.id)),
+        lt(expr, cursorFilename),
+        and(eq(expr, cursorFilename), lt(media.id, cursor.id)),
       );
+    }
     case EDITOR_MEDIA_SORT.EXPIRES_ASC:
       if (cursor.licenseExpiresAt === undefined) {
         return undefined;
@@ -363,9 +386,9 @@ function orderByForSort(sort: EditorMediaSort) {
     case EDITOR_MEDIA_SORT.CREATED_ASC:
       return [asc(media.createdAt), asc(media.id)];
     case EDITOR_MEDIA_SORT.FILENAME_ASC:
-      return [asc(media.storageKey), asc(media.id)];
+      return [asc(filenameSortExpression()), asc(media.id)];
     case EDITOR_MEDIA_SORT.FILENAME_DESC:
-      return [desc(media.storageKey), desc(media.id)];
+      return [desc(filenameSortExpression()), desc(media.id)];
     case EDITOR_MEDIA_SORT.EXPIRES_ASC:
       return [
         sql`${media.licenseExpiresAt} ASC NULLS LAST`,
@@ -385,6 +408,7 @@ function nextCursorForRow(
     id: row.id,
     createdAt: row.createdAt.toISOString(),
     storageKey: row.storageKey,
+    filename: filenameSortValue(row),
     licenseExpiresAt: row.licenseExpiresAt?.toISOString() ?? null,
   });
 }
@@ -498,7 +522,7 @@ export async function listEditorMedia(input: {
 
   const items: EditorMediaListItem[] = pageRows.map(({ row, usageCount }) => ({
     id: row.id,
-    label: displayLabel(row.storageKey),
+    label: displayLabel(row),
     mediaType: row.mediaType,
     mimeType: row.mimeType,
     width: row.width,
@@ -630,7 +654,7 @@ export async function getEditorMediaInspector(input: {
 
   return {
     id: row.id,
-    label: displayLabel(row.storageKey),
+    label: displayLabel(row),
     mediaType: row.mediaType,
     mimeType: row.mimeType,
     width: row.width,

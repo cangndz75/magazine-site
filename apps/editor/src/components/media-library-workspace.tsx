@@ -8,6 +8,7 @@ import { MEDIA_LIBRARY_SORT } from "@/lib/media/constants";
 import { formatDimensions, MEDIA_TYPE_LABELS } from "@/lib/media/presentation";
 import { MediaRightsStatusBadge } from "./media-rights-status-badge";
 import { MediaInspector, type InspectorData } from "./media-inspector";
+import { MediaUploadDialog } from "./media-upload-dialog";
 
 type ListItem = {
   id: string;
@@ -122,6 +123,7 @@ export function MediaLibraryWorkspace({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState<string | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const searchInput = debouncedSearch ?? filters.q ?? "";
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -290,7 +292,7 @@ export function MediaLibraryWorkspace({
     !listLoading && items.length === 0
       ? filters.q || filters.rightsStatus
         ? "Arama veya filtrelerinize uygun medya bulunamadı."
-        : "Henüz medya yok. Yükleme akışı bu sürümde henüz bağlanmadı."
+        : "Henüz medya yok."
       : null;
 
   return (
@@ -304,6 +306,15 @@ export function MediaLibraryWorkspace({
               {summary.incomplete} eksik hak, {summary.restricted} kısıtlı,{" "}
               {summary.expired} süresi dolmuş
             </p>
+          ) : null}
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={() => setUploadOpen(true)}
+              className="mt-3 rounded bg-zinc-900 px-3 py-2 text-sm text-white hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+            >
+              Medya yükle
+            </button>
           ) : null}
         </div>
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -532,6 +543,18 @@ export function MediaLibraryWorkspace({
             />
           </div>
         </div>
+      ) : null}
+      {canEdit ? (
+        <MediaUploadDialog
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+          onUploaded={(item) => {
+            void (async () => {
+              await fetchList(filters);
+              selectMedia(item.id);
+            })();
+          }}
+        />
       ) : null}
     </div>
   );

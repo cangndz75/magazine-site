@@ -48,6 +48,29 @@ export {
   type MediaPublicEligibility,
   type PublicMediaProjection,
 } from "./media-rights";
+export {
+  MEDIA_UPLOAD_ERROR,
+  MEDIA_IMAGE_MAX_BYTES,
+  MEDIA_UPLOAD_MAX_REQUEST_BYTES,
+  MEDIA_IMAGE_MAX_WIDTH,
+  MEDIA_IMAGE_MAX_HEIGHT,
+  MEDIA_IMAGE_MAX_PIXELS,
+  MEDIA_ORIGINAL_FILENAME_MAX,
+  MEDIA_IMAGE_FORMAT,
+  MEDIA_IMAGE_FORMATS,
+  MEDIA_IMAGE_MIME,
+  MEDIA_IMAGE_EXTENSION,
+  MediaUploadError,
+  authorizeMediaUpload,
+  assertDecodedImageConstraints,
+  canonicalizeOriginalFilename,
+  generateMediaStorageKey,
+  assertSafeMediaStorageKey,
+  isMediaImageFormat,
+  type MediaUploadErrorCode,
+  type MediaUploadDecision,
+  type MediaImageFormat,
+} from "./media-upload";
 export { AUTHOR_ROLE, AUTHOR_ROLES, type AuthorRole } from "./author-role";
 export {
   PRIMARY_CATEGORY_ISSUE,

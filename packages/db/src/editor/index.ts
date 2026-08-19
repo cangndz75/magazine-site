@@ -85,6 +85,11 @@ export {
   type EditorMediaUsage,
   type EditorMediaSort,
 } from "./media-library";
+export {
+  uploadEditorImage,
+  commitStoredObject,
+  type UploadEditorImageInput,
+} from "./media-upload";
 export type {
   EditorContentAccess,
   EditorContentDetail,

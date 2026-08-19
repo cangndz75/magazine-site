@@ -4,11 +4,14 @@ import {
   HOMEPAGE_BUILDER_ERROR,
   HomepageBuilderError,
   MEDIA_RIGHTS_ERROR,
+  MEDIA_UPLOAD_ERROR,
   MediaRightsError,
+  MediaUploadError,
   PUBLISHING_ERROR,
   PublishingError,
   type HomepageBuilderErrorCode,
   type MediaRightsErrorCode,
+  type MediaUploadErrorCode,
   type PublishingErrorCode,
 } from "@magazine/domain";
 
@@ -90,6 +93,18 @@ const MEDIA_RIGHTS_STATUS_MAP: Record<MediaRightsErrorCode, number> = {
   [MEDIA_RIGHTS_ERROR.INVALID_RIGHTS]: 400,
 };
 
+const MEDIA_UPLOAD_STATUS_MAP: Record<MediaUploadErrorCode, number> = {
+  [MEDIA_UPLOAD_ERROR.FORBIDDEN]: 403,
+  [MEDIA_UPLOAD_ERROR.EMPTY_FILE]: 400,
+  [MEDIA_UPLOAD_ERROR.FILE_TOO_LARGE]: 413,
+  [MEDIA_UPLOAD_ERROR.UNSUPPORTED_FORMAT]: 415,
+  [MEDIA_UPLOAD_ERROR.INVALID_IMAGE]: 400,
+  [MEDIA_UPLOAD_ERROR.DIMENSIONS_EXCEEDED]: 400,
+  [MEDIA_UPLOAD_ERROR.STORAGE_FAILED]: 500,
+  [MEDIA_UPLOAD_ERROR.STORAGE_NOT_CONFIGURED]: 503,
+  [MEDIA_UPLOAD_ERROR.INVALID_UPLOAD]: 400,
+};
+
 const SAFE_MESSAGES: Record<string, string> = {
   [EDITOR_API_ERROR.UNAUTHENTICATED]: "Authentication required.",
   [EDITOR_API_ERROR.FORBIDDEN]: "You are not allowed to perform this action.",
@@ -127,6 +142,14 @@ const SAFE_MESSAGES: Record<string, string> = {
     "The homepage draft cannot be published until all assignments are publicly eligible.",
   [MEDIA_RIGHTS_ERROR.MEDIA_NOT_FOUND]: "Medya bulunamadı.",
   [MEDIA_RIGHTS_ERROR.INVALID_RIGHTS]: "Hak bilgileri geçersiz.",
+  [MEDIA_UPLOAD_ERROR.EMPTY_FILE]: "Yüklenecek dosya boş.",
+  [MEDIA_UPLOAD_ERROR.FILE_TOO_LARGE]: "Dosya boyutu izin verilen sınırı aşıyor.",
+  [MEDIA_UPLOAD_ERROR.UNSUPPORTED_FORMAT]: "Bu görsel biçimi desteklenmiyor.",
+  [MEDIA_UPLOAD_ERROR.INVALID_IMAGE]: "Dosya geçerli bir görsel değil.",
+  [MEDIA_UPLOAD_ERROR.DIMENSIONS_EXCEEDED]: "Görsel boyutları izin verilen sınırı aşıyor.",
+  [MEDIA_UPLOAD_ERROR.STORAGE_FAILED]: "Görsel kaydedilemedi.",
+  [MEDIA_UPLOAD_ERROR.STORAGE_NOT_CONFIGURED]: "Medya depolama yapılandırılmadı.",
+  [MEDIA_UPLOAD_ERROR.INVALID_UPLOAD]: "Yükleme isteği geçersiz.",
 };
 
 export function editorJson(body: unknown, status = 200): NextResponse {
@@ -177,6 +200,14 @@ export function mapEditorError(error: unknown): NextResponse {
   if (error instanceof MediaRightsError) {
     return editorErrorResponse(
       MEDIA_RIGHTS_STATUS_MAP[error.code] ?? 400,
+      error.code,
+      SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof MediaUploadError) {
+    return editorErrorResponse(
+      MEDIA_UPLOAD_STATUS_MAP[error.code] ?? 400,
       error.code,
       SAFE_MESSAGES[error.code],
     );
