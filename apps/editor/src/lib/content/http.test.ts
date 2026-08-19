@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { EDITOR_JSON_MAX_BYTES, PUBLISHING_ERROR, PublishingError } from "@magazine/domain";
+import { EDITOR_JSON_MAX_BYTES, MEDIA_RIGHTS_ERROR, MediaRightsError, PUBLISHING_ERROR, PublishingError } from "@magazine/domain";
 import {
   EDITOR_API_ERROR,
   mapEditorError,
@@ -71,6 +71,17 @@ describe("editor content error mapper", () => {
     assert.equal(body.error.code, "CONTENT_BODY_CORRUPT");
     assert.equal(JSON.stringify(body).includes("unexpected token"), false);
     assert.equal(JSON.stringify(body).includes("pg.js"), false);
+  });
+
+  it("maps MediaRightsError without leaking internals", async () => {
+    const response = mapEditorError(
+      new MediaRightsError(MEDIA_RIGHTS_ERROR.INVALID_RIGHTS, "CHECK media_license_window_valid"),
+    );
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.equal(body.ok, false);
+    assert.equal(body.error.code, "INVALID_RIGHTS");
+    assert.equal(JSON.stringify(body).includes("media_license_window"), false);
   });
 });
 

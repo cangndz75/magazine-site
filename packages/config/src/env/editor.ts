@@ -12,6 +12,8 @@ export const editorEnvSchema = baseEnvSchema.extend({
   SCHEDULED_PUBLISH_RUNNER_SECRET: z
     .string()
     .min(32, "SCHEDULED_PUBLISH_RUNNER_SECRET must be at least 32 characters"),
+  /** Server-only base URL for public media asset paths. Never expose via NEXT_PUBLIC_*. */
+  MEDIA_PUBLIC_BASE_URL: httpUrlSchema.optional(),
 });
 
 export type EditorEnv = z.infer<typeof editorEnvSchema>;

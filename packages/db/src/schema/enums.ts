@@ -4,8 +4,11 @@ import {
   CREDIBILITY_VALUES,
   ENTITY_KINDS,
   ENTITY_ROLES,
+  MEDIA_LICENSE_TYPES,
   MEDIA_ROLES,
+  MEDIA_SOURCE_KINDS,
   MEDIA_TYPES,
+  MEDIA_USAGE_RESTRICTIONS,
   PUBLICATION_STATUSES,
   REVIEW_EVENT_TYPES,
   STAFF_ROLES,
@@ -30,6 +33,18 @@ export const entityRoleEnum = pgEnum("entity_role", ENTITY_ROLES);
 export const mediaTypeEnum = pgEnum("media_type", MEDIA_TYPES);
 
 export const mediaRoleEnum = pgEnum("media_role", MEDIA_ROLES);
+
+export const mediaSourceKindEnum = pgEnum("media_source_kind", MEDIA_SOURCE_KINDS);
+
+export const mediaLicenseTypeEnum = pgEnum(
+  "media_license_type",
+  MEDIA_LICENSE_TYPES,
+);
+
+export const mediaUsageRestrictionEnum = pgEnum(
+  "media_usage_restriction",
+  MEDIA_USAGE_RESTRICTIONS,
+);
 
 export const authorRoleEnum = pgEnum("author_role", AUTHOR_ROLES);
 

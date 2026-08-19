@@ -3,9 +3,12 @@ import {
   EDITOR_JSON_MAX_BYTES,
   HOMEPAGE_BUILDER_ERROR,
   HomepageBuilderError,
+  MEDIA_RIGHTS_ERROR,
+  MediaRightsError,
   PUBLISHING_ERROR,
   PublishingError,
   type HomepageBuilderErrorCode,
+  type MediaRightsErrorCode,
   type PublishingErrorCode,
 } from "@magazine/domain";
 
@@ -81,6 +84,12 @@ const HOMEPAGE_BUILDER_STATUS: Record<HomepageBuilderErrorCode, number> = {
   [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]: 422,
 };
 
+const MEDIA_RIGHTS_STATUS_MAP: Record<MediaRightsErrorCode, number> = {
+  [MEDIA_RIGHTS_ERROR.FORBIDDEN]: 403,
+  [MEDIA_RIGHTS_ERROR.MEDIA_NOT_FOUND]: 404,
+  [MEDIA_RIGHTS_ERROR.INVALID_RIGHTS]: 400,
+};
+
 const SAFE_MESSAGES: Record<string, string> = {
   [EDITOR_API_ERROR.UNAUTHENTICATED]: "Authentication required.",
   [EDITOR_API_ERROR.FORBIDDEN]: "You are not allowed to perform this action.",
@@ -116,6 +125,8 @@ const SAFE_MESSAGES: Record<string, string> = {
     "The selected content item was not found.",
   [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]:
     "The homepage draft cannot be published until all assignments are publicly eligible.",
+  [MEDIA_RIGHTS_ERROR.MEDIA_NOT_FOUND]: "Medya bulunamadı.",
+  [MEDIA_RIGHTS_ERROR.INVALID_RIGHTS]: "Hak bilgileri geçersiz.",
 };
 
 export function editorJson(body: unknown, status = 200): NextResponse {
@@ -158,6 +169,14 @@ export function mapEditorError(error: unknown): NextResponse {
   if (error instanceof HomepageBuilderError) {
     return editorErrorResponse(
       HOMEPAGE_BUILDER_STATUS[error.code] ?? 400,
+      error.code,
+      SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof MediaRightsError) {
+    return editorErrorResponse(
+      MEDIA_RIGHTS_STATUS_MAP[error.code] ?? 400,
       error.code,
       SAFE_MESSAGES[error.code],
     );

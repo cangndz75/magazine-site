@@ -17,6 +17,37 @@ export { ENTITY_KIND, ENTITY_KINDS, type EntityKind } from "./entity-kind";
 export { ENTITY_ROLE, ENTITY_ROLES, type EntityRole } from "./entity-role";
 export { MEDIA_ROLE, MEDIA_ROLES, type MediaRole } from "./media-role";
 export { MEDIA_TYPE, MEDIA_TYPES, type MediaType } from "./media-type";
+export {
+  MEDIA_SOURCE_KIND,
+  MEDIA_SOURCE_KINDS,
+  MEDIA_LICENSE_TYPE,
+  MEDIA_LICENSE_TYPES,
+  MEDIA_USAGE_RESTRICTION,
+  MEDIA_USAGE_RESTRICTIONS,
+  MEDIA_RIGHTS_STATUS,
+  MEDIA_PUBLIC_INELIGIBILITY_REASON,
+  MEDIA_RIGHTS_ERROR,
+  MEDIA_RIGHTS_TEXT_MAX,
+  MediaRightsError,
+  authorizeMediaRightsRead,
+  authorizeMediaRightsWrite,
+  canonicalizeMediaRightsWrite,
+  defaultMediaRights,
+  evaluateMediaPublicEligibility,
+  toPublicMediaProjection,
+  type MediaSourceKind,
+  type MediaLicenseType,
+  type MediaUsageRestriction,
+  type MediaRightsStatus,
+  type MediaPublicIneligibilityReason,
+  type MediaRightsErrorCode,
+  type MediaRightsDecision,
+  type MediaRightsRecord,
+  type CanonicalMediaRights,
+  type MediaRightsWriteInput,
+  type MediaPublicEligibility,
+  type PublicMediaProjection,
+} from "./media-rights";
 export { AUTHOR_ROLE, AUTHOR_ROLES, type AuthorRole } from "./author-role";
 export {
   PRIMARY_CATEGORY_ISSUE,

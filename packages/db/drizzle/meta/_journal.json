@@ -50,6 +50,13 @@
       "when": 1787053068664,
       "tag": "0007_homepage-builder",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787089700717,
+      "tag": "0008_media-rights-foundation",
+      "breakpoints": true
     }
   ]
 }

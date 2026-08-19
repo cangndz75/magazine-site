@@ -7,6 +7,7 @@ import {
   ENTITY_ROLE,
   MEDIA_ROLE,
   MEDIA_TYPE,
+  PUBLICATION_STATUS,
   STAFF_ROLE,
   STAFF_SCOPE_MODE,
   STAFF_STATUS,
@@ -24,12 +25,13 @@ import {
   authors,
   categories,
   contentItems,
+  contentVersions,
   entities,
   media,
   staffUsers,
   tags,
 } from "../schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray, like } from "drizzle-orm";
 import {
   bindEditorContentTestDatabaseUrl,
   type SafeTestDatabaseUrl,
@@ -176,6 +178,65 @@ export async function closeIntegrationConnections(): Promise<void> {
   if (racerPool) {
     await racerPool.end();
     racerPool = undefined;
+  }
+}
+
+export type CreatedMedia = {
+  id: string;
+  storageKey: string;
+};
+
+export async function insertLegacyMedia(storageKey: string): Promise<CreatedMedia> {
+  const db = getDb();
+  const [row] = await db
+    .insert(media)
+    .values({
+      storageKey,
+      mediaType: MEDIA_TYPE.IMAGE,
+      mimeType: "image/jpeg",
+      width: 1600,
+      height: 900,
+      byteSize: 2048,
+    })
+    .returning({ id: media.id, storageKey: media.storageKey });
+  if (!row) {
+    throw new Error("Failed to insert media.");
+  }
+  return row;
+}
+
+export async function wipeMediaRightsTestRows(): Promise<void> {
+  const db = getDb();
+  const leftoverItems = await db
+    .select({ id: contentItems.id })
+    .from(contentItems)
+    .where(like(contentItems.slug, "media-rights-%"));
+  const itemIds = leftoverItems.map((row) => row.id);
+  if (itemIds.length > 0) {
+    await db
+      .update(contentItems)
+      .set({
+        publicationStatus: PUBLICATION_STATUS.NEVER_PUBLISHED,
+        publishedVersionId: null,
+        draftVersionId: null,
+        scheduledVersionId: null,
+        publishedAt: null,
+        publicDateModified: null,
+      })
+      .where(inArray(contentItems.id, itemIds));
+    await db
+      .delete(contentVersions)
+      .where(inArray(contentVersions.contentItemId, itemIds));
+    await db.delete(contentItems).where(inArray(contentItems.id, itemIds));
+  }
+
+  const leftoverMedia = await db
+    .select({ id: media.id })
+    .from(media)
+    .where(like(media.storageKey, "itest/media-rights-%"));
+  const mediaIds = leftoverMedia.map((row) => row.id);
+  if (mediaIds.length > 0) {
+    await db.delete(media).where(inArray(media.id, mediaIds));
   }
 }
 

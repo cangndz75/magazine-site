@@ -60,6 +60,31 @@ export {
   type PublishHomepageInput,
   type SetHomepageSlotInput,
 } from "./homepage-builder";
+export {
+  getEditorMediaDetail,
+  updateMediaRights,
+  type EditorMediaDetail,
+  type EditorMediaRights,
+} from "./media-rights";
+export {
+  listEditorMedia,
+  getEditorMediaInspector,
+  encodeMediaCursor,
+  decodeMediaCursor,
+  EDITOR_MEDIA_SORT,
+  EDITOR_MEDIA_SORTS,
+  EDITOR_MEDIA_PAGE_SIZE_DEFAULT,
+  EDITOR_MEDIA_PAGE_SIZE_MAX,
+  EDITOR_MEDIA_SEARCH_MAX,
+  parseEditorMediaSort,
+  parseEditorMediaPageSize,
+  parseEditorMediaSearch,
+  type EditorMediaListItem,
+  type EditorMediaListResult,
+  type EditorMediaInspector,
+  type EditorMediaUsage,
+  type EditorMediaSort,
+} from "./media-library";
 export type {
   EditorContentAccess,
   EditorContentDetail,
