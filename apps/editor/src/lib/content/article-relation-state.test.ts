@@ -12,7 +12,9 @@ import {
   mergeSelectedLookupOptions,
   normalizeArticleEditorRelations,
   removeTag,
+  setArticleVideos,
   setHeroMedia,
+  setGalleryMedia,
   setPrimaryCategory,
   setSecondaryCategories,
   toDraftRelationPayload,
@@ -36,6 +38,7 @@ function empty(): ArticleEditorRelations {
     tags: [],
     entities: [],
     media: [],
+    videos: [],
   };
 }
 
@@ -244,6 +247,80 @@ describe("article relation form state", () => {
     assert.equal(replaced.media[0]?.role, MEDIA_ROLE.HERO);
   });
 
+  it("allows the same Media asset as HERO and Gallery", () => {
+    const withHero = setHeroMedia(empty(), {
+      id: MEDIA_A,
+      label: "Kapak",
+      mediaType: "IMAGE",
+      width: 1200,
+      height: 800,
+      role: MEDIA_ROLE.HERO,
+      sortOrder: 0,
+      caption: null,
+      altText: "hero-alt",
+      credit: "hero-credit",
+    });
+    const withBoth = setGalleryMedia(withHero, [
+      {
+        id: MEDIA_A,
+        label: "Kapak",
+        mediaType: "IMAGE",
+        width: 1200,
+        height: 800,
+        role: MEDIA_ROLE.GALLERY,
+        sortOrder: 0,
+        caption: "gallery caption",
+        altText: "gallery-alt",
+        credit: null,
+      },
+    ]);
+    assert.equal(withBoth.media.length, 2);
+    assert.equal(
+      withBoth.media.filter((item) => item.role === MEDIA_ROLE.HERO)[0]?.altText,
+      "hero-alt",
+    );
+    assert.equal(
+      withBoth.media.filter((item) => item.role === MEDIA_ROLE.GALLERY)[0]?.altText,
+      "gallery-alt",
+    );
+  });
+
+  it("does not put preview or eligibility fields into the draft-save payload", () => {
+    const withHero = setHeroMedia(empty(), {
+      id: MEDIA_A,
+      label: "Kapak",
+      mediaType: "IMAGE",
+      width: 1200,
+      height: 800,
+      role: MEDIA_ROLE.HERO,
+      sortOrder: 0,
+      caption: null,
+      altText: "alt",
+      credit: null,
+      previewUrl: "https://media.example.test/secret",
+      creatorName: "Ada",
+      creditLine: "Ada Photo",
+      eligibility: {
+        eligible: false,
+        status: "INCOMPLETE",
+        reasons: ["RIGHTS_INCOMPLETE"],
+      },
+    });
+    const payload = toDraftRelationPayload(withHero);
+    assert.deepEqual(payload.media, [
+      {
+        mediaId: MEDIA_A,
+        role: MEDIA_ROLE.HERO,
+        sortOrder: 0,
+        caption: null,
+        altText: "alt",
+        credit: null,
+      },
+    ]);
+    assert.equal("previewUrl" in payload.media[0]!, false);
+    assert.equal("storageKey" in payload.media[0]!, false);
+  });
+
   it("preserves media caption metadata when the same hero is kept", () => {
     const withHero = setHeroMedia(empty(), {
       id: MEDIA_A,
@@ -336,5 +413,45 @@ describe("article relation form state", () => {
     const normalized = normalizeArticleEditorRelations(relations);
     assert.equal("publicationStatus" in normalized, false);
     assert.equal(normalized.categories[0]?.isPrimary, true);
+  });
+
+  it("orders article videos atomically and keeps them out of the draft-save payload", () => {
+    const videoA = {
+      id: "77777777-7777-4777-8777-777777777777",
+      provider: "YOUTUBE",
+      providerVideoId: "abcdefghijk",
+      canonicalUrl: "https://www.youtube.com/watch?v=abcdefghijk",
+      title: "YouTube",
+      caption: "haber başlığı",
+      assetCaption: "kütüphane",
+      durationSeconds: 12,
+      posterMediaId: null,
+      posterPreviewUrl: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg",
+      posterSource: "PROVIDER" as const,
+      rightsNote: "internal",
+      provenance: "desk",
+      sortOrder: 0,
+    };
+    const videoB = {
+      ...videoA,
+      id: "88888888-8888-4888-8888-888888888888",
+      provider: "VIMEO",
+      providerVideoId: "123456789",
+      canonicalUrl: "https://vimeo.com/123456789",
+      title: "Vimeo",
+      caption: null,
+      assetCaption: null,
+      durationSeconds: null,
+      posterPreviewUrl: null,
+      posterSource: "NONE" as const,
+      sortOrder: 1,
+    };
+    const assigned = setArticleVideos(empty(), [videoB, videoA]);
+    assert.equal(assigned.videos[0]?.id, videoB.id);
+    assert.equal(assigned.videos[0]?.sortOrder, 0);
+    assert.equal(assigned.videos[1]?.id, videoA.id);
+    const payload = toDraftRelationPayload(assigned);
+    assert.equal("videos" in payload, false);
+    assert.equal(assigned.videos[1]?.rightsNote, "internal");
   });
 });

@@ -31,6 +31,12 @@ export type ArticleEditorEntity = {
   sortOrder: number;
 };
 
+export type ArticleEditorMediaEligibility = {
+  eligible: boolean;
+  status: string;
+  reasons: string[];
+};
+
 export type ArticleEditorMedia = {
   id: string;
   label: string;
@@ -42,6 +48,27 @@ export type ArticleEditorMedia = {
   caption: string | null;
   altText: string | null;
   credit: string | null;
+  previewUrl?: string | null;
+  creatorName?: string | null;
+  creditLine?: string | null;
+  eligibility?: ArticleEditorMediaEligibility | null;
+};
+
+export type ArticleEditorVideo = {
+  id: string;
+  provider: string;
+  providerVideoId: string;
+  canonicalUrl: string;
+  title: string;
+  caption: string | null;
+  assetCaption: string | null;
+  durationSeconds: number | null;
+  posterMediaId: string | null;
+  posterPreviewUrl?: string | null;
+  posterSource?: "EDITORIAL" | "PROVIDER" | "NONE" | null;
+  rightsNote?: string | null;
+  provenance?: string | null;
+  sortOrder: number;
 };
 
 export type ArticleEditorRelations = {
@@ -50,6 +77,7 @@ export type ArticleEditorRelations = {
   tags: ArticleEditorTag[];
   entities: ArticleEditorEntity[];
   media: ArticleEditorMedia[];
+  videos: ArticleEditorVideo[];
 };
 
 export const ARTICLE_EDITOR_EMPTY_RELATIONS: ArticleEditorRelations = {
@@ -58,6 +86,7 @@ export const ARTICLE_EDITOR_EMPTY_RELATIONS: ArticleEditorRelations = {
   tags: [],
   entities: [],
   media: [],
+  videos: [],
 };
 
 export function cloneArticleEditorRelations(
@@ -69,6 +98,7 @@ export function cloneArticleEditorRelations(
     tags: relations.tags.map((item) => ({ ...item })),
     entities: relations.entities.map((item) => ({ ...item })),
     media: relations.media.map((item) => ({ ...item })),
+    videos: (relations.videos ?? []).map((item) => ({ ...item })),
   };
 }
 
@@ -88,6 +118,15 @@ export function getHeroMedia(
   relations: ArticleEditorRelations,
 ): ArticleEditorMedia | null {
   return relations.media.find((item) => item.role === MEDIA_ROLE.HERO) ?? null;
+}
+
+export function getGalleryMedia(
+  relations: ArticleEditorRelations,
+): ArticleEditorMedia[] {
+  return relations.media
+    .filter((item) => item.role === MEDIA_ROLE.GALLERY)
+    .slice()
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
 }
 
 export function getAssociatedMedia(
@@ -235,9 +274,7 @@ export function setHeroMedia(
   relations: ArticleEditorRelations,
   media: ArticleEditorMedia | null,
 ): ArticleEditorRelations {
-  const others = getAssociatedMedia(relations).filter(
-    (item) => item.id !== media?.id,
-  );
+  const others = relations.media.filter((item) => item.role !== MEDIA_ROLE.HERO);
   const nextHero = media
     ? {
         ...media,
@@ -247,9 +284,31 @@ export function setHeroMedia(
     : null;
   return {
     ...relations,
-    media: nextHero
-      ? [nextHero, ...others.map((item, index) => ({ ...item, sortOrder: index + 1 }))]
-      : others.map((item, index) => ({ ...item, sortOrder: index })),
+    media: nextHero ? [nextHero, ...others] : others,
+  };
+}
+
+export function setGalleryMedia(
+  relations: ArticleEditorRelations,
+  gallery: readonly ArticleEditorMedia[],
+): ArticleEditorRelations {
+  const others = relations.media.filter((item) => item.role !== MEDIA_ROLE.GALLERY);
+  const unique = new Map<string, ArticleEditorMedia>();
+  for (const item of gallery) {
+    unique.set(item.id, {
+      ...item,
+      role: MEDIA_ROLE.GALLERY,
+    });
+  }
+  return {
+    ...relations,
+    media: [
+      ...others,
+      ...[...unique.values()].map((item, index) => ({
+        ...item,
+        sortOrder: index,
+      })),
+    ],
   };
 }
 
@@ -290,6 +349,31 @@ export function removeMedia(
   };
 }
 
+export function getArticleVideos(
+  relations: ArticleEditorRelations,
+): ArticleEditorVideo[] {
+  return (relations.videos ?? [])
+    .slice()
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+}
+
+export function setArticleVideos(
+  relations: ArticleEditorRelations,
+  videos: readonly ArticleEditorVideo[],
+): ArticleEditorRelations {
+  const unique = new Map<string, ArticleEditorVideo>();
+  for (const item of videos) {
+    unique.set(item.id, item);
+  }
+  return {
+    ...relations,
+    videos: [...unique.values()].map((item, index) => ({
+      ...item,
+      sortOrder: index,
+    })),
+  };
+}
+
 export function articleEditorRelationsEqual(
   left: ArticleEditorRelations,
   right: ArticleEditorRelations,
@@ -307,6 +391,8 @@ export function normalizeArticleEditorRelations(
   const secondary = getSecondaryCategories(relations)
     .slice()
     .sort((left, right) => left.id.localeCompare(right.id));
+
+  const hero = getHeroMedia(relations);
 
   return {
     categories: primary
@@ -336,10 +422,24 @@ export function normalizeArticleEditorRelations(
         role: item.role,
         sortOrder: index,
       })),
-    media: relations.media
-      .slice()
-      .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
-      .map((item, index) => ({
+    media: [
+      ...(hero
+        ? [
+            {
+              id: hero.id,
+              label: hero.label,
+              mediaType: hero.mediaType,
+              width: hero.width,
+              height: hero.height,
+              role: hero.role,
+              sortOrder: 0,
+              caption: hero.caption,
+              altText: hero.altText,
+              credit: hero.credit,
+            },
+          ]
+        : []),
+      ...getGalleryMedia(relations).map((item, index) => ({
         id: item.id,
         label: item.label,
         mediaType: item.mediaType,
@@ -351,6 +451,35 @@ export function normalizeArticleEditorRelations(
         altText: item.altText,
         credit: item.credit,
       })),
+      ...relations.media
+        .filter((item) => item.role === MEDIA_ROLE.INLINE)
+        .slice()
+        .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
+        .map((item, index) => ({
+          id: item.id,
+          label: item.label,
+          mediaType: item.mediaType,
+          width: item.width,
+          height: item.height,
+          role: item.role,
+          sortOrder: index,
+          caption: item.caption,
+          altText: item.altText,
+          credit: item.credit,
+        })),
+    ],
+    videos: getArticleVideos(relations).map((item, index) => ({
+      id: item.id,
+      provider: item.provider,
+      providerVideoId: item.providerVideoId,
+      canonicalUrl: item.canonicalUrl,
+      title: item.title,
+      caption: item.caption,
+      assetCaption: item.assetCaption,
+      durationSeconds: item.durationSeconds,
+      posterMediaId: item.posterMediaId,
+      sortOrder: index,
+    })),
   };
 }
 

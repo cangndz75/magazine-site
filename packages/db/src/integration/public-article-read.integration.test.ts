@@ -18,6 +18,7 @@ import {
   getContentItem,
   publishVersion,
   scheduleVersion,
+  setDraftVersionGallery,
   submitForReview,
   unpublishContent,
   updateDraftContent,
@@ -135,6 +136,7 @@ describe("public article read PostgreSQL", () => {
     assert.equal(article.publishedAt instanceof Date, true);
     assert.equal(article.categories[0]?.isPrimary, true);
     assert.equal(article.authors[0]?.displayName, "Author One");
+    assert.deepEqual(article.gallery, []);
     assertNoInternalLeak(article);
   });
 
@@ -358,17 +360,18 @@ describe("public article read PostgreSQL", () => {
     });
     assert.equal(article?.title, "No hero title");
     assert.equal(article?.hero, null);
+    assert.deepEqual(article?.gallery, []);
   });
 
   it("rejects non-image hero media for the public article contract", async () => {
-    await getDb()
-      .update(media)
-      .set({ mediaType: MEDIA_TYPE.VIDEO, mimeType: "video/mp4" })
-      .where(eq(media.id, fixture.ids.media));
     const created = await publishApproved({
       title: "Video hero title",
       body: articleBody("video-hero-body"),
     });
+    await getDb()
+      .update(media)
+      .set({ mediaType: MEDIA_TYPE.VIDEO, mimeType: "video/mp4" })
+      .where(eq(media.id, fixture.ids.media));
 
     const article = await getPublicArticleBySlug(created.slug, {
       mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
@@ -389,6 +392,103 @@ describe("public article read PostgreSQL", () => {
     assert.equal(article?.categories.length > 0, true);
     assert.equal(article?.authors.length, 1);
     assert.equal(article?.authors[0]?.role, AUTHOR_ROLE.AUTHOR);
+  });
+
+  it("resolves published gallery only, in order, and without internal fields", async () => {
+    const created = await createDraftItem(fixture, {
+      scope: fixture.superAdmin,
+      includeRelations: true,
+      title: "Public gallery title",
+      body: articleBody("public-gallery-body"),
+    });
+    const assigned = await setDraftVersionGallery({
+      contentItemId: created.contentItemId,
+      versionId: created.versionId,
+      expectedUpdatedAt: created.updatedAt,
+      items: [
+        { mediaId: fixture.ids.extraMedia, caption: "Second", credit: "Desk" },
+        { mediaId: fixture.ids.media, caption: "First" },
+      ],
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    const submitted = await submitForReview(
+      created.contentItemId,
+      created.versionId,
+      {
+        expectedUpdatedAt: assigned.updatedAt,
+        scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
+      },
+    );
+    await approveVersion(created.contentItemId, created.versionId, {
+      expectedUpdatedAt: submitted.updatedAt,
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffReviewerA,
+    });
+    await publishVersion(
+      created.contentItemId,
+      created.versionId,
+      fixture.superAdmin,
+      fixture.ids.staffReviewerA,
+    );
+
+    const unresolved = await getPublicArticleBySlug(created.slug);
+    assert.deepEqual(unresolved?.gallery, []);
+
+    const article = await getPublicArticleBySlug(created.slug, {
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.deepEqual(
+      article?.gallery.map((item) => ({
+        mediaId: item.mediaId,
+        caption: item.caption,
+        credit: item.credit,
+      })),
+      [
+        {
+          mediaId: fixture.ids.extraMedia,
+          caption: "Second",
+          credit: "Desk",
+        },
+        {
+          mediaId: fixture.ids.media,
+          caption: "First",
+          credit: null,
+        },
+      ],
+    );
+    assert.equal(
+      article?.gallery[1]?.url,
+      `https://media.example.test/assets/itest/${fixture.ids.media}`,
+    );
+    if (article) {
+      assertNoInternalLeak(article);
+    }
+
+    const revision = await createDraftRevision(
+      created.contentItemId,
+      undefined,
+      fixture.superAdmin,
+      fixture.ids.staffEditor,
+    );
+    await setDraftVersionGallery({
+      contentItemId: created.contentItemId,
+      versionId: revision.versionId,
+      expectedUpdatedAt: revision.updatedAt,
+      items: [{ mediaId: fixture.ids.media, caption: "Draft only" }],
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    const stillPublished = await getPublicArticleBySlug(created.slug, {
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.deepEqual(
+      stillPublished?.gallery.map((item) => item.caption),
+      ["Second", "First"],
+    );
   });
 
   it("returns not-found for unknown and malformed slugs", async () => {

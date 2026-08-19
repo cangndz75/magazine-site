@@ -17,8 +17,15 @@ const SAVE_ERROR_MESSAGES: Record<string, string> = {
   INVALID_RELATION: "İlişki bilgisi geçersiz. Taslak kaydedilmedi.",
   MULTIPLE_PRIMARY_CATEGORIES: "Yalnızca bir ana kategori seçilebilir.",
   MULTIPLE_HERO_MEDIA: "Yalnızca bir kapak görseli seçilebilir.",
+  INVALID_HERO_MEDIA: "Kapak görseli yalnızca bir görsel olabilir.",
+  INVALID_GALLERY_MEDIA: "Galeri yalnızca görsellerden oluşabilir.",
   CONTENT_NOT_FOUND: "İçerik bulunamadı.",
   VERSION_NOT_FOUND: "Sürüm bulunamadı.",
+  NOT_FOUND: "Video bulunamadı.",
+  STALE_WRITE:
+    "Bu video başka bir oturumda güncellendi. Yenileyip tekrar deneyin.",
+  DUPLICATE_VIDEO: "Bu video zaten kayıtlı.",
+  INVALID_POSTER: "Video posteri yalnızca görsel medya olabilir.",
 };
 
 export function presentSaveFailure(

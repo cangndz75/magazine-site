@@ -1,15 +1,20 @@
+import { EDITORIAL_TIMEZONE } from "./editorial-timezone";
+
 const dateFormatter = new Intl.DateTimeFormat("tr-TR", {
+  timeZone: EDITORIAL_TIMEZONE,
   day: "numeric",
   month: "short",
   year: "numeric",
 });
 
 const dateTimeFormatter = new Intl.DateTimeFormat("tr-TR", {
+  timeZone: EDITORIAL_TIMEZONE,
   day: "numeric",
   month: "short",
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
+  hourCycle: "h23",
 });
 
 export function formatDate(date: Date | string | null): string {

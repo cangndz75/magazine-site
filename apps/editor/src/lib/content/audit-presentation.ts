@@ -105,6 +105,7 @@ const RELATION_LABELS: Record<ContentAuditRelationSummary["relation"], string> =
   tags: "Etiket değişiklikleri",
   entities: "Kişi / entity değişiklikleri",
   media: "Medya değişiklikleri",
+  videos: "Video değişiklikleri",
   authors: "Yazar değişiklikleri",
 };
 

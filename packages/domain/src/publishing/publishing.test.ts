@@ -930,6 +930,33 @@ describe("revision source", () => {
       }).ok,
       true,
     );
+    assert.equal(
+      assertDraftRelationInputs({
+        media: [
+          { mediaId: "m1", role: MEDIA_ROLE.HERO, sortOrder: 0 },
+          { mediaId: "m1", role: MEDIA_ROLE.GALLERY, sortOrder: 0 },
+        ],
+      }).ok,
+      true,
+    );
+    assert.equal(
+      assertDraftRelationInputs({
+        media: [
+          { mediaId: "m1", role: MEDIA_ROLE.GALLERY, sortOrder: 0 },
+          { mediaId: "m1", role: MEDIA_ROLE.GALLERY, sortOrder: 1 },
+        ],
+      }).ok,
+      false,
+    );
+    assert.equal(
+      assertDraftRelationInputs({
+        media: [
+          { mediaId: "m1", role: MEDIA_ROLE.GALLERY, sortOrder: 0 },
+          { mediaId: "m2", role: MEDIA_ROLE.GALLERY, sortOrder: 0 },
+        ],
+      }).ok,
+      false,
+    );
   });
 
   it("does not require a primary category to save a draft, but publish does", () => {

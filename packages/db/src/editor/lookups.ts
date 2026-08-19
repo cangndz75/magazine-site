@@ -271,7 +271,9 @@ export async function lookupEditorMedia(input: {
   }
 
   if (like) {
-    filters.push(ilike(media.storageKey, like));
+    filters.push(
+      or(ilike(media.storageKey, like), ilike(media.originalFilename, like))!,
+    );
   }
 
   const query = db

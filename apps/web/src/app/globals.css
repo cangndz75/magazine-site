@@ -424,6 +424,216 @@ summary:focus-visible {
   padding-inline: var(--space-3);
 }
 
+.public-article-page__gallery,
+.public-article-page__videos {
+  max-width: var(--article-body-max);
+  margin-inline: auto;
+  margin-top: var(--space-5);
+  padding-inline: var(--space-3);
+}
+
+.article-gallery {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.article-gallery__title {
+  margin: 0;
+  font-size: var(--text-ui-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.article-gallery__stage {
+  margin: 0;
+}
+
+.article-gallery__frame {
+  overflow: hidden;
+  background: var(--paper-2, #f4f4f5);
+  aspect-ratio: 16 / 9;
+}
+
+.article-gallery__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.article-gallery__missing,
+.article-gallery__thumb-missing {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.875rem;
+}
+
+.article-gallery__meta {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: var(--space-2);
+}
+
+.article-gallery__caption,
+.article-gallery__credit,
+.article-gallery__position {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.article-gallery__caption {
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.article-gallery__credit,
+.article-gallery__position {
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+.article-gallery__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.article-gallery__nav,
+.article-gallery__thumb {
+  border: 1px solid var(--line, #d4d4d8);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.article-gallery__nav {
+  min-height: 2.25rem;
+  padding: 0 0.85rem;
+  font-size: 0.875rem;
+}
+
+.article-gallery__nav:focus-visible,
+.article-gallery__thumb:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.article-gallery__strip {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.article-gallery__thumb {
+  width: 4.5rem;
+  height: 3rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.article-gallery__thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.article-gallery__thumb--selected {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.article-videos {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.article-videos__title {
+  margin: 0;
+  font-size: var(--text-ui-sm);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.article-videos__list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.article-video {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.article-video__figure {
+  margin: 0;
+  min-width: 0;
+}
+
+.article-video__frame {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-image);
+  background: var(--surface-soft);
+}
+
+.article-video__iframe {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  border: 0;
+}
+
+.article-video__meta {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: var(--space-2);
+}
+
+.article-video__provider,
+.article-video__caption {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.article-video__provider {
+  font-size: var(--text-ui-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.article-video__caption {
+  font-size: 1rem;
+  color: var(--ink);
+}
+
 .article-header__kicker {
   margin: 0;
   font-size: var(--text-ui-xs);
@@ -732,6 +942,19 @@ summary:focus-visible {
 
 .homepage__main {
   min-width: 0;
+}
+
+.homepage-video {
+  margin-top: var(--space-5);
+}
+
+.homepage-video__title {
+  margin: 0 0 var(--space-3);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
 }
 
 .homepage__empty {
@@ -1307,7 +1530,9 @@ summary:focus-visible {
   }
 
   .public-article-page__text,
-  .public-article-page__body {
+  .public-article-page__body,
+  .public-article-page__gallery,
+  .public-article-page__videos {
     padding-inline: var(--space-2);
   }
 

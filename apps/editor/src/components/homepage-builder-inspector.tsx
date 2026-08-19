@@ -8,6 +8,7 @@ import { formatEditorialDateTime } from "@/lib/content/editorial-timezone";
 import { deriveContentStatus } from "@/lib/content/status";
 import type { HomepageBuilderView } from "@/lib/homepage/builder-types";
 import { HOMEPAGE_SLOT_LABEL } from "@/lib/homepage/slot-meta";
+import { HomepageBuilderHeroThumbnail } from "@/components/homepage-builder-hero-thumbnail";
 
 type Props = {
   builder: HomepageBuilderView;
@@ -70,6 +71,10 @@ export function HomepageBuilderInspector({
           </div>
         ) : (
           <div className="space-y-4">
+            <HomepageBuilderHeroThumbnail
+              hero={story.heroThumbnail}
+              size="featured"
+            />
             <div>
               <p className="text-base font-semibold leading-snug text-zinc-900">
                 {story.title}

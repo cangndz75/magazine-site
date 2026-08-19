@@ -1,11 +1,18 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import {
   canonicalizeContentSlug,
   MEDIA_ROLE,
   MEDIA_TYPE,
+  MEDIA_RENDITION_SURFACE,
+  PUBLIC_GALLERY_IMAGE_SIZES,
   PUBLICATION_STATUS,
+  toPublicEditorialVideoProjection,
   publicPublishedVersionId,
+  toPublicArticleGalleryItem,
   type AuthorRole,
+  type PublicArticleGalleryItem,
+  type PublicEditorialVideoProjection,
+  type VideoProvider,
 } from "@magazine/domain";
 import { getDb } from "../client";
 import { authors } from "../schema/authors";
@@ -17,8 +24,13 @@ import {
   contentVersions,
 } from "../schema/content";
 import { media } from "../schema/media";
+import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import { categories } from "../schema/taxonomy";
-import { resolvePublicMediaUrl } from "./resolve-public-media-url";
+import {
+  loadMediaRenditionsByMediaIds,
+  resolvePublicImageDelivery,
+} from "../media/image-delivery";
+import { alias } from "drizzle-orm/pg-core";
 
 export type PublicArticleCategory = {
   name: string;
@@ -40,6 +52,9 @@ export type PublicArticleHeroMedia = {
   credit: string | null;
 };
 
+export type { PublicArticleGalleryItem };
+export type { PublicEditorialVideoProjection };
+
 export type PublicArticle = {
   id: string;
   slug: string;
@@ -50,6 +65,8 @@ export type PublicArticle = {
   publicDateModified: Date | null;
   body: unknown;
   hero: PublicArticleHeroMedia | null;
+  gallery: PublicArticleGalleryItem[];
+  videos: PublicEditorialVideoProjection[];
   categories: PublicArticleCategory[];
   authors: PublicArticleAuthor[];
 };
@@ -123,7 +140,9 @@ export async function getPublicArticleBySlug(
     return null;
   }
 
-  const [categoryRows, authorRows, heroRows] = await Promise.all([
+  const posterMedia = alias(media, "public_article_video_poster_media");
+  const [categoryRows, authorRows, heroRows, galleryRows, videoRows] =
+    await Promise.all([
     db
       .select({
         name: categories.name,
@@ -149,12 +168,14 @@ export async function getPublicArticleBySlug(
       .orderBy(contentVersionAuthors.sortOrder),
     db
       .select({
+        mediaId: media.id,
         storageKey: media.storageKey,
         mediaType: media.mediaType,
         width: media.width,
         height: media.height,
         altText: contentVersionMedia.altText,
         credit: contentVersionMedia.credit,
+        creditLine: media.creditLine,
       })
       .from(contentVersionMedia)
       .innerJoin(media, eq(media.id, contentVersionMedia.mediaId))
@@ -166,6 +187,59 @@ export async function getPublicArticleBySlug(
         ),
       )
       .limit(1),
+    db
+      .select({
+        mediaId: media.id,
+        storageKey: media.storageKey,
+        mediaType: media.mediaType,
+        width: media.width,
+        height: media.height,
+        altText: contentVersionMedia.altText,
+        caption: contentVersionMedia.caption,
+        credit: contentVersionMedia.credit,
+        creditLine: media.creditLine,
+        sortOrder: contentVersionMedia.sortOrder,
+      })
+      .from(contentVersionMedia)
+      .innerJoin(media, eq(media.id, contentVersionMedia.mediaId))
+      .where(
+        and(
+          eq(contentVersionMedia.contentVersionId, version.id),
+          eq(contentVersionMedia.role, MEDIA_ROLE.GALLERY),
+        ),
+      )
+      .orderBy(asc(contentVersionMedia.sortOrder)),
+    db
+      .select({
+        provider: editorialVideoAssets.provider,
+        providerVideoId: editorialVideoAssets.providerVideoId,
+        title: editorialVideoAssets.title,
+        assetCaption: editorialVideoAssets.caption,
+        relationCaption: contentVersionVideos.caption,
+        durationSeconds: editorialVideoAssets.durationSeconds,
+        posterMediaId: posterMedia.id,
+        posterStorageKey: posterMedia.storageKey,
+        posterMediaType: posterMedia.mediaType,
+        posterWidth: posterMedia.width,
+        posterHeight: posterMedia.height,
+        posterCreditLine: posterMedia.creditLine,
+      })
+      .from(contentVersionVideos)
+      .innerJoin(
+        editorialVideoAssets,
+        eq(editorialVideoAssets.id, contentVersionVideos.videoAssetId),
+      )
+      .leftJoin(posterMedia, eq(posterMedia.id, editorialVideoAssets.posterMediaId))
+      .where(eq(contentVersionVideos.contentVersionId, version.id))
+      .orderBy(asc(contentVersionVideos.sortOrder)),
+  ]);
+
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds([
+    ...heroRows.map((row) => row.mediaId),
+    ...galleryRows.map((row) => row.mediaId),
+    ...videoRows
+      .map((row) => row.posterMediaId)
+      .filter((id): id is string => Boolean(id)),
   ]);
 
   const publicCategories = [...categoryRows].sort((left, right) => {
@@ -175,9 +249,75 @@ export async function getPublicArticleBySlug(
     return left.name.localeCompare(right.name, "tr");
   });
   const heroRow = heroRows[0];
-  const heroUrl = heroRow
-    ? resolvePublicMediaUrl(options.mediaPublicBaseUrl, heroRow.storageKey)
+  const heroDelivery = heroRow
+    ? resolvePublicImageDelivery({
+        mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+        originalStorageKey: heroRow.storageKey,
+        originalWidth: heroRow.width,
+        originalHeight: heroRow.height,
+        renditions: renditionsByMediaId.get(heroRow.mediaId),
+        surface: MEDIA_RENDITION_SURFACE.ARTICLE_HERO,
+      })
     : null;
+  const gallery = galleryRows.flatMap((row) => {
+    const stage = resolvePublicImageDelivery({
+      mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+      originalStorageKey: row.storageKey,
+      originalWidth: row.width,
+      originalHeight: row.height,
+      renditions: renditionsByMediaId.get(row.mediaId),
+      surface: MEDIA_RENDITION_SURFACE.GALLERY_STAGE,
+    });
+    const item = toPublicArticleGalleryItem({
+      mediaId: row.mediaId,
+      mediaType: row.mediaType,
+      publicUrl: stage.url,
+      width: stage.width,
+      height: stage.height,
+      altText: row.altText,
+      caption: row.caption,
+      attachmentCredit: row.credit,
+      creditLine: row.creditLine,
+      thumbUrl: stage.thumbUrl,
+      srcSet: stage.srcSet,
+      sizes: stage.srcSet ? PUBLIC_GALLERY_IMAGE_SIZES : null,
+    });
+    return item ? [item] : [];
+  });
+  const videos = videoRows.flatMap((row) => {
+    const posterDelivery =
+      row.posterStorageKey && row.posterMediaType === MEDIA_TYPE.IMAGE
+        ? resolvePublicImageDelivery({
+            mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+            originalStorageKey: row.posterStorageKey,
+            originalWidth: row.posterWidth,
+            originalHeight: row.posterHeight,
+            renditions: row.posterMediaId
+              ? renditionsByMediaId.get(row.posterMediaId)
+              : undefined,
+            surface: MEDIA_RENDITION_SURFACE.VIDEO_POSTER,
+          })
+        : null;
+    const item = toPublicEditorialVideoProjection({
+      provider: row.provider as VideoProvider,
+      providerVideoId: row.providerVideoId,
+      title: row.title,
+      caption: row.relationCaption ?? row.assetCaption,
+      durationSeconds: row.durationSeconds,
+      editorialPoster:
+        posterDelivery?.url
+          ? {
+              publicUrl: posterDelivery.url,
+              width: posterDelivery.width,
+              height: posterDelivery.height,
+              altText: row.title,
+              attachmentCredit: null,
+              creditLine: row.posterCreditLine,
+            }
+          : null,
+    });
+    return item ? [item] : [];
+  });
 
   return {
     id: item.id,
@@ -189,15 +329,17 @@ export async function getPublicArticleBySlug(
     publicDateModified: item.publicDateModified,
     body: version.body,
     hero:
-      heroRow && heroUrl
+      heroRow && heroDelivery?.url
         ? {
-            url: heroUrl,
-            width: heroRow.width,
-            height: heroRow.height,
+            url: heroDelivery.url,
+            width: heroDelivery.width,
+            height: heroDelivery.height,
             altText: heroRow.altText,
-            credit: heroRow.credit,
+            credit: heroRow.credit?.trim() || heroRow.creditLine?.trim() || null,
           }
         : null,
+    gallery,
+    videos,
     categories: publicCategories,
     authors: authorRows.map((row) => ({
       displayName: row.displayName,

@@ -5,22 +5,15 @@
  * Builder list. Recency after the ATF lead/support IDs is a temporary
  * deterministic fallback only. Replace it when Homepage Builder lands.
  *
- * Video and gallery homepage modules are intentionally unavailable: the
- * repository has no VIDEO/GALLERY content type, no public video provider
- * contract, and MEDIA_ROLE.GALLERY is an article media attachment role, not
- * a gallery story type.
+ * Homepage video is an explicit Builder-managed editorial video placement.
+ * Gallery homepage modules are intentionally unavailable: MEDIA_ROLE.GALLERY is
+ * an article media attachment role, not a gallery story type.
  */
 
 export const PUBLIC_HOMEPAGE_FEATURED_LIMIT = 5;
 
-export const HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE =
-  "HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE" as const;
-
 export const HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE =
   "HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE" as const;
-
-export type HomepageVideoDataSourceStatus =
-  typeof HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE;
 
 export type HomepageGalleryDataSourceStatus =
   typeof HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE;

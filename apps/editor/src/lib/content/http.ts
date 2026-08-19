@@ -3,10 +3,19 @@ import {
   EDITOR_JSON_MAX_BYTES,
   HOMEPAGE_BUILDER_ERROR,
   HomepageBuilderError,
+  MEDIA_RIGHTS_ERROR,
+  MEDIA_UPLOAD_ERROR,
+  MediaRightsError,
+  MediaUploadError,
   PUBLISHING_ERROR,
   PublishingError,
+  VIDEO_ERROR,
+  VideoError,
   type HomepageBuilderErrorCode,
+  type MediaRightsErrorCode,
+  type MediaUploadErrorCode,
   type PublishingErrorCode,
+  type VideoErrorCode,
 } from "@magazine/domain";
 
 export const EDITOR_NO_STORE_HEADERS = {
@@ -61,6 +70,8 @@ const PUBLISHING_STATUS: Record<PublishingErrorCode, number> = {
   [PUBLISHING_ERROR.MULTIPLE_HERO_MEDIA]: 400,
   [PUBLISHING_ERROR.INVALID_RELATION]: 400,
   [PUBLISHING_ERROR.RELATION_NOT_FOUND]: 400,
+  [PUBLISHING_ERROR.INVALID_HERO_MEDIA]: 400,
+  [PUBLISHING_ERROR.INVALID_GALLERY_MEDIA]: 400,
   [PUBLISHING_ERROR.CONTENT_WRITE_CONFLICT]: 409,
   [PUBLISHING_ERROR.INVALID_TITLE]: 400,
   [PUBLISHING_ERROR.INVALID_BODY]: 400,
@@ -75,10 +86,41 @@ const HOMEPAGE_BUILDER_STATUS: Record<HomepageBuilderErrorCode, number> = {
   [HOMEPAGE_BUILDER_ERROR.FORBIDDEN]: 403,
   [HOMEPAGE_BUILDER_ERROR.INVALID_SLOT]: 400,
   [HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM]: 400,
+  [HOMEPAGE_BUILDER_ERROR.INVALID_VIDEO_ASSET]: 400,
   [HOMEPAGE_BUILDER_ERROR.DUPLICATE_CONTENT_ITEM]: 409,
   [HOMEPAGE_BUILDER_ERROR.WRITE_CONFLICT]: 409,
   [HOMEPAGE_BUILDER_ERROR.NO_DRAFT]: 409,
   [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]: 422,
+};
+
+const MEDIA_RIGHTS_STATUS_MAP: Record<MediaRightsErrorCode, number> = {
+  [MEDIA_RIGHTS_ERROR.FORBIDDEN]: 403,
+  [MEDIA_RIGHTS_ERROR.MEDIA_NOT_FOUND]: 404,
+  [MEDIA_RIGHTS_ERROR.INVALID_RIGHTS]: 400,
+};
+
+const MEDIA_UPLOAD_STATUS_MAP: Record<MediaUploadErrorCode, number> = {
+  [MEDIA_UPLOAD_ERROR.FORBIDDEN]: 403,
+  [MEDIA_UPLOAD_ERROR.EMPTY_FILE]: 400,
+  [MEDIA_UPLOAD_ERROR.FILE_TOO_LARGE]: 413,
+  [MEDIA_UPLOAD_ERROR.UNSUPPORTED_FORMAT]: 415,
+  [MEDIA_UPLOAD_ERROR.INVALID_IMAGE]: 400,
+  [MEDIA_UPLOAD_ERROR.DIMENSIONS_EXCEEDED]: 400,
+  [MEDIA_UPLOAD_ERROR.STORAGE_FAILED]: 500,
+  [MEDIA_UPLOAD_ERROR.STORAGE_NOT_CONFIGURED]: 503,
+  [MEDIA_UPLOAD_ERROR.INVALID_UPLOAD]: 400,
+};
+
+const VIDEO_STATUS_MAP: Record<VideoErrorCode, number> = {
+  [VIDEO_ERROR.FORBIDDEN]: 403,
+  [VIDEO_ERROR.NOT_FOUND]: 404,
+  [VIDEO_ERROR.UNSUPPORTED_PROVIDER]: 400,
+  [VIDEO_ERROR.INVALID_VIDEO_URL]: 400,
+  [VIDEO_ERROR.INVALID_PROVIDER_ID]: 400,
+  [VIDEO_ERROR.DUPLICATE_VIDEO]: 409,
+  [VIDEO_ERROR.INVALID_POSTER]: 400,
+  [VIDEO_ERROR.INVALID_METADATA]: 400,
+  [VIDEO_ERROR.STALE_WRITE]: 409,
 };
 
 const SAFE_MESSAGES: Record<string, string> = {
@@ -102,6 +144,10 @@ const SAFE_MESSAGES: Record<string, string> = {
   [PUBLISHING_ERROR.DUPLICATE_RELATION]:
     "The same relation cannot be attached twice.",
   [PUBLISHING_ERROR.INVALID_RELATION]: "A relation in the request is invalid.",
+  [PUBLISHING_ERROR.INVALID_HERO_MEDIA]:
+    "Kapak görseli yalnızca bir görsel olabilir.",
+  [PUBLISHING_ERROR.INVALID_GALLERY_MEDIA]:
+    "Galeri yalnızca görsellerden oluşabilir.",
   [PUBLISHING_ERROR.SELECTED_SCOPE_PRIMARY_REQUIRED]:
     "A primary category in your assigned scope is required.",
   [PUBLISHING_ERROR.INVALID_REVIEW_NOTE]:
@@ -114,8 +160,30 @@ const SAFE_MESSAGES: Record<string, string> = {
     "The same story cannot occupy multiple homepage slots.",
   [HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM]:
     "The selected content item was not found.",
+  [HOMEPAGE_BUILDER_ERROR.INVALID_VIDEO_ASSET]:
+    "The selected video asset was not found.",
   [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]:
     "The homepage draft cannot be published until all assignments are publicly eligible.",
+  [MEDIA_RIGHTS_ERROR.MEDIA_NOT_FOUND]: "Medya bulunamadı.",
+  [MEDIA_RIGHTS_ERROR.INVALID_RIGHTS]: "Hak bilgileri geçersiz.",
+  [MEDIA_UPLOAD_ERROR.EMPTY_FILE]: "Yüklenecek dosya boş.",
+  [MEDIA_UPLOAD_ERROR.FILE_TOO_LARGE]: "Dosya boyutu izin verilen sınırı aşıyor.",
+  [MEDIA_UPLOAD_ERROR.UNSUPPORTED_FORMAT]: "Bu görsel biçimi desteklenmiyor.",
+  [MEDIA_UPLOAD_ERROR.INVALID_IMAGE]: "Dosya geçerli bir görsel değil.",
+  [MEDIA_UPLOAD_ERROR.DIMENSIONS_EXCEEDED]: "Görsel boyutları izin verilen sınırı aşıyor.",
+  [MEDIA_UPLOAD_ERROR.STORAGE_FAILED]: "Görsel kaydedilemedi.",
+  [MEDIA_UPLOAD_ERROR.STORAGE_NOT_CONFIGURED]: "Medya depolama yapılandırılmadı.",
+  [MEDIA_UPLOAD_ERROR.INVALID_UPLOAD]: "Yükleme isteği geçersiz.",
+  [VIDEO_ERROR.NOT_FOUND]: "Video bulunamadı.",
+  [VIDEO_ERROR.UNSUPPORTED_PROVIDER]:
+    "Şu anda yalnızca YouTube ve Vimeo destekleniyor.",
+  [VIDEO_ERROR.INVALID_VIDEO_URL]: "Video bağlantısı geçersiz.",
+  [VIDEO_ERROR.INVALID_PROVIDER_ID]: "Video kimliği geçersiz.",
+  [VIDEO_ERROR.DUPLICATE_VIDEO]: "Bu video zaten kayıtlı.",
+  [VIDEO_ERROR.INVALID_POSTER]: "Video posteri yalnızca görsel medya olabilir.",
+  [VIDEO_ERROR.INVALID_METADATA]: "Video alanları geçersiz.",
+  [VIDEO_ERROR.STALE_WRITE]:
+    "Bu video başka bir oturumda güncellendi. Yenileyip tekrar deneyin.",
 };
 
 export function editorJson(body: unknown, status = 200): NextResponse {
@@ -158,6 +226,30 @@ export function mapEditorError(error: unknown): NextResponse {
   if (error instanceof HomepageBuilderError) {
     return editorErrorResponse(
       HOMEPAGE_BUILDER_STATUS[error.code] ?? 400,
+      error.code,
+      SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof MediaRightsError) {
+    return editorErrorResponse(
+      MEDIA_RIGHTS_STATUS_MAP[error.code] ?? 400,
+      error.code,
+      SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof MediaUploadError) {
+    return editorErrorResponse(
+      MEDIA_UPLOAD_STATUS_MAP[error.code] ?? 400,
+      error.code,
+      SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof VideoError) {
+    return editorErrorResponse(
+      VIDEO_STATUS_MAP[error.code] ?? 400,
       error.code,
       SAFE_MESSAGES[error.code],
     );

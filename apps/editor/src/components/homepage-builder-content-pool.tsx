@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { PublicationStatus, WorkflowStatus } from "@magazine/domain";
+import type { EditorSafeHeroThumbnail, PublicationStatus, WorkflowStatus } from "@magazine/domain";
 import { StatusBadge } from "@/components/status-badge";
+import { HomepageBuilderHeroThumbnail } from "@/components/homepage-builder-hero-thumbnail";
 import { deriveContentStatus } from "@/lib/content/status";
 import { findSlotForContentItem, slotAssignmentLabel } from "@/lib/homepage/builder-utils";
 import type { HomepageBuilderView } from "@/lib/homepage/builder-types";
@@ -26,6 +27,7 @@ export type ContentPoolItem = {
   scheduledVersionId: string | null;
   scheduledAt: string | null;
   primaryCategory: { id: string; name: string; slug: string } | null;
+  heroThumbnail: EditorSafeHeroThumbnail | null;
 };
 
 type Props = {
@@ -186,12 +188,10 @@ export function HomepageBuilderContentPool({
               }`}
             >
               <div className="flex gap-3">
-                <div
-                  className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded bg-zinc-100 text-[10px] font-semibold uppercase text-zinc-400"
-                  aria-hidden="true"
-                >
-                  {item.primaryCategory?.name.slice(0, 2) ?? "—"}
-                </div>
+                <HomepageBuilderHeroThumbnail
+                  hero={item.heroThumbnail ?? null}
+                  size="pool"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-zinc-900">
                     {item.displayVersion.title || "Başlıksız"}

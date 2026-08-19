@@ -7,7 +7,7 @@ import {
   markPublicCacheOutboxEventFailed,
   type PublicCacheOutboxEvent,
 } from "@magazine/db/public-cache-outbox";
-import { deliverPublicArticleCacheInvalidation } from "./public-cache-invalidation";
+import { deliverPublicArticleCacheInvalidation } from "./public-cache-delivery";
 
 export type PublicCacheOutboxProcessSummary = {
   claimed: number;
@@ -16,9 +16,14 @@ export type PublicCacheOutboxProcessSummary = {
   dead: number;
 };
 
+export type PublicArticleCacheDeliver = (target: {
+  contentItemId: string;
+  slug: string;
+}) => Promise<void>;
+
 export type PublicCacheOutboxProcessorDeps = {
   claim?: typeof claimPublicCacheOutboxEvents;
-  deliver?: typeof deliverPublicArticleCacheInvalidation;
+  deliver?: PublicArticleCacheDeliver;
   markCompleted?: typeof markPublicCacheOutboxEventCompleted;
   markFailed?: typeof markPublicCacheOutboxEventFailed;
 };
@@ -28,7 +33,7 @@ export async function processPublicCacheOutboxBatch(
   deps: PublicCacheOutboxProcessorDeps = {},
 ): Promise<PublicCacheOutboxProcessSummary> {
   const claim = deps.claim ?? claimPublicCacheOutboxEvents;
-  const deliver = deps.deliver ?? deliverPublicArticleCacheInvalidation;
+  const deliver = deps.deliver ?? deliverToPublicWeb;
   const markCompleted = deps.markCompleted ?? markPublicCacheOutboxEventCompleted;
   const markFailed = deps.markFailed ?? markPublicCacheOutboxEventFailed;
   const events = await claim({ limit: clampPublicCacheOutboxBatchLimit(input.limit) });
@@ -62,9 +67,20 @@ export async function processPublicCacheOutboxBatch(
   return summary;
 }
 
+async function deliverToPublicWeb(target: {
+  contentItemId: string;
+  slug: string;
+}): Promise<void> {
+  const { env } = await import("@/lib/env");
+  await deliverPublicArticleCacheInvalidation(target, {
+    baseUrl: env.PUBLIC_WEB_INTERNAL_BASE_URL,
+    secret: env.PUBLIC_CACHE_INVALIDATION_SECRET,
+  });
+}
+
 async function deliverEvent(
   event: PublicCacheOutboxEvent,
-  deliver: typeof deliverPublicArticleCacheInvalidation,
+  deliver: PublicArticleCacheDeliver,
 ): Promise<void> {
   if (
     event.eventType !==

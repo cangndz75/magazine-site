@@ -54,6 +54,21 @@ export async function withEditorRead(
   }
 }
 
+export async function withEditorMutation(
+  request: Request,
+  capability: Capability,
+  handler: (session: StaffSessionContext, request: Request) => Promise<Response>,
+): Promise<Response> {
+  try {
+    assertUnsafeEditorOrigin(request);
+    const session = await requireEditorApiSession();
+    requireEditorCapability(session, capability);
+    return await handler(session, request);
+  } catch (error) {
+    return mapEditorError(error);
+  }
+}
+
 export async function withEditorWrite(
   request: Request,
   capability: Capability,
@@ -62,13 +77,8 @@ export async function withEditorWrite(
     body: unknown,
   ) => Promise<Response>,
 ): Promise<Response> {
-  try {
-    assertUnsafeEditorOrigin(request);
-    const session = await requireEditorApiSession();
-    requireEditorCapability(session, capability);
-    const body = await readEditorJsonBody(request);
-    return await handler(session, body);
-  } catch (error) {
-    return mapEditorError(error);
-  }
+  return withEditorMutation(request, capability, async (session, mutationRequest) => {
+    const body = await readEditorJsonBody(mutationRequest);
+    return handler(session, body);
+  });
 }

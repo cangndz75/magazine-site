@@ -5,6 +5,9 @@ getEditorEnv();
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@magazine/config", "@magazine/domain", "@magazine/db"],
+  experimental: {
+    proxyClientMaxBodySize: "16mb",
+  },
 };
 
 export default nextConfig;

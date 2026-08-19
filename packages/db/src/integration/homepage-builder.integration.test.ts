@@ -14,10 +14,13 @@ import { eq } from "drizzle-orm";
 import { getDb } from "../client";
 import {
   clearHomepageSlot,
+  clearHomepageVideo,
+  createEditorVideoAsset,
   getHomepageBuilder,
   moveHomepageFeaturedSlot,
   publishHomepage,
   setHomepageSlot,
+  setHomepageVideo,
 } from "../editor";
 import { getPublicHomepage } from "../public";
 import {
@@ -29,7 +32,7 @@ import {
   unpublishContent,
   updateDraftContent,
 } from "../publishing";
-import { contentItems, homepageAuditEvents } from "../schema";
+import { contentItems, homepageAuditEvents, editorialVideoAssets } from "../schema";
 import {
   articleBody,
   cleanupFixture,
@@ -1359,5 +1362,176 @@ describe("homepage builder PostgreSQL", () => {
       assertHomepageSlotAssignmentsUnique(after.draft.slots),
       { ok: true, value: true },
     );
+  });
+
+  function uniqueYouTubeId(): string {
+    return randomUUID().replaceAll("-", "").slice(0, 11);
+  }
+
+  async function createVideoAsset(title = "Homepage QA video") {
+    const created = await createEditorVideoAsset({
+      roles: fixture.superAdmin.roles,
+      video: {
+        providerUrlOrId: `https://youtu.be/${uniqueYouTubeId()}`,
+        title,
+      },
+    });
+    return created;
+  }
+
+  it("isolates draft homepage video from the published homepage", async () => {
+    const videoA = await createVideoAsset("Homepage video A");
+    const videoB = await createVideoAsset("Homepage video B");
+
+    let builder = await openBuilder();
+    builder = await setHomepageVideo({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      videoAssetId: videoA.id,
+    });
+    builder = await publishHomepage({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+    });
+
+    const liveBeforeDraft = await getPublicHomepage({
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.equal(liveBeforeDraft.video?.title, "Homepage video A");
+    assert.equal(liveBeforeDraft.video?.videoId, videoA.providerVideoId);
+
+    builder = await setHomepageVideo({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      videoAssetId: videoB.id,
+    });
+    assert.equal(builder.draft.videoAssetId, videoB.id);
+
+    const liveAfterDraft = await getPublicHomepage({
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.equal(liveAfterDraft.video?.title, "Homepage video A");
+    assert.equal(liveAfterDraft.video?.videoId, videoA.providerVideoId);
+    assert.equal(
+      JSON.stringify(liveAfterDraft.video).includes("rightsNote"),
+      false,
+    );
+    assert.equal(
+      JSON.stringify(liveAfterDraft.video).includes("submittedUrl"),
+      false,
+    );
+    assert.equal(
+      JSON.stringify(liveAfterDraft.video).includes("provenance"),
+      false,
+    );
+  });
+
+  it("publishes homepage video assignment and clears safely", async () => {
+    const videoA = await createVideoAsset("Published homepage video");
+    const videoB = await createVideoAsset("Replacement homepage video");
+
+    let builder = await openBuilder();
+    builder = await setHomepageVideo({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      videoAssetId: videoA.id,
+    });
+    builder = await publishHomepage({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+    });
+
+    builder = await setHomepageVideo({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      videoAssetId: videoB.id,
+    });
+    builder = await publishHomepage({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+    });
+
+    const live = await getPublicHomepage({
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.equal(live.video?.title, "Replacement homepage video");
+
+    builder = await clearHomepageVideo({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+    });
+    assert.equal(builder.draft.videoAssetId, null);
+
+    builder = await publishHomepage({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+    });
+
+    const cleared = await getPublicHomepage({
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.equal(cleared.video, null);
+  });
+
+  it("rejects stale homepage video writes with WRITE_CONFLICT", async () => {
+    const video = await createVideoAsset();
+    const builder = await openBuilder();
+    await setHomepageVideo({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      videoAssetId: video.id,
+    });
+
+    await assert.rejects(
+      () =>
+        setHomepageVideo({
+          scope: fixture.superAdmin,
+          actorId: fixture.ids.staffEditor,
+          expectedUpdatedAt: builder.updatedAt,
+          videoAssetId: video.id,
+        }),
+      (error: unknown) => {
+        return (
+          error instanceof HomepageBuilderError &&
+          error.code === HOMEPAGE_BUILDER_ERROR.WRITE_CONFLICT
+        );
+      },
+    );
+  });
+
+  it("does not substitute another video when the assigned asset cannot be projected", async () => {
+    const video = await createVideoAsset("Unavailable homepage video");
+    let builder = await openBuilder();
+    builder = await setHomepageVideo({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+      videoAssetId: video.id,
+    });
+    await publishHomepage({
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      expectedUpdatedAt: builder.updatedAt,
+    });
+
+    await getDb()
+      .update(editorialVideoAssets)
+      .set({ providerVideoId: "!!!!!!!!!!!" })
+      .where(eq(editorialVideoAssets.id, video.id));
+
+    const live = await getPublicHomepage({
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.equal(live.video, null);
   });
 });

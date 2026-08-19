@@ -29,3 +29,6 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 .vercel
+
+# Local uploaded media (development object-store root)
+apps/web/public/media/uploads/

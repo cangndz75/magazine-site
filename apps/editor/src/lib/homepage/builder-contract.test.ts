@@ -7,6 +7,7 @@ import {
   parseMoveHomepageFeaturedBody,
   parsePublishHomepageBody,
   parseSetHomepageSlotBody,
+  parseSetHomepageVideoBody,
 } from "./builder-payload";
 import { EditorHttpError } from "@/lib/content/http";
 import { analyzePublishEligibility, countEmptySlots } from "./builder-utils";
@@ -32,6 +33,14 @@ describe("homepage builder payload", () => {
       expectedUpdatedAt: "2026-08-18T12:00:00.000Z",
     });
     assert.equal(parsed.expectedUpdatedAt, "2026-08-18T12:00:00.000Z");
+  });
+
+  it("parses homepage video mutation body", () => {
+    const parsed = parseSetHomepageVideoBody({
+      expectedUpdatedAt: "2026-08-18T12:00:00.000Z",
+      videoAssetId: "00000000-0000-4000-8000-000000000099",
+    });
+    assert.equal(parsed.videoAssetId, "00000000-0000-4000-8000-000000000099");
   });
 
   it("parses featured neighbor move body with concurrency token", () => {
@@ -85,6 +94,7 @@ describe("homepage builder eligibility", () => {
     draft: {
       versionId: "draft-1",
       publishedAt: null,
+      videoAssetId: null,
       slots: [
         { slotKey: "LEAD", contentItemId: "a" },
         { slotKey: "SUPPORT_1", contentItemId: null },
@@ -106,6 +116,7 @@ describe("homepage builder eligibility", () => {
         primaryCategory: { name: "Cat", slug: "cat" },
         publishedAt: "2026-08-18T10:00:00.000Z",
         isPublishEligible: true,
+        heroThumbnail: null,
       },
       b: {
         id: "b",
@@ -116,8 +127,10 @@ describe("homepage builder eligibility", () => {
         primaryCategory: null,
         publishedAt: null,
         isPublishEligible: false,
+        heroThumbnail: null,
       },
     },
+    videos: {},
   };
 
   it("treats empty slots as informational not blocking", () => {
@@ -125,6 +138,37 @@ describe("homepage builder eligibility", () => {
     const eligibility = analyzePublishEligibility(builder);
     assert.equal(eligibility.blockingCount, 1);
     assert.equal(eligibility.emptyCount, 6);
+  });
+
+  it("does not treat a thumbnail as homepage publication authority", () => {
+    const withThumbnails: HomepageBuilderView = {
+      ...builder,
+      stories: {
+        a: {
+          ...builder.stories.a!,
+          heroThumbnail: {
+            url: "https://media.example.test/qa/hero.jpg",
+            width: 1600,
+            height: 900,
+            altText: null,
+            credit: null,
+          },
+        },
+        b: {
+          ...builder.stories.b!,
+          heroThumbnail: {
+            url: "https://media.example.test/qa/draft.jpg",
+            width: 800,
+            height: 600,
+            altText: null,
+            credit: null,
+          },
+        },
+      },
+    };
+    const eligibility = analyzePublishEligibility(withThumbnails);
+    assert.equal(eligibility.blockingCount, 1);
+    assert.equal(withThumbnails.stories.b?.isPublishEligible, false);
   });
 });
 
@@ -137,6 +181,10 @@ describe("homepage builder API routes", () => {
     );
     const publish = readFileSync(
       path.join(homepageApiRoot, "builder/publish/route.ts"),
+      "utf8",
+    );
+    const video = readFileSync(
+      path.join(homepageApiRoot, "builder/video/route.ts"),
       "utf8",
     );
     const get = readFileSync(path.join(homepageApiRoot, "builder/route.ts"), "utf8");
@@ -155,6 +203,10 @@ describe("homepage builder API routes", () => {
     assert.equal(publish.includes("withEditorWrite"), true);
     assert.equal(publish.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
     assert.equal(publish.includes("session.staffUserId"), true);
+
+    assert.equal(video.includes("withEditorWrite"), true);
+    assert.equal(video.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
+    assert.equal(video.includes("setHomepageVideo"), true);
 
     assert.equal(get.includes("withEditorRead"), true);
     assert.equal(get.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
@@ -195,5 +247,39 @@ describe("homepage builder page authorization", () => {
     assert.equal(page.includes("requireCapability"), true);
     assert.equal(page.includes("env.SITE_URL"), true);
     assert.equal(page.includes("localhost"), false);
+  });
+});
+
+describe("homepage builder hero thumbnail contracts", () => {
+  it("batches editor HERO thumbnails instead of per-card media fetches", () => {
+    const presentation = readFileSync(
+      path.join(
+        fileURLToPath(new URL("./builder-presentation.ts", import.meta.url)),
+      ),
+      "utf8",
+    );
+    const pool = readFileSync(
+      path.join(
+        fileURLToPath(
+          new URL("../../components/homepage-builder-content-pool.tsx", import.meta.url),
+        ),
+      ),
+      "utf8",
+    );
+    const contentRoute = readFileSync(
+      path.join(
+        fileURLToPath(new URL("../../app/api/content/route.ts", import.meta.url)),
+      ),
+      "utf8",
+    );
+
+    assert.equal(presentation.includes("loadEditorHeroThumbnailsByVersionIds"), true);
+    assert.equal(presentation.includes("revalidateTag"), false);
+    assert.equal(presentation.includes("getEditorMediaDetail"), false);
+    assert.equal(pool.includes("/api/media/"), false);
+    assert.equal(pool.includes("heroThumbnail"), true);
+    assert.equal(contentRoute.includes("MEDIA_PUBLIC_BASE_URL"), true);
+    assert.equal(contentRoute.includes("NEXT_PUBLIC_MEDIA"), false);
+    assert.equal(contentRoute.includes("listEditorContent"), true);
   });
 });

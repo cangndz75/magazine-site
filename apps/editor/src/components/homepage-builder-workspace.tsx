@@ -32,6 +32,7 @@ import {
   HomepagePreviewDialog,
   HomepagePublishDialog,
 } from "./homepage-builder-dialogs";
+import { HomepageVideoPicker } from "./homepage-video-picker";
 
 type Props = {
   initialBuilder: HomepageBuilderView;
@@ -58,6 +59,8 @@ export function HomepageBuilderWorkspace({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [publishPending, setPublishPending] = useState(false);
   const [poolOpen, setPoolOpen] = useState(false);
+  const [videoPickerOpen, setVideoPickerOpen] = useState(false);
+  const [videoPending, setVideoPending] = useState(false);
 
   const eligibility = useMemo(() => analyzePublishEligibility(builder), [builder]);
   const draftChanges = useMemo(() => countDraftChanges(builder), [builder]);
@@ -66,7 +69,7 @@ export function HomepageBuilderWorkspace({
     [builder.published?.publishedAt],
   );
   const isBusy =
-    saveState.kind === "saving" || publishPending || pendingSlotKey !== null;
+    saveState.kind === "saving" || publishPending || pendingSlotKey !== null || videoPending;
 
   const statusLabel = useMemo(() => {
     if (saveState.kind === "saving") {
@@ -163,6 +166,60 @@ export function HomepageBuilderWorkspace({
       }
     },
     [builder],
+  );
+
+  const mutateVideo = useCallback(
+    async (videoAssetId: string | null) => {
+      setVideoPending(true);
+      setSaveState({ kind: "saving" });
+      try {
+        const response = await fetch("/api/homepage/builder/video", {
+          method: "PATCH",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            expectedUpdatedAt: builder.updatedAt,
+            videoAssetId,
+          }),
+        });
+        const json = (await response.json()) as {
+          ok?: boolean;
+          data?: { builder: HomepageBuilderView };
+          error?: { code?: string };
+        };
+
+        if (!response.ok || !json.ok || !json.data?.builder) {
+          const code = json.error?.code;
+          if (isHomepageBuilderConflict(code)) {
+            setSaveState({
+              kind: "conflict",
+              message: HOMEPAGE_BUILDER_CONFLICT_MESSAGE,
+            });
+          } else {
+            setSaveState({
+              kind: "error",
+              message: presentHomepageBuilderError(code),
+            });
+          }
+          return false;
+        }
+
+        setBuilder(json.data.builder);
+        setSaveState({ kind: "saved" });
+        return true;
+      } catch {
+        setSaveState({
+          kind: "error",
+          message: "Kayıt başarısız. Tekrar deneyin.",
+        });
+        return false;
+      } finally {
+        setVideoPending(false);
+      }
+    },
+    [builder.updatedAt],
   );
 
   const handleSelectSlot = useCallback((slotKey: HomepageSlotKey) => {
@@ -446,9 +503,13 @@ export function HomepageBuilderWorkspace({
             builder={builder}
             selectedSlotKey={selectedSlotKey}
             pendingSlotKey={pendingSlotKey}
+            videoPickerOpen={videoPickerOpen}
+            videoPending={videoPending}
             onSelectSlot={handleSelectSlot}
             onClearSlot={handleClearSlot}
             onMoveFeatured={handleMoveFeatured}
+            onSelectVideo={() => setVideoPickerOpen(true)}
+            onClearVideo={() => void mutateVideo(null)}
             disabled={isBusy}
           />
         </section>
@@ -482,6 +543,18 @@ export function HomepageBuilderWorkspace({
         open={previewOpen}
         builder={builder}
         onClose={() => setPreviewOpen(false)}
+      />
+      <HomepageVideoPicker
+        open={videoPickerOpen}
+        disabled={isBusy}
+        onClose={() => setVideoPickerOpen(false)}
+        onConfirm={(item) => {
+          void mutateVideo(item.id).then((ok) => {
+            if (ok) {
+              setVideoPickerOpen(false);
+            }
+          });
+        }}
       />
     </div>
   );

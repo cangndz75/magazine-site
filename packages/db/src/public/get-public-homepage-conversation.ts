@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   MEDIA_ROLE,
   MEDIA_TYPE,
+  MEDIA_RENDITION_SURFACE,
   PUBLIC_HOMEPAGE_CONVERSATION_LIMIT,
   assignPublicConversationRanks,
   publicConversationArticlePointer,
@@ -14,7 +15,10 @@ import type {
   PublicArticleHeroMedia,
   PublicArticleReadOptions,
 } from "./get-public-article";
-import { resolvePublicMediaUrl } from "./resolve-public-media-url";
+import {
+  loadMediaRenditionsByMediaIds,
+  resolvePublicImageDelivery,
+} from "../media/image-delivery";
 
 export type PublicHomepageConversationArticle = {
   id: string;
@@ -73,6 +77,7 @@ export async function getPublicHomepageConversation(
     const heroRows = await db
       .select({
         contentVersionId: contentVersionMedia.contentVersionId,
+        mediaId: media.id,
         storageKey: media.storageKey,
         width: media.width,
         height: media.height,
@@ -89,15 +94,29 @@ export async function getPublicHomepageConversation(
         ),
       );
 
+    const renditionsByMediaId = await loadMediaRenditionsByMediaIds(
+      heroRows.map((row) => row.mediaId),
+    );
+
     for (const row of heroRows) {
-      const url = resolvePublicMediaUrl(options.mediaPublicBaseUrl, row.storageKey);
-      if (!url || heroByVersion.has(row.contentVersionId)) {
+      if (heroByVersion.has(row.contentVersionId)) {
+        continue;
+      }
+      const delivery = resolvePublicImageDelivery({
+        mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+        originalStorageKey: row.storageKey,
+        originalWidth: row.width,
+        originalHeight: row.height,
+        renditions: renditionsByMediaId.get(row.mediaId),
+        surface: MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB,
+      });
+      if (!delivery.url) {
         continue;
       }
       heroByVersion.set(row.contentVersionId, {
-        url,
-        width: row.width,
-        height: row.height,
+        url: delivery.url,
+        width: delivery.width,
+        height: delivery.height,
         altText: row.altText,
         credit: row.credit,
       });

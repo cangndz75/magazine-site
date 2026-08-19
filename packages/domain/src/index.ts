@@ -17,6 +17,133 @@ export { ENTITY_KIND, ENTITY_KINDS, type EntityKind } from "./entity-kind";
 export { ENTITY_ROLE, ENTITY_ROLES, type EntityRole } from "./entity-role";
 export { MEDIA_ROLE, MEDIA_ROLES, type MediaRole } from "./media-role";
 export { MEDIA_TYPE, MEDIA_TYPES, type MediaType } from "./media-type";
+export {
+  MEDIA_SOURCE_KIND,
+  MEDIA_SOURCE_KINDS,
+  MEDIA_LICENSE_TYPE,
+  MEDIA_LICENSE_TYPES,
+  MEDIA_USAGE_RESTRICTION,
+  MEDIA_USAGE_RESTRICTIONS,
+  MEDIA_RIGHTS_STATUS,
+  MEDIA_PUBLIC_INELIGIBILITY_REASON,
+  MEDIA_RIGHTS_ERROR,
+  MEDIA_RIGHTS_TEXT_MAX,
+  MediaRightsError,
+  authorizeMediaRightsRead,
+  authorizeMediaRightsWrite,
+  canonicalizeMediaRightsWrite,
+  defaultMediaRights,
+  evaluateMediaPublicEligibility,
+  toPublicMediaProjection,
+  type MediaSourceKind,
+  type MediaLicenseType,
+  type MediaUsageRestriction,
+  type MediaRightsStatus,
+  type MediaPublicIneligibilityReason,
+  type MediaRightsErrorCode,
+  type MediaRightsDecision,
+  type MediaRightsRecord,
+  type CanonicalMediaRights,
+  type MediaRightsWriteInput,
+  type MediaPublicEligibility,
+  type PublicMediaProjection,
+} from "./media-rights";
+export {
+  VIDEO_PROVIDER,
+  VIDEO_PROVIDERS,
+  VIDEO_ERROR,
+  VIDEO_TEXT_MAX,
+  VIDEO_DURATION_SECONDS_MAX,
+  VideoError,
+  assertProviderVideoId,
+  assertVideoDurationSeconds,
+  buildVideoIdentity,
+  canonicalizeEditorialVideoWrite,
+  parseVideoProviderInput,
+  providerThumbnailUrl,
+  toPublicEditorialVideoProjection,
+  videoCanonicalUrl,
+  videoEmbedUrl,
+  type VideoProvider,
+  type VideoErrorCode,
+  type VideoDecision,
+  type CanonicalVideoIdentity,
+  type EditorialVideoWriteInput,
+  type CanonicalEditorialVideoWrite,
+  type PublicEditorialVideoProjection,
+} from "./editorial-video";
+export {
+  MEDIA_UPLOAD_ERROR,
+  MEDIA_IMAGE_MAX_BYTES,
+  MEDIA_UPLOAD_MAX_REQUEST_BYTES,
+  MEDIA_IMAGE_MAX_WIDTH,
+  MEDIA_IMAGE_MAX_HEIGHT,
+  MEDIA_IMAGE_MAX_PIXELS,
+  MEDIA_ORIGINAL_FILENAME_MAX,
+  MEDIA_IMAGE_FORMAT,
+  MEDIA_IMAGE_FORMATS,
+  MEDIA_IMAGE_MIME,
+  MEDIA_IMAGE_EXTENSION,
+  MediaUploadError,
+  authorizeMediaUpload,
+  assertDecodedImageConstraints,
+  canonicalizeOriginalFilename,
+  generateMediaStorageKey,
+  parseMediaStorageKey,
+  assertSafeMediaStorageKey,
+  isMediaImageFormat,
+  type MediaUploadErrorCode,
+  type MediaUploadDecision,
+  type MediaImageFormat,
+  type MediaStorageRenditionVariant,
+  type ParsedMediaStorageKey,
+} from "./media-upload";
+export {
+  MEDIA_RENDITION_VARIANT,
+  MEDIA_RENDITION_VARIANTS,
+  MEDIA_RENDITION_MAX_EDGE,
+  MEDIA_RENDITION_SURFACE,
+  MEDIA_RENDITION_SURFACE_PREFERENCE,
+  PUBLIC_GALLERY_IMAGE_SIZES,
+  fitRenditionSize,
+  plannedRenditionSizes,
+  generateMediaRenditionStorageKey,
+  plannedMediaRenditionKeys,
+  selectResolvedImageDelivery,
+  publicMediaRenditionsFromResolved,
+  buildPublicImageSrcSet,
+  publicImageProjectionLeaksInternal,
+  isMediaRenditionVariant,
+  type MediaRenditionVariant,
+  type MediaRenditionSurface,
+  type MediaRenditionSize,
+  type ResolvedMediaRendition,
+  type SelectedImageDelivery,
+} from "./media-rendition";
+export {
+  ARTICLE_HERO_ALT_TEXT_MAX,
+  canonicalizeHeroAltText,
+  canonicalizeHeroCredit,
+  assertHeroAssignableMediaType,
+  type DraftHeroMutationInput,
+} from "./article-hero";
+export {
+  ARTICLE_GALLERY_ALT_TEXT_MAX,
+  ARTICLE_GALLERY_CAPTION_MAX,
+  ARTICLE_GALLERY_MAX_ITEMS,
+  assertGalleryAssignableMediaType,
+  canonicalizeDraftGalleryItems,
+  canonicalizeGalleryCaption,
+  toPublicArticleGalleryItem,
+  type CanonicalGalleryItem,
+  type DraftGalleryItemInput,
+  type PublicArticleGalleryItem,
+} from "./article-gallery";
+export {
+  selectEditorHomepageHeroVersionId,
+  toEditorSafeHeroThumbnail,
+  type EditorSafeHeroThumbnail,
+} from "./editor-hero-thumbnail";
 export { AUTHOR_ROLE, AUTHOR_ROLES, type AuthorRole } from "./author-role";
 export {
   PRIMARY_CATEGORY_ISSUE,
@@ -43,10 +170,20 @@ export {
   type VersionPointers,
 } from "./content-item-invariants";
 export {
+  PUBLIC_ARTICLE_CACHE_INVALIDATE_SCHEMA_VERSION,
+  PUBLIC_CACHE_INVALIDATION_PATH,
   PUBLIC_CACHE_TAG,
+  parsePublicArticleCacheInvalidatePayload,
+  publicArticleInvalidationTags,
   publicArticleSlugCacheTag,
   publicContentCacheTag,
+  type PublicArticleCacheInvalidatePayload,
 } from "./public-cache";
+export {
+  extractBearerToken,
+  isBearerMachineAuthorized,
+  machineSecretsEqual,
+} from "./machine-secret";
 export { STAFF_STATUS, STAFF_STATUSES, type StaffStatus } from "./staff-status";
 export {
   STAFF_SCOPE_MODE,
@@ -99,11 +236,9 @@ export {
 } from "./homepage-conversation";
 export {
   HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
-  HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
   selectTemporaryHomepageFeatured,
   type HomepageGalleryDataSourceStatus,
-  type HomepageVideoDataSourceStatus,
 } from "./homepage-second-viewport";
 export {
   HOMEPAGE_CONFIG_ID,
@@ -120,6 +255,7 @@ export {
   assertHomepageSlotAssignmentsUnique,
   assertHomepageSlotKey,
   canonicalizeHomepageSlotContentItemId,
+  canonicalizeHomepageVideoAssetId,
   assignmentMapFromSlots,
   slotsFromAssignmentMap,
   emptyHomepageSlotMap,
@@ -137,6 +273,7 @@ export {
   type HomepageAuditEventType,
   type HomepageAuditChangeSet,
   type HomepageAuditSlotChange,
+  type HomepageAuditVideoChange,
 } from "./homepage-builder";
 export { CAPABILITY, CAPABILITIES, type Capability } from "./capability";
 export { ROLE_CAPABILITIES } from "./role-capabilities";

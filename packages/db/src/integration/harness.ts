@@ -7,6 +7,7 @@ import {
   ENTITY_ROLE,
   MEDIA_ROLE,
   MEDIA_TYPE,
+  PUBLICATION_STATUS,
   STAFF_ROLE,
   STAFF_SCOPE_MODE,
   STAFF_STATUS,
@@ -23,13 +24,17 @@ import { loadVersionRelations } from "../publishing/relations";
 import {
   authors,
   categories,
+  contentAuditEvents,
   contentItems,
+  contentReviewEvents,
+  contentVersions,
+  editorialVideoAssets,
   entities,
   media,
   staffUsers,
   tags,
 } from "../schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray, like } from "drizzle-orm";
 import {
   bindEditorContentTestDatabaseUrl,
   type SafeTestDatabaseUrl,
@@ -176,6 +181,75 @@ export async function closeIntegrationConnections(): Promise<void> {
   if (racerPool) {
     await racerPool.end();
     racerPool = undefined;
+  }
+}
+
+export type CreatedMedia = {
+  id: string;
+  storageKey: string;
+};
+
+export async function insertLegacyMedia(storageKey: string): Promise<CreatedMedia> {
+  const db = getDb();
+  const [row] = await db
+    .insert(media)
+    .values({
+      storageKey,
+      mediaType: MEDIA_TYPE.IMAGE,
+      mimeType: "image/jpeg",
+      width: 1600,
+      height: 900,
+      byteSize: 2048,
+    })
+    .returning({ id: media.id, storageKey: media.storageKey });
+  if (!row) {
+    throw new Error("Failed to insert media.");
+  }
+  return row;
+}
+
+export async function wipeMediaRightsTestRows(): Promise<void> {
+  const db = getDb();
+  const leftoverItems = await db
+    .select({ id: contentItems.id })
+    .from(contentItems)
+    .where(like(contentItems.slug, "media-rights-%"));
+  const itemIds = leftoverItems.map((row) => row.id);
+  if (itemIds.length > 0) {
+    await db
+      .delete(contentReviewEvents)
+      .where(inArray(contentReviewEvents.contentItemId, itemIds));
+    await db
+      .delete(contentAuditEvents)
+      .where(inArray(contentAuditEvents.contentItemId, itemIds));
+    await db
+      .update(contentItems)
+      .set({
+        publicationStatus: PUBLICATION_STATUS.NEVER_PUBLISHED,
+        publishedVersionId: null,
+        draftVersionId: null,
+        scheduledVersionId: null,
+        publishedAt: null,
+        publicDateModified: null,
+      })
+      .where(inArray(contentItems.id, itemIds));
+    await db
+      .delete(contentVersions)
+      .where(inArray(contentVersions.contentItemId, itemIds));
+    await db.delete(contentItems).where(inArray(contentItems.id, itemIds));
+  }
+
+  const leftoverMedia = await db
+    .select({ id: media.id })
+    .from(media)
+    .where(like(media.storageKey, "itest/media-rights-%"));
+  const mediaIds = leftoverMedia.map((row) => row.id);
+  if (mediaIds.length > 0) {
+    await db
+      .update(editorialVideoAssets)
+      .set({ posterMediaId: null })
+      .where(inArray(editorialVideoAssets.posterMediaId, mediaIds));
+    await db.delete(media).where(inArray(media.id, mediaIds));
   }
 }
 
@@ -586,9 +660,28 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
     ]);
   }
 
+  const staffIds = [
+    fixture.ids.staffEditor,
+    fixture.ids.staffReviewerA,
+    fixture.ids.staffReviewerB,
+  ];
   await pool.query(
     "DELETE FROM content_review_events WHERE actor_id = ANY($1::uuid[])",
-    [[fixture.ids.staffEditor, fixture.ids.staffReviewerA, fixture.ids.staffReviewerB]],
+    [staffIds],
+  );
+  await pool.query(
+    "DELETE FROM content_audit_events WHERE actor_staff_user_id = ANY($1::uuid[])",
+    [staffIds],
+  );
+  await pool.query(
+    "DELETE FROM homepage_audit_events WHERE actor_staff_user_id = ANY($1::uuid[])",
+    [staffIds],
+  );
+  await pool.query(
+    `UPDATE homepage_versions
+     SET created_by_staff_user_id = NULL
+     WHERE created_by_staff_user_id = ANY($1::uuid[])`,
+    [staffIds],
   );
 
   await pool.query("DELETE FROM content_version_tags WHERE tag_id = ANY($1::uuid[])", [
@@ -613,6 +706,10 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
     [fixture.ids.tag, fixture.ids.extraTag],
   ]);
   await pool.query("DELETE FROM entities WHERE id = $1", [fixture.ids.entity]);
+  await pool.query(
+    "UPDATE editorial_video_assets SET poster_media_id = NULL WHERE poster_media_id = ANY($1::uuid[])",
+    [[fixture.ids.media, fixture.ids.extraMedia]],
+  );
   await pool.query("DELETE FROM media WHERE id = ANY($1::uuid[])", [
     [fixture.ids.media, fixture.ids.extraMedia],
   ]);
@@ -623,12 +720,36 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
     [fixture.ids.categoryA, fixture.ids.categoryB],
   ]);
   await pool.query("DELETE FROM staff_users WHERE id = ANY($1::uuid[])", [
-    [
-      fixture.ids.staffEditor,
-      fixture.ids.staffReviewerA,
-      fixture.ids.staffReviewerB,
-    ],
+    staffIds,
   ]);
+}
+
+export async function cleanupStaffAuthTables(): Promise<void> {
+  const pool = getRacerPool();
+  await pool.query("DROP TABLE IF EXISTS staff_login_challenges");
+  await pool.query("DROP TABLE IF EXISTS staff_mfa_challenges");
+  await pool.query("DELETE FROM staff_sessions");
+  await pool.query("DELETE FROM staff_user_category_scopes");
+  await pool.query("DELETE FROM staff_user_roles");
+  await pool.query("DELETE FROM staff_password_credentials");
+  await pool.query(
+    `DELETE FROM content_audit_events
+     WHERE actor_staff_user_id IN (SELECT id FROM staff_users)`,
+  );
+  await pool.query(
+    `DELETE FROM homepage_audit_events
+     WHERE actor_staff_user_id IN (SELECT id FROM staff_users)`,
+  );
+  await pool.query(
+    `DELETE FROM content_review_events
+     WHERE actor_id IN (SELECT id FROM staff_users)`,
+  );
+  await pool.query(
+    `UPDATE homepage_versions
+     SET created_by_staff_user_id = NULL
+     WHERE created_by_staff_user_id IN (SELECT id FROM staff_users)`,
+  );
+  await pool.query("DELETE FROM staff_users");
 }
 
 export function primaryA(

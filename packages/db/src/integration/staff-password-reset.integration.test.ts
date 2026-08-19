@@ -7,6 +7,7 @@ import {
 } from "../staff-password-reset";
 import { bootstrapInitialStaff } from "../staff-provisioning";
 import {
+  cleanupStaffAuthTables,
   closeIntegrationConnections,
   ensureEditorContentTestDatabase,
   getRacerPool,
@@ -178,14 +179,3 @@ describe("staff password reset PostgreSQL integration", () => {
     await pool.query("DROP TABLE IF EXISTS staff_login_challenges");
   });
 });
-
-async function cleanupStaffAuthTables(): Promise<void> {
-  const pool = getRacerPool();
-  await pool.query("DROP TABLE IF EXISTS staff_login_challenges");
-  await pool.query("DROP TABLE IF EXISTS staff_mfa_challenges");
-  await pool.query("DELETE FROM staff_sessions");
-  await pool.query("DELETE FROM staff_user_category_scopes");
-  await pool.query("DELETE FROM staff_user_roles");
-  await pool.query("DELETE FROM staff_password_credentials");
-  await pool.query("DELETE FROM staff_users");
-}

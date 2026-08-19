@@ -47,6 +47,10 @@ export function countDraftChanges(builder: HomepageBuilderView): number {
       changes += 1;
     }
   }
+  const publishedVideoId = builder.published?.videoAssetId ?? null;
+  if (builder.draft.videoAssetId !== publishedVideoId) {
+    changes += 1;
+  }
   return changes;
 }
 

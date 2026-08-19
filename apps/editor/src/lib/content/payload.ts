@@ -12,6 +12,9 @@ import {
   canonicalizeDraftTitle,
   canonicalizeOptionalReviewNote,
   canonicalizeRequiredReviewNote,
+  canonicalizeHeroAltText,
+  canonicalizeHeroCredit,
+  canonicalizeDraftGalleryItems,
   isUuid,
   optionalTrimmedText,
   parseCredibility,
@@ -462,6 +465,66 @@ export function parseRevisionBody(body: unknown): {
   sourceVersionId?: string;
 } {
   return { sourceVersionId: optionalUuid(asRecord(body), "sourceVersionId") };
+}
+
+export function parseDraftHeroBody(body: unknown): {
+  versionId: string;
+  expectedUpdatedAt: string;
+  mediaId: string | null;
+  altText: string | null;
+  credit: string | null;
+} {
+  const record = asRecord(body);
+  const mediaIdValue = record.mediaId;
+  let mediaId: string | null;
+  if (mediaIdValue === null) {
+    mediaId = null;
+  } else if (typeof mediaIdValue === "string" && isUuid(mediaIdValue)) {
+    mediaId = mediaIdValue;
+  } else {
+    throw new EditorHttpError(
+      400,
+      EDITOR_API_ERROR.INVALID_REQUEST,
+      "The request is invalid.",
+    );
+  }
+
+  return {
+    versionId: requiredUuid(record, "versionId"),
+    expectedUpdatedAt: requiredExpectedUpdatedAt(record),
+    mediaId,
+    altText: unwrap(canonicalizeHeroAltText(optionalString(record, "altText"))),
+    credit: unwrap(canonicalizeHeroCredit(optionalString(record, "credit"))),
+  };
+}
+
+export function parseDraftGalleryBody(body: unknown): {
+  versionId: string;
+  expectedUpdatedAt: string;
+  items: {
+    mediaId: string;
+    altText: string | null;
+    credit: string | null;
+    caption: string | null;
+  }[];
+} {
+  const record = asRecord(body);
+  const rawItems = requiredArray(record, "items");
+  const items = rawItems.map((raw) => {
+    const item = asRecord(raw);
+    return {
+      mediaId: requiredUuid(item, "mediaId"),
+      altText: optionalString(item, "altText"),
+      credit: optionalString(item, "credit"),
+      caption: optionalString(item, "caption"),
+    };
+  });
+  unwrap(canonicalizeDraftGalleryItems(items));
+  return {
+    versionId: requiredUuid(record, "versionId"),
+    expectedUpdatedAt: requiredExpectedUpdatedAt(record),
+    items,
+  };
 }
 
 export function parseScheduleBody(body: unknown): {

@@ -1,5 +1,6 @@
 import type {
   AuthorRole,
+  EditorSafeHeroThumbnail,
   EntityKind,
   EntityRole,
   MediaRole,
@@ -70,6 +71,7 @@ export type EditorContentListRow = {
   primaryCategory: EditorListPrimaryCategory | null;
   authors: EditorListAuthorSummary[];
   updatedAt: Date;
+  heroThumbnail: EditorSafeHeroThumbnail | null;
 };
 
 export type EditorRevisionHistoryRow = {

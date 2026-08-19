@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { EDITOR_JSON_MAX_BYTES, PUBLISHING_ERROR, PublishingError } from "@magazine/domain";
+import { EDITOR_JSON_MAX_BYTES, MEDIA_RIGHTS_ERROR, MEDIA_UPLOAD_ERROR, MediaRightsError, MediaUploadError, PUBLISHING_ERROR, PublishingError } from "@magazine/domain";
 import {
   EDITOR_API_ERROR,
   mapEditorError,
@@ -49,6 +49,17 @@ describe("editor content error mapper", () => {
     assert.equal(response.status, 409);
   });
 
+  it("maps invalid hero media type without leaking internals", async () => {
+    const response = mapEditorError(
+      new PublishingError(PUBLISHING_ERROR.INVALID_HERO_MEDIA, "video/mp4 decoder stack"),
+    );
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.equal(body.error.code, "INVALID_HERO_MEDIA");
+    assert.equal(JSON.stringify(body).includes("video/mp4"), false);
+    assert.equal(JSON.stringify(body).includes("decoder"), false);
+  });
+
   it("maps invalid review notes to 400 without leaking internals", async () => {
     const response = mapEditorError(
       new PublishingError(PUBLISHING_ERROR.INVALID_REVIEW_NOTE, "CHECK content_review_events_note_bounds"),
@@ -71,6 +82,27 @@ describe("editor content error mapper", () => {
     assert.equal(body.error.code, "CONTENT_BODY_CORRUPT");
     assert.equal(JSON.stringify(body).includes("unexpected token"), false);
     assert.equal(JSON.stringify(body).includes("pg.js"), false);
+  });
+
+  it("maps MediaRightsError without leaking internals", async () => {
+    const response = mapEditorError(
+      new MediaRightsError(MEDIA_RIGHTS_ERROR.INVALID_RIGHTS, "CHECK media_license_window_valid"),
+    );
+    assert.equal(response.status, 400);
+    const rightsBody = await response.json();
+    assert.equal(rightsBody.ok, false);
+    assert.equal(rightsBody.error.code, "INVALID_RIGHTS");
+    assert.equal(JSON.stringify(rightsBody).includes("media_license_window"), false);
+  });
+
+  it("maps MediaUploadError without leaking internals", async () => {
+    const response = mapEditorError(
+      new MediaUploadError(MEDIA_UPLOAD_ERROR.INVALID_IMAGE, "VipsJpeg: bad file"),
+    );
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.equal(body.error.code, "INVALID_IMAGE");
+    assert.equal(JSON.stringify(body).includes("VipsJpeg"), false);
   });
 });
 

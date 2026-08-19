@@ -1,50 +1,71 @@
 "use client";
 
 import {
-  AssociatedMediaPicker,
   AuthorRelationPicker,
   EntityRelationPicker,
-  HeroMediaPicker,
   PrimaryCategoryPicker,
   SecondaryCategoryPicker,
   TagRelationPicker,
 } from "./article-relation-pickers";
+import { ArticleHeroSection } from "./article-hero-section";
+import { ArticleGallerySection } from "./article-gallery-section";
+import { ArticleVideoSection } from "./article-video-section";
 import {
-  addAssociatedMedia,
   addAuthor,
   addEntity,
   addTag,
-  getAssociatedMedia,
+  getArticleVideos,
+  getGalleryMedia,
   getHeroMedia,
   getPrimaryCategory,
   getSecondaryCategories,
   removeAuthor,
   removeEntity,
-  removeMedia,
   removeTag,
+  setGalleryMedia,
   setHeroMedia,
   setPrimaryCategory,
   setSecondaryCategories,
+  type ArticleEditorMedia,
   type ArticleEditorRelations,
+  type ArticleEditorVideo,
 } from "@/lib/content/article-relation-state";
 import type {
   AuthorLookupOption,
   CategoryLookupOption,
   EntityLookupOption,
-  MediaLookupOption,
 } from "@/lib/content/lookup-labels";
 
 type Props = {
   relations: ArticleEditorRelations;
   disabled: boolean;
+  heroBusy: boolean;
+  galleryBusy: boolean;
+  videoBusy: boolean;
   onChange: (next: ArticleEditorRelations) => void;
+  onPersistHero: (media: NonNullable<ReturnType<typeof getHeroMedia>>) => void;
+  onRemoveHero: () => void;
+  onPersistGallery: (gallery: ArticleEditorMedia[]) => void;
+  onPersistVideos: (videos: ArticleEditorVideo[]) => void;
 };
 
-export function ArticleMetadataEditor({ relations, disabled, onChange }: Props) {
+export function ArticleMetadataEditor({
+  relations,
+  disabled,
+  heroBusy,
+  galleryBusy,
+  videoBusy,
+  onChange,
+  onPersistHero,
+  onRemoveHero,
+  onPersistGallery,
+  onPersistVideos,
+}: Props) {
   const primary = getPrimaryCategory(relations);
   const secondary = getSecondaryCategories(relations);
   const hero = getHeroMedia(relations);
-  const associated = getAssociatedMedia(relations);
+  const gallery = getGalleryMedia(relations);
+  const videos = getArticleVideos(relations);
 
   return (
     <section className="space-y-5 border-t border-zinc-200 pt-6">
@@ -112,56 +133,39 @@ export function ArticleMetadataEditor({ relations, disabled, onChange }: Props) 
       />
 
       <div className="grid gap-5 md:grid-cols-2">
-        <HeroMediaPicker
-          selected={hero ? toMediaOption(hero) : null}
+        <div className="md:col-span-2">
+          <ArticleHeroSection
+            hero={hero}
+            disabled={disabled}
+            busy={heroBusy}
+            onSelect={onPersistHero}
+            onRemove={onRemoveHero}
+            onPresentationChange={(patch) => {
+              if (!hero) {
+                return;
+              }
+              onChange(
+                setHeroMedia(relations, {
+                  ...hero,
+                  altText: patch.altText,
+                  credit: patch.credit,
+                }),
+              );
+            }}
+          />
+        </div>
+        <ArticleGallerySection
+          gallery={gallery}
           disabled={disabled}
-          onSelect={(media) =>
-            onChange(
-              setHeroMedia(
-                relations,
-                media
-                  ? {
-                      ...toMediaOption(media),
-                      role: "HERO",
-                      sortOrder: 0,
-                      caption:
-                        relations.media.find((item) => item.id === media.id)
-                          ?.caption ?? null,
-                      altText:
-                        relations.media.find((item) => item.id === media.id)
-                          ?.altText ?? null,
-                      credit:
-                        relations.media.find((item) => item.id === media.id)
-                          ?.credit ?? null,
-                    }
-                  : null,
-              ),
-            )
-          }
+          busy={galleryBusy}
+          onChange={(next) => onChange(setGalleryMedia(relations, next))}
+          onPersist={onPersistGallery}
         />
-        <AssociatedMediaPicker
-          selected={associated.map(toMediaOption)}
-          excludedIds={hero ? [hero.id] : []}
+        <ArticleVideoSection
+          videos={videos}
           disabled={disabled}
-          onAdd={(media) =>
-            onChange(
-              addAssociatedMedia(relations, {
-                ...toMediaOption(media),
-                role: "GALLERY",
-                sortOrder: associated.length,
-                caption:
-                  relations.media.find((item) => item.id === media.id)?.caption ??
-                  null,
-                altText:
-                  relations.media.find((item) => item.id === media.id)?.altText ??
-                  null,
-                credit:
-                  relations.media.find((item) => item.id === media.id)?.credit ??
-                  null,
-              }),
-            )
-          }
-          onRemove={(id) => onChange(removeMedia(relations, id))}
+          busy={videoBusy}
+          onPersist={onPersistVideos}
         />
       </div>
     </section>
@@ -214,21 +218,5 @@ function toEntityOption(entity: {
     id: entity.id,
     name: entity.name,
     kind: entity.kind,
-  };
-}
-
-function toMediaOption(media: {
-  id: string;
-  label: string;
-  mediaType: string;
-  width: number | null;
-  height: number | null;
-}): MediaLookupOption {
-  return {
-    id: media.id,
-    label: media.label,
-    mediaType: media.mediaType,
-    width: media.width,
-    height: media.height,
   };
 }

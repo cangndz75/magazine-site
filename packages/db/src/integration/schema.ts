@@ -18,6 +18,12 @@ const AUDIT_EVENTS_SQL = "0004_content-audit-events.sql";
 const PUBLIC_CACHE_OUTBOX_SQL = "0005_public-cache-outbox.sql";
 const HOMEPAGE_CONVERSATION_SQL = "0006_homepage-conversation.sql";
 const HOMEPAGE_BUILDER_SQL = "0007_homepage-builder.sql";
+const MEDIA_RIGHTS_SQL = "0008_media-rights-foundation.sql";
+const MEDIA_UPLOAD_SQL = "0009_media-upload-original-filename.sql";
+const ARTICLE_GALLERY_SQL = "0010_article-gallery-foundation.sql";
+const EDITORIAL_VIDEO_SQL = "0011_editorial-video-foundation.sql";
+const HOMEPAGE_VIDEO_SLOT_SQL = "0012_homepage-video-slot.sql";
+const MEDIA_IMAGE_RENDITIONS_SQL = "0013_media-image-renditions.sql";
 
 async function publicTableExists(
   client: Client,
@@ -51,7 +57,7 @@ async function applySqlFile(client: Client, fileName: string): Promise<void> {
 }
 
 /**
- * Apply journaled migrations 0000 and 0001, then 0003 review events when needed.
+ * Apply journaled migrations 0000 and 0001, then later numbered files when needed.
  * Never applies 0002 (parked MFA) or uses drizzle-kit push.
  */
 export async function ensureJournaledTestSchema(client: Client): Promise<void> {
@@ -102,5 +108,75 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   const hasHomepages = await publicTableExists(client, "homepages");
   if (!hasHomepages) {
     await applySqlFile(client, HOMEPAGE_BUILDER_SQL);
+  }
+
+  const hasMediaRights = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'media'
+         AND column_name = 'source_kind'
+     ) AS exists`,
+  );
+  if (hasMediaRights.rows[0]?.exists !== true) {
+    await applySqlFile(client, MEDIA_RIGHTS_SQL);
+  }
+
+  const hasOriginalFilename = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'media'
+         AND column_name = 'original_filename'
+     ) AS exists`,
+  );
+  if (hasOriginalFilename.rows[0]?.exists !== true) {
+    await applySqlFile(client, MEDIA_UPLOAD_SQL);
+  }
+
+  const hasGallerySortOrder = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND indexname = 'content_version_media_gallery_sort_order'
+     ) AS exists`,
+  );
+  if (hasGallerySortOrder.rows[0]?.exists !== true) {
+    await applySqlFile(client, ARTICLE_GALLERY_SQL);
+  }
+
+  const hasVersionVideos = await publicTableExists(
+    client,
+    "content_version_videos",
+  );
+  const hasEditorialVideos = await publicTableExists(
+    client,
+    "editorial_video_assets",
+  );
+  if (!hasEditorialVideos && !hasVersionVideos) {
+    await applySqlFile(client, EDITORIAL_VIDEO_SQL);
+  } else if (!hasVersionVideos) {
+    const sql = readFileSync(path.join(DRIZZLE_DIR, EDITORIAL_VIDEO_SQL), "utf8");
+    for (const statement of statementsFromDrizzleSql(sql)) {
+      if (statement.includes("content_version_videos")) {
+        await client.query(statement);
+      }
+    }
+  }
+
+  const hasHomepageVersionVideos = await publicTableExists(
+    client,
+    "homepage_version_videos",
+  );
+  if (!hasHomepageVersionVideos) {
+    await applySqlFile(client, HOMEPAGE_VIDEO_SLOT_SQL);
+  }
+
+  const hasMediaRenditions = await publicTableExists(client, "media_renditions");
+  if (!hasMediaRenditions) {
+    await applySqlFile(client, MEDIA_IMAGE_RENDITIONS_SQL);
   }
 }

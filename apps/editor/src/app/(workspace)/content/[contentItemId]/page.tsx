@@ -17,6 +17,7 @@ import {
   loadAccessibleContent,
 } from "@/lib/content/authorize";
 import { parseArticleSearchParams } from "@/lib/content/article-page-params";
+import { env } from "@/lib/env";
 import { ArticleEditor } from "@/components/article-editor";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +68,7 @@ export default async function ArticleWorkspacePage({
     [model, revisionHistory, reviewHistory] = await Promise.all([
       getArticleEditorModel(contentItemId, {
         focusVersionId: query.versionId,
+        mediaPublicBaseUrl: env.MEDIA_PUBLIC_BASE_URL,
       }),
       listContentRevisionHistory(contentItemId, scope, { limit: 8 }),
       listContentReviewHistory(contentItemId, scope, {

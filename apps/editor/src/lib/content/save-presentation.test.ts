@@ -41,9 +41,12 @@ describe("save presentation / concurrency", () => {
     const conflict = presentSaveFailure("CONTENT_WRITE_CONFLICT");
     const scope = presentSaveFailure("CATEGORY_OUT_OF_SCOPE");
     const missing = presentSaveFailure("RELATION_NOT_FOUND");
+    const heroType = presentSaveFailure("INVALID_HERO_MEDIA");
     assert.equal(conflict.kind, "conflict");
     assert.equal(scope.kind, "error");
     assert.equal(missing.kind, "error");
+    assert.equal(heroType.kind, "error");
+    assert.equal(heroType.message.includes("görsel"), true);
     assert.equal(scope.message.includes("yetki"), true);
     assert.equal(isSuccessfulSaveResponse({
       okHttp: false,

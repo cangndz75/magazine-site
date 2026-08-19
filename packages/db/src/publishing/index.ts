@@ -11,6 +11,26 @@ export {
   type UpdateDraftScalarFieldsInput,
   type UpdateDraftScalarFieldsResult,
 } from "./update-draft-scalars";
+export {
+  setDraftVersionHero,
+  removeDraftVersionHero,
+  type ArticleEditorHeroAttachment,
+  type DraftVersionHeroResult,
+  type SetDraftVersionHeroInput,
+  type RemoveDraftVersionHeroInput,
+} from "./draft-hero";
+export {
+  setDraftVersionGallery,
+  type ArticleEditorGalleryAttachment,
+  type DraftVersionGalleryResult,
+  type SetDraftVersionGalleryInput,
+} from "./draft-gallery";
+export {
+  setDraftVersionVideos,
+  type ArticleEditorVideoAttachment,
+  type DraftVersionVideoResult,
+  type SetDraftVersionVideosInput,
+} from "./draft-video";
 export { approveVersion, requestChanges, submitForReview, type ReviewResult } from "./review";
 export {
   executeScheduledPublish,

@@ -1,5 +1,5 @@
 import type { PublicationStatus, WorkflowStatus } from "@magazine/domain";
-import type { HomepageSlotKey } from "@magazine/domain";
+import type { HomepageSlotKey, EditorSafeHeroThumbnail } from "@magazine/domain";
 
 export type HomepageStorySummary = {
   id: string;
@@ -10,6 +10,17 @@ export type HomepageStorySummary = {
   primaryCategory: { name: string; slug: string } | null;
   publishedAt: string | null;
   isPublishEligible: boolean;
+  heroThumbnail: EditorSafeHeroThumbnail | null;
+};
+
+export type HomepageVideoSummary = {
+  id: string;
+  provider: string;
+  providerVideoId: string;
+  title: string;
+  durationSeconds: number | null;
+  posterPreviewUrl: string | null;
+  posterSource: "EDITORIAL" | "PROVIDER" | "NONE";
 };
 
 export type HomepageBuilderSlotView = {
@@ -21,6 +32,7 @@ export type HomepageBuilderVersionView = {
   versionId: string;
   publishedAt: string | null;
   slots: HomepageBuilderSlotView[];
+  videoAssetId: string | null;
 };
 
 export type HomepageBuilderView = {
@@ -28,6 +40,7 @@ export type HomepageBuilderView = {
   published: HomepageBuilderVersionView | null;
   draft: HomepageBuilderVersionView;
   stories: Record<string, HomepageStorySummary>;
+  videos: Record<string, HomepageVideoSummary>;
 };
 
 export type HomepageBuilderMutationResponse = {

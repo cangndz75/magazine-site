@@ -1,13 +1,18 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import {
   MEDIA_ROLE,
   MEDIA_TYPE,
+  MEDIA_RENDITION_SURFACE,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
   PUBLICATION_STATUS,
   emptyHomepageSlotMap,
   publicPublishedVersionId,
   resolvePublicHomepagePlacements,
   selectTemporaryHomepageFeatured,
+  toPublicEditorialVideoProjection,
+  type PublicEditorialVideoProjection,
+  type VideoProvider,
 } from "@magazine/domain";
 import { getDb } from "../client";
 import {
@@ -18,7 +23,8 @@ import {
 } from "../schema/content";
 import { media } from "../schema/media";
 import { categories } from "../schema/taxonomy";
-import { loadPublishedHomepageSlotMap } from "../editor/homepage-builder";
+import { loadPublishedHomepageSlotMap, loadPublishedHomepageVideoAssetId } from "../editor/homepage-builder";
+import { editorialVideoAssets } from "../schema/video";
 import type {
   PublicArticleHeroMedia,
   PublicArticleReadOptions,
@@ -27,7 +33,11 @@ import {
   getPublicHomepageConversation,
   type PublicHomepageConversationItem,
 } from "./get-public-homepage-conversation";
-import { resolvePublicMediaUrl } from "./resolve-public-media-url";
+import {
+  loadMediaRenditionsByMediaIds,
+  resolvePublicImageDelivery,
+  type StoredMediaRendition,
+} from "../media/image-delivery";
 
 /**
  * First visual homepage slice: 1 lead + 2 support stories.
@@ -65,12 +75,8 @@ export type PublicHomepage = {
   supports: PublicHomepageStory[];
   conversation: PublicHomepageConversationItem[];
   featured: PublicHomepageStory[];
-  /**
-   * No public video content type, provider URL, duration, or homepage video
-   * media contract exists. Frontend must not render a Video module.
-   * See HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE.
-   */
-  video: null;
+  /** Explicit Builder-managed editorial video; null when unset or unavailable. */
+  video: PublicEditorialVideoProjection | null;
   /**
    * MEDIA_ROLE.GALLERY is an article attachment role, not a gallery story.
    * Frontend must not render a Foto Galeri module.
@@ -79,7 +85,6 @@ export type PublicHomepage = {
   galleries: readonly [];
 };
 
-const EMPTY_HOMEPAGE_VIDEO: null = null;
 const EMPTY_HOMEPAGE_GALLERIES: readonly [] = [];
 
 type HomepageCandidate = {
@@ -108,6 +113,71 @@ export function selectTemporaryHomepageLeadSlice<T>(
   const bounded = candidates.slice(0, PUBLIC_HOMEPAGE_LEAD_SLICE_SIZE);
   const [lead = null, ...supports] = bounded;
   return { lead, supports };
+}
+
+async function loadPublicHomepageVideo(
+  videoAssetId: string,
+  options: PublicArticleReadOptions,
+): Promise<PublicEditorialVideoProjection | null> {
+  const db = getDb();
+  const posterMedia = alias(media, "public_homepage_video_poster_media");
+  const [row] = await db
+    .select({
+      provider: editorialVideoAssets.provider,
+      providerVideoId: editorialVideoAssets.providerVideoId,
+      title: editorialVideoAssets.title,
+      caption: editorialVideoAssets.caption,
+      durationSeconds: editorialVideoAssets.durationSeconds,
+      posterMediaId: posterMedia.id,
+      posterStorageKey: posterMedia.storageKey,
+      posterMediaType: posterMedia.mediaType,
+      posterWidth: posterMedia.width,
+      posterHeight: posterMedia.height,
+      posterCreditLine: posterMedia.creditLine,
+    })
+    .from(editorialVideoAssets)
+    .leftJoin(posterMedia, eq(posterMedia.id, editorialVideoAssets.posterMediaId))
+    .where(eq(editorialVideoAssets.id, videoAssetId))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  const posterDelivery =
+    row.posterStorageKey && row.posterMediaType === MEDIA_TYPE.IMAGE
+      ? resolvePublicImageDelivery({
+          mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+          originalStorageKey: row.posterStorageKey,
+          originalWidth: row.posterWidth,
+          originalHeight: row.posterHeight,
+          renditions: row.posterMediaId
+            ? (await loadMediaRenditionsByMediaIds([row.posterMediaId])).get(
+                row.posterMediaId,
+              )
+            : undefined,
+          surface: MEDIA_RENDITION_SURFACE.VIDEO_POSTER,
+        })
+      : null;
+
+  return toPublicEditorialVideoProjection({
+    provider: row.provider as VideoProvider,
+    providerVideoId: row.providerVideoId,
+    title: row.title,
+    caption: row.caption,
+    durationSeconds: row.durationSeconds,
+    editorialPoster:
+      posterDelivery?.url
+        ? {
+            publicUrl: posterDelivery.url,
+            width: posterDelivery.width,
+            height: posterDelivery.height,
+            altText: row.title,
+            attachmentCredit: null,
+            creditLine: row.posterCreditLine,
+          }
+        : null,
+  });
 }
 
 export async function getPublicHomepage(
@@ -143,10 +213,16 @@ export async function getPublicHomepage(
     .orderBy(desc(contentItems.publishedAt), desc(contentItems.id))
     .limit(PUBLIC_HOMEPAGE_TEMPORARY_STORY_QUERY_LIMIT);
 
-  const [candidateRows, conversation] = await Promise.all([
+  const [candidateRows, conversation, publishedVideoAssetId] = await Promise.all([
     candidateQuery,
     getPublicHomepageConversation(options),
+    loadPublishedHomepageVideoAssetId(),
   ]);
+
+  const homepageVideo =
+    publishedVideoAssetId !== null
+      ? await loadPublicHomepageVideo(publishedVideoAssetId, options)
+      : null;
 
   const eligible: HomepageCandidate[] = [];
   for (const row of candidateRows) {
@@ -258,7 +334,7 @@ export async function getPublicHomepage(
       supports: [],
       conversation,
       featured: [],
-      video: EMPTY_HOMEPAGE_VIDEO,
+      video: homepageVideo,
       galleries: EMPTY_HOMEPAGE_GALLERIES,
     };
   }
@@ -285,6 +361,7 @@ export async function getPublicHomepage(
     db
       .select({
         contentVersionId: contentVersionMedia.contentVersionId,
+        mediaId: media.id,
         storageKey: media.storageKey,
         mediaType: media.mediaType,
         width: media.width,
@@ -313,22 +390,69 @@ export async function getPublicHomepage(
     }
   }
 
-  const heroByVersion = new Map<string, PublicArticleHeroMedia>();
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds(
+    heroRows.map((row) => row.mediaId),
+  );
+
+  type HomepageHeroSource = {
+    mediaId: string;
+    storageKey: string;
+    width: number | null;
+    height: number | null;
+    altText: string | null;
+    credit: string | null;
+    renditions: StoredMediaRendition[] | undefined;
+  };
+
+  const heroByVersion = new Map<string, HomepageHeroSource>();
   for (const row of heroRows) {
-    const url = resolvePublicMediaUrl(options.mediaPublicBaseUrl, row.storageKey);
-    if (!url) {
+    if (heroByVersion.has(row.contentVersionId)) {
       continue;
     }
     heroByVersion.set(row.contentVersionId, {
-      url,
+      mediaId: row.mediaId,
+      storageKey: row.storageKey,
       width: row.width,
       height: row.height,
       altText: row.altText,
       credit: row.credit,
+      renditions: renditionsByMediaId.get(row.mediaId),
     });
   }
 
-  function toStory(candidate: HomepageCandidate): PublicHomepageStory {
+  function projectHomepageHero(
+    source: HomepageHeroSource | undefined,
+    surface: typeof MEDIA_RENDITION_SURFACE.HOMEPAGE_LEAD | typeof MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB,
+  ): PublicArticleHeroMedia | null {
+    if (!source) {
+      return null;
+    }
+    const delivery = resolvePublicImageDelivery({
+      mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+      originalStorageKey: source.storageKey,
+      originalWidth: source.width,
+      originalHeight: source.height,
+      renditions: source.renditions,
+      surface,
+    });
+    if (!delivery.url) {
+      return null;
+    }
+    return {
+      url: delivery.url,
+      width: delivery.width,
+      height: delivery.height,
+      altText: source.altText,
+      credit: source.credit,
+    };
+  }
+
+  function toStory(
+    candidate: HomepageCandidate,
+    surface:
+      | typeof MEDIA_RENDITION_SURFACE.HOMEPAGE_LEAD
+      | typeof MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB,
+  ): PublicHomepageStory {
     return {
       id: candidate.id,
       slug: candidate.slug,
@@ -338,16 +462,25 @@ export async function getPublicHomepage(
       publishedAt: candidate.publishedAt,
       primaryCategory:
         primaryCategoryByVersion.get(candidate.publishedVersionId) ?? null,
-      hero: heroByVersion.get(candidate.publishedVersionId) ?? null,
+      hero: projectHomepageHero(
+        heroByVersion.get(candidate.publishedVersionId),
+        surface,
+      ),
     };
   }
 
   return {
-    lead: leadCandidate ? toStory(leadCandidate) : null,
-    supports: supportCandidates.map(toStory),
+    lead: leadCandidate
+      ? toStory(leadCandidate, MEDIA_RENDITION_SURFACE.HOMEPAGE_LEAD)
+      : null,
+    supports: supportCandidates.map((candidate) =>
+      toStory(candidate, MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB),
+    ),
     conversation,
-    featured: featuredCandidates.map(toStory),
-    video: EMPTY_HOMEPAGE_VIDEO,
+    featured: featuredCandidates.map((candidate) =>
+      toStory(candidate, MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB),
+    ),
+    video: homepageVideo,
     galleries: EMPTY_HOMEPAGE_GALLERIES,
   };
 }

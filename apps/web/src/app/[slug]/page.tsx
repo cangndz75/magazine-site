@@ -4,6 +4,8 @@ import { ArticleHero } from "@/components/article-hero";
 import { ArticleShare } from "@/components/article-share";
 import { JsonLdScript } from "@/components/json-ld-script";
 import { PublicArticleBody } from "@/components/public-article-body";
+import { PublicArticleGallery } from "@/components/public-article-gallery";
+import { PublicArticleVideos } from "@/components/public-article-videos";
 import { env } from "@/lib/env";
 import { getPublicArticleBySlug } from "@/lib/public-article";
 import { publicArticleCanonicalUrl } from "@/lib/seo/public-site-url";
@@ -60,6 +62,21 @@ export default async function PublicArticlePage({
           <PublicArticleBody body={article.body} />
         </article>
       </div>
+
+      {article.gallery.length > 0 ? (
+        <div className="public-article-page__gallery">
+          <PublicArticleGallery
+            key={article.gallery.map((item) => item.mediaId).join(":")}
+            items={article.gallery}
+          />
+        </div>
+      ) : null}
+
+      {article.videos.length > 0 ? (
+        <div className="public-article-page__videos">
+          <PublicArticleVideos videos={article.videos} />
+        </div>
+      ) : null}
     </div>
   );
 }

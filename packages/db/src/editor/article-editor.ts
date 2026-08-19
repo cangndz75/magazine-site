@@ -1,6 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
+  MEDIA_ROLE,
+  MEDIA_RENDITION_SURFACE,
   PUBLISHING_ERROR,
   PublishingError,
   selectEditorDisplayVersionId,
@@ -23,11 +25,19 @@ import { categories, tags } from "../schema/taxonomy";
 import { authors } from "../schema/authors";
 import { entities } from "../schema/entities";
 import { media } from "../schema/media";
+import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import type { DraftScalarFields } from "../publishing/update-draft-scalars";
 import type { EditorVersionSummary } from "./types";
 import { formatEditorMediaLabel } from "./media-label";
+import { loadMediaRenditionsByMediaIds } from "../media/image-delivery";
+import {
+  eligibilityForRow,
+  previewUrlForImageSurface,
+} from "./media-projections";
+import { resolveEditorVideoPoster } from "./video-projections";
 
 const parentCategory = alias(categories, "article_editor_parent_category");
+const videoPosterMedia = alias(media, "article_editor_video_poster");
 
 export type ArticleEditorRelationSummary = {
   categories: {
@@ -67,6 +77,26 @@ export type ArticleEditorRelationSummary = {
     caption: string | null;
     altText: string | null;
     credit: string | null;
+    previewUrl: string | null;
+    creatorName: string | null;
+    creditLine: string | null;
+    eligibility: ReturnType<typeof eligibilityForRow> | null;
+  }[];
+  videos: {
+    id: string;
+    provider: string;
+    providerVideoId: string;
+    canonicalUrl: string;
+    title: string;
+    caption: string | null;
+    assetCaption: string | null;
+    durationSeconds: number | null;
+    posterMediaId: string | null;
+    posterPreviewUrl: string | null;
+    posterSource: "EDITORIAL" | "PROVIDER" | "NONE";
+    rightsNote: string | null;
+    provenance: string | null;
+    sortOrder: number;
   }[];
 };
 
@@ -103,7 +133,7 @@ export type ArticleEditorModel = {
 
 export async function getArticleEditorModel(
   contentItemId: string,
-  options?: { focusVersionId?: string | null },
+  options?: { focusVersionId?: string | null; mediaPublicBaseUrl?: string },
 ): Promise<ArticleEditorModel | null> {
   const db = getDb();
   const [item] = await db
@@ -151,7 +181,7 @@ export async function getArticleEditorModel(
   }
 
   const editableVersion = editableVersionId
-    ? await loadEditableDraft(editableVersionId, item)
+    ? await loadEditableDraft(editableVersionId, item, options?.mediaPublicBaseUrl)
     : null;
 
   return {
@@ -207,6 +237,7 @@ async function loadEditableDraft(
     draftVersionId: string | null;
     updatedAt: Date;
   },
+  mediaPublicBaseUrl?: string,
 ) {
   const db = getDb();
   const [version] = await db
@@ -264,15 +295,16 @@ async function loadEditableDraft(
     canEdit:
       version.workflowStatus === "DRAFT" && version.id === item.draftVersionId,
     concurrencyToken: item.updatedAt,
-    relations: await loadRelationSummary(version.id),
+    relations: await loadRelationSummary(version.id, mediaPublicBaseUrl),
   };
 }
 
 async function loadRelationSummary(
   versionId: string,
+  mediaPublicBaseUrl?: string,
 ): Promise<ArticleEditorRelationSummary> {
   const db = getDb();
-  const [categoryRows, authorRows, tagRows, entityRows, mediaRows] =
+  const [categoryRows, authorRows, tagRows, entityRows, mediaRows, videoRows] =
     await Promise.all([
       db
         .select({
@@ -325,10 +357,7 @@ async function loadRelationSummary(
         .orderBy(contentVersionEntities.sortOrder),
       db
         .select({
-          id: media.id,
-          mediaType: media.mediaType,
-          width: media.width,
-          height: media.height,
+          row: media,
           role: contentVersionMedia.role,
           sortOrder: contentVersionMedia.sortOrder,
           caption: contentVersionMedia.caption,
@@ -338,25 +367,101 @@ async function loadRelationSummary(
         .from(contentVersionMedia)
         .innerJoin(media, eq(media.id, contentVersionMedia.mediaId))
         .where(eq(contentVersionMedia.contentVersionId, versionId))
-        .orderBy(contentVersionMedia.sortOrder),
+        .orderBy(contentVersionMedia.role, contentVersionMedia.sortOrder),
+      db
+        .select({
+          asset: editorialVideoAssets,
+          sortOrder: contentVersionVideos.sortOrder,
+          relationCaption: contentVersionVideos.caption,
+          posterMediaId: videoPosterMedia.id,
+          posterStorageKey: videoPosterMedia.storageKey,
+          posterWidth: videoPosterMedia.width,
+          posterHeight: videoPosterMedia.height,
+        })
+        .from(contentVersionVideos)
+        .innerJoin(
+          editorialVideoAssets,
+          eq(editorialVideoAssets.id, contentVersionVideos.videoAssetId),
+        )
+        .leftJoin(
+          videoPosterMedia,
+          eq(videoPosterMedia.id, editorialVideoAssets.posterMediaId),
+        )
+        .where(eq(contentVersionVideos.contentVersionId, versionId))
+        .orderBy(contentVersionVideos.sortOrder),
     ]);
+
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds([
+    ...mediaRows.map((item) => item.row.id),
+    ...videoRows
+      .map((item) => item.posterMediaId)
+      .filter((id): id is string => Boolean(id)),
+  ]);
 
   return {
     categories: categoryRows,
     authors: authorRows,
     tags: tagRows,
     entities: entityRows,
-    media: mediaRows.map((row) => ({
-      id: row.id,
-      label: formatEditorMediaLabel(row),
-      mediaType: row.mediaType,
-      width: row.width,
-      height: row.height,
-      role: row.role,
-      sortOrder: row.sortOrder,
-      caption: row.caption,
-      altText: row.altText,
-      credit: row.credit,
+    media: mediaRows.map((item) => ({
+      id: item.row.id,
+      label: formatEditorMediaLabel(item.row),
+      mediaType: item.row.mediaType,
+      width: item.row.width,
+      height: item.row.height,
+      role: item.role,
+      sortOrder: item.sortOrder,
+      caption: item.caption,
+      altText: item.altText,
+      credit: item.credit,
+      previewUrl: previewUrlForImageSurface({
+        mediaPublicBaseUrl,
+        originalStorageKey: item.row.storageKey,
+        originalWidth: item.row.width,
+        originalHeight: item.row.height,
+        renditions: renditionsByMediaId.get(item.row.id),
+        surface:
+          item.role === MEDIA_ROLE.HERO
+            ? MEDIA_RENDITION_SURFACE.ARTICLE_HERO
+            : MEDIA_RENDITION_SURFACE.GALLERY_THUMB,
+      }),
+      creatorName: item.row.creatorName,
+      creditLine: item.row.creditLine,
+      eligibility: eligibilityForRow(item.row, new Date()),
     })),
+    videos: videoRows.map((item) => {
+      const poster = resolveEditorVideoPoster({
+        provider: item.asset.provider,
+        providerVideoId: item.asset.providerVideoId,
+        posterMediaId: item.asset.posterMediaId,
+        posterRow: item.posterStorageKey
+          ? {
+              storageKey: item.posterStorageKey,
+              width: item.posterWidth,
+              height: item.posterHeight,
+              renditions: item.posterMediaId
+                ? renditionsByMediaId.get(item.posterMediaId)
+                : undefined,
+            }
+          : null,
+        mediaPublicBaseUrl,
+      });
+      return {
+        id: item.asset.id,
+        provider: item.asset.provider,
+        providerVideoId: item.asset.providerVideoId,
+        canonicalUrl: item.asset.canonicalUrl,
+        title: item.asset.title,
+        caption: item.relationCaption,
+        assetCaption: item.asset.caption,
+        durationSeconds: item.asset.durationSeconds,
+        posterMediaId: item.asset.posterMediaId,
+        posterPreviewUrl: poster.posterPreviewUrl,
+        posterSource: poster.posterSource,
+        rightsNote: item.asset.rightsNote,
+        provenance: item.asset.provenance,
+        sortOrder: item.sortOrder,
+      };
+    }),
   };
 }

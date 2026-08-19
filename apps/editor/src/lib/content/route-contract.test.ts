@@ -49,6 +49,10 @@ const WRITE_SERVICES = [
   "scheduleVersion",
   "rescheduleVersion",
   "unscheduleVersion",
+  "setDraftVersionHero",
+  "removeDraftVersionHero",
+  "setDraftVersionGallery",
+  "setDraftVersionVideos",
 ];
 
 const STAFF_ATTRIBUTED_MUTATION_ROUTES = [
@@ -61,6 +65,8 @@ const STAFF_ATTRIBUTED_MUTATION_ROUTES = [
   ["content", "[contentItemId]", "schedule", "route.ts"],
   ["content", "[contentItemId]", "reschedule", "route.ts"],
   ["content", "[contentItemId]", "unschedule", "route.ts"],
+  ["content", "[contentItemId]", "hero", "route.ts"],
+  ["content", "[contentItemId]", "gallery", "route.ts"],
 ];
 
 describe("editor content route contracts", () => {
@@ -214,6 +220,8 @@ describe("editor content route contracts", () => {
       "utf8",
     );
     const listPage = readFileSync(path.join(workspaceRoot, "page.tsx"), "utf8");
+    const mediaPage = readFileSync(path.join(workspaceRoot, "media", "page.tsx"), "utf8");
+    const videosPage = readFileSync(path.join(workspaceRoot, "videos", "page.tsx"), "utf8");
 
     assert.equal(articlePage.includes("requireCapability(CAPABILITY.CONTENT_READ)"), true);
     assert.equal(articlePage.includes("loadAccessibleContent"), true);
@@ -253,6 +261,9 @@ describe("editor content route contracts", () => {
     assert.equal(listPage.includes("lookupEditorAuthors"), true);
     assert.equal(listPage.includes("getEditorCategorySummary"), true);
     assert.equal(listPage.includes("getEditorAuthorSummary"), true);
+    assert.equal(mediaPage.includes("requireCapability(CAPABILITY.CONTENT_READ)"), true);
+    assert.equal(videosPage.includes("requireCapability(CAPABILITY.CONTENT_READ)"), true);
+    assert.equal(videosPage.includes("CAPABILITY.CONTENT_EDIT"), true);
   });
 
   it("keeps workflow panel posts on existing routes without client-trusted lifecycle fields", () => {

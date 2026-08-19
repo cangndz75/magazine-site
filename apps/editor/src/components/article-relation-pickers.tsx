@@ -267,56 +267,6 @@ export function EntityRelationPicker({
   );
 }
 
-export function HeroMediaPicker({
-  selected,
-  disabled,
-  onSelect,
-}: {
-  selected: MediaLookupOption | null;
-  disabled?: boolean;
-  onSelect: (media: MediaLookupOption | null) => void;
-}) {
-  const cache = useLookupCache(selected ? [selected] : []);
-
-  return (
-    <div>
-      <span className="mb-1 block text-sm font-medium text-zinc-700">
-        Kapak görseli
-      </span>
-      <LookupPicker
-        label="Kapak görseli"
-        placeholder="Kapak görseli seç"
-        searchPlaceholder="Medya ara…"
-        value={selected ? toMediaPickerOption(selected) : null}
-        initialOptions={selected ? [toMediaPickerOption(selected)] : []}
-        disabled={disabled}
-        prefetchOnOpen
-        clearLabel="Kapak görselini kaldır"
-        onSelect={(id) => {
-          if (!id) {
-            onSelect(null);
-            return;
-          }
-          const match = cache.get(id);
-          if (match) {
-            onSelect(match);
-          }
-        }}
-        onSearch={async (query) => {
-          const items = await fetchLookupItems<MediaLookupOption>(
-            "/api/lookups/media",
-            query,
-          );
-          cache.remember(items);
-          return items.map(toMediaPickerOption);
-        }}
-        emptyLabel="Eşleşen medya yok."
-        errorLabel="Medya yüklenemedi."
-      />
-    </div>
-  );
-}
-
 export function AssociatedMediaPicker({
   selected,
   excludedIds,
