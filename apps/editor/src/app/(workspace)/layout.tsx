@@ -37,6 +37,14 @@ export default async function WorkspaceLayout({
                 Medya
               </Link>
             )}
+            {canReadContent && (
+              <Link
+                href="/videos"
+                className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+              >
+                Videolar
+              </Link>
+            )}
             {canReview && (
               <Link
                 href="/review"

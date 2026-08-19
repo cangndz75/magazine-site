@@ -21,6 +21,11 @@ const SAVE_ERROR_MESSAGES: Record<string, string> = {
   INVALID_GALLERY_MEDIA: "Galeri yalnızca görsellerden oluşabilir.",
   CONTENT_NOT_FOUND: "İçerik bulunamadı.",
   VERSION_NOT_FOUND: "Sürüm bulunamadı.",
+  NOT_FOUND: "Video bulunamadı.",
+  STALE_WRITE:
+    "Bu video başka bir oturumda güncellendi. Yenileyip tekrar deneyin.",
+  DUPLICATE_VIDEO: "Bu video zaten kayıtlı.",
+  INVALID_POSTER: "Video posteri yalnızca görsel medya olabilir.",
 };
 
 export function presentSaveFailure(

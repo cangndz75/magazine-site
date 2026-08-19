@@ -78,6 +78,8 @@ function PublicArticleGalleryViewer({
             <img
               key={current.mediaId}
               src={current.url}
+              srcSet={current.srcSet ?? undefined}
+              sizes={current.sizes ?? undefined}
               alt={current.altText ?? ""}
               width={current.width ?? undefined}
               height={current.height ?? undefined}
@@ -147,7 +149,12 @@ function PublicArticleGalleryViewer({
                     <span className="article-gallery__thumb-missing">Yok</span>
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.url} alt="" loading="lazy" decoding="async" />
+                    <img
+                      src={item.thumbUrl ?? item.url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                    />
                   )}
                 </button>
               </li>

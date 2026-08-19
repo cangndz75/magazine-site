@@ -7,6 +7,7 @@ import {
   PublishingError,
   STAFF_ROLE,
   VIDEO_ERROR,
+  VIDEO_PROVIDER,
   VideoError,
 } from "@magazine/domain";
 import {
@@ -18,11 +19,15 @@ import {
 } from "../publishing";
 import {
   createEditorVideoAsset,
+  getEditorVideoAsset,
+  listEditorVideoAssets,
   updateEditorVideoAsset,
 } from "../editor";
 import { getPublicArticleBySlug } from "../public/get-public-article";
 import { getDb } from "../client";
 import { media } from "../schema/media";
+import { editorialVideoAssets } from "../schema/video";
+import { eq } from "drizzle-orm";
 import {
   articleBody,
   cleanupFixture,
@@ -343,5 +348,213 @@ describe("editorial video foundation", () => {
     assert.equal(stillPublicA?.videos.length, 1);
     assert.equal(stillPublicA?.videos[0]?.provider, "YOUTUBE");
     assert.equal(stillPublicA?.videos[0]?.caption, "Version caption");
+  });
+
+  it("lists, searches, filters, and scopes video usage without leaking inaccessible content", async () => {
+    const youtubeId = uniqueYouTubeId();
+    const vimeoId = uniqueVimeoId();
+    const youtube = await createEditorVideoAsset({
+      roles: ROLES,
+      video: {
+        providerUrlOrId: `https://youtu.be/${youtubeId}`,
+        title: `Searchable YouTube ${youtubeId}`,
+        caption: "desk caption",
+        posterMediaId: fixture.ids.media,
+      },
+    });
+    const vimeo = await createEditorVideoAsset({
+      roles: ROLES,
+      video: {
+        providerUrlOrId: `https://vimeo.com/${vimeoId}`,
+        title: `Bare Vimeo ${vimeoId}`,
+      },
+    });
+    videoAssetIds.push(youtube.id, vimeo.id);
+
+    const listed = await listEditorVideoAssets({
+      roles: ROLES,
+      q: youtubeId,
+      provider: VIDEO_PROVIDER.YOUTUBE,
+      poster: "present",
+      pageSize: 24,
+    });
+    assert.equal(listed.items.some((item) => item.id === youtube.id), true);
+    assert.equal(listed.items.some((item) => item.id === vimeo.id), false);
+    assert.equal(listed.items[0]?.posterSource, "EDITORIAL");
+
+    const vimeoOnly = await listEditorVideoAssets({
+      roles: ROLES,
+      provider: VIDEO_PROVIDER.VIMEO,
+      poster: "absent",
+      unused: true,
+    });
+    assert.equal(vimeoOnly.items.some((item) => item.id === vimeo.id), true);
+    assert.equal(
+      vimeoOnly.items.find((item) => item.id === vimeo.id)?.posterSource,
+      "NONE",
+    );
+
+    const itemA = await createDraftItem(fixture, {
+      scope: fixture.superAdmin,
+      title: "Scoped A video",
+      categories: [{ categoryId: fixture.ids.categoryA, isPrimary: true }],
+    });
+    const itemB = await createDraftItem(fixture, {
+      scope: fixture.superAdmin,
+      title: "Scoped B video",
+      categories: [{ categoryId: fixture.ids.categoryB, isPrimary: true }],
+    });
+    await setDraftVersionVideos({
+      contentItemId: itemA.contentItemId,
+      versionId: itemA.versionId,
+      expectedUpdatedAt: itemA.updatedAt,
+      items: [{ videoAssetId: youtube.id }],
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+    });
+    await setDraftVersionVideos({
+      contentItemId: itemB.contentItemId,
+      versionId: itemB.versionId,
+      expectedUpdatedAt: itemB.updatedAt,
+      items: [{ videoAssetId: youtube.id }],
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+    });
+
+    const scoped = await getEditorVideoAsset({
+      videoAssetId: youtube.id,
+      roles: fixture.selectedOnA.roles,
+      scopeMode: fixture.selectedOnA.scopeMode,
+      scopedCategoryIds: fixture.selectedOnA.scopedCategoryIds,
+    });
+    assert.equal(
+      scoped.usages.every((usage) => usage.contentItemId === itemA.contentItemId),
+      true,
+    );
+    assert.equal(
+      scoped.usages.some((usage) => usage.contentItemId === itemB.contentItemId),
+      false,
+    );
+  });
+
+  it("reorders and removes article videos atomically without deleting the asset", async () => {
+    const youtubeId = uniqueYouTubeId();
+    const vimeoId = uniqueVimeoId();
+    const youtube = await createEditorVideoAsset({
+      roles: ROLES,
+      video: {
+        providerUrlOrId: `https://youtu.be/${youtubeId}`,
+        title: "Order YouTube",
+      },
+    });
+    const vimeo = await createEditorVideoAsset({
+      roles: ROLES,
+      video: {
+        providerUrlOrId: `https://vimeo.com/${vimeoId}`,
+        title: "Order Vimeo",
+      },
+    });
+    videoAssetIds.push(youtube.id, vimeo.id);
+
+    const created = await createDraftItem(fixture, {
+      scope: fixture.superAdmin,
+      title: "Reorder videos",
+    });
+    const assigned = await setDraftVersionVideos({
+      contentItemId: created.contentItemId,
+      versionId: created.versionId,
+      expectedUpdatedAt: created.updatedAt,
+      items: [{ videoAssetId: youtube.id }, { videoAssetId: vimeo.id }],
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+    });
+    assert.deepEqual(
+      assigned.videos.map((item) => item.id),
+      [youtube.id, vimeo.id],
+    );
+
+    await assert.rejects(
+      () =>
+        setDraftVersionVideos({
+          contentItemId: created.contentItemId,
+          versionId: created.versionId,
+          expectedUpdatedAt: created.updatedAt,
+          items: [{ videoAssetId: vimeo.id }],
+          scope: fixture.superAdmin,
+          actorId: fixture.ids.staffEditor,
+        }),
+      (error: unknown) => {
+        assertPublishingCode(error, PUBLISHING_ERROR.CONTENT_WRITE_CONFLICT);
+        return true;
+      },
+    );
+
+    const reordered = await setDraftVersionVideos({
+      contentItemId: created.contentItemId,
+      versionId: created.versionId,
+      expectedUpdatedAt: assigned.updatedAt,
+      items: [{ videoAssetId: vimeo.id }, { videoAssetId: youtube.id }],
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+    });
+    assert.deepEqual(
+      reordered.videos.map((item) => item.id),
+      [vimeo.id, youtube.id],
+    );
+
+    const [left, right] = await Promise.allSettled([
+      setDraftVersionVideos({
+        contentItemId: created.contentItemId,
+        versionId: created.versionId,
+        expectedUpdatedAt: reordered.updatedAt,
+        items: [{ videoAssetId: youtube.id }],
+        scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
+      }),
+      setDraftVersionVideos({
+        contentItemId: created.contentItemId,
+        versionId: created.versionId,
+        expectedUpdatedAt: reordered.updatedAt,
+        items: [{ videoAssetId: vimeo.id }],
+        scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
+      }),
+    ]);
+    const fulfilled = [left, right].filter((item) => item.status === "fulfilled");
+    const rejected = [left, right].filter((item) => item.status === "rejected");
+    assert.equal(fulfilled.length, 1);
+    assert.equal(rejected.length, 1);
+    assertPublishingCode(
+      (rejected[0] as PromiseRejectedResult).reason,
+      PUBLISHING_ERROR.CONTENT_WRITE_CONFLICT,
+    );
+
+    const winner = (fulfilled[0] as PromiseFulfilledResult<{
+      videos: { id: string }[];
+      updatedAt: Date;
+    }>).value;
+    const cleared = await setDraftVersionVideos({
+      contentItemId: created.contentItemId,
+      versionId: created.versionId,
+      expectedUpdatedAt: winner.updatedAt,
+      items: [],
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+    });
+    assert.equal(cleared.videos.length, 0);
+
+    const db = getDb();
+    const [remainingYoutube] = await db
+      .select({ id: editorialVideoAssets.id })
+      .from(editorialVideoAssets)
+      .where(eq(editorialVideoAssets.id, youtube.id))
+      .limit(1);
+    const [remainingVimeo] = await db
+      .select({ id: editorialVideoAssets.id })
+      .from(editorialVideoAssets)
+      .where(eq(editorialVideoAssets.id, vimeo.id))
+      .limit(1);
+    assert.equal(remainingYoutube?.id, youtube.id);
+    assert.equal(remainingVimeo?.id, vimeo.id);
   });
 });

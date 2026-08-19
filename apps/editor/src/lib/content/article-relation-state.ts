@@ -54,12 +54,30 @@ export type ArticleEditorMedia = {
   eligibility?: ArticleEditorMediaEligibility | null;
 };
 
+export type ArticleEditorVideo = {
+  id: string;
+  provider: string;
+  providerVideoId: string;
+  canonicalUrl: string;
+  title: string;
+  caption: string | null;
+  assetCaption: string | null;
+  durationSeconds: number | null;
+  posterMediaId: string | null;
+  posterPreviewUrl?: string | null;
+  posterSource?: "EDITORIAL" | "PROVIDER" | "NONE" | null;
+  rightsNote?: string | null;
+  provenance?: string | null;
+  sortOrder: number;
+};
+
 export type ArticleEditorRelations = {
   categories: ArticleEditorCategory[];
   authors: ArticleEditorAuthor[];
   tags: ArticleEditorTag[];
   entities: ArticleEditorEntity[];
   media: ArticleEditorMedia[];
+  videos: ArticleEditorVideo[];
 };
 
 export const ARTICLE_EDITOR_EMPTY_RELATIONS: ArticleEditorRelations = {
@@ -68,6 +86,7 @@ export const ARTICLE_EDITOR_EMPTY_RELATIONS: ArticleEditorRelations = {
   tags: [],
   entities: [],
   media: [],
+  videos: [],
 };
 
 export function cloneArticleEditorRelations(
@@ -79,6 +98,7 @@ export function cloneArticleEditorRelations(
     tags: relations.tags.map((item) => ({ ...item })),
     entities: relations.entities.map((item) => ({ ...item })),
     media: relations.media.map((item) => ({ ...item })),
+    videos: (relations.videos ?? []).map((item) => ({ ...item })),
   };
 }
 
@@ -329,6 +349,31 @@ export function removeMedia(
   };
 }
 
+export function getArticleVideos(
+  relations: ArticleEditorRelations,
+): ArticleEditorVideo[] {
+  return (relations.videos ?? [])
+    .slice()
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+}
+
+export function setArticleVideos(
+  relations: ArticleEditorRelations,
+  videos: readonly ArticleEditorVideo[],
+): ArticleEditorRelations {
+  const unique = new Map<string, ArticleEditorVideo>();
+  for (const item of videos) {
+    unique.set(item.id, item);
+  }
+  return {
+    ...relations,
+    videos: [...unique.values()].map((item, index) => ({
+      ...item,
+      sortOrder: index,
+    })),
+  };
+}
+
 export function articleEditorRelationsEqual(
   left: ArticleEditorRelations,
   right: ArticleEditorRelations,
@@ -423,6 +468,18 @@ export function normalizeArticleEditorRelations(
           credit: item.credit,
         })),
     ],
+    videos: getArticleVideos(relations).map((item, index) => ({
+      id: item.id,
+      provider: item.provider,
+      providerVideoId: item.providerVideoId,
+      canonicalUrl: item.canonicalUrl,
+      title: item.title,
+      caption: item.caption,
+      assetCaption: item.assetCaption,
+      durationSeconds: item.durationSeconds,
+      posterMediaId: item.posterMediaId,
+      sortOrder: index,
+    })),
   };
 }
 

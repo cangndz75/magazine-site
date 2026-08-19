@@ -12,6 +12,7 @@ import {
   mergeSelectedLookupOptions,
   normalizeArticleEditorRelations,
   removeTag,
+  setArticleVideos,
   setHeroMedia,
   setGalleryMedia,
   setPrimaryCategory,
@@ -37,6 +38,7 @@ function empty(): ArticleEditorRelations {
     tags: [],
     entities: [],
     media: [],
+    videos: [],
   };
 }
 
@@ -411,5 +413,45 @@ describe("article relation form state", () => {
     const normalized = normalizeArticleEditorRelations(relations);
     assert.equal("publicationStatus" in normalized, false);
     assert.equal(normalized.categories[0]?.isPrimary, true);
+  });
+
+  it("orders article videos atomically and keeps them out of the draft-save payload", () => {
+    const videoA = {
+      id: "77777777-7777-4777-8777-777777777777",
+      provider: "YOUTUBE",
+      providerVideoId: "abcdefghijk",
+      canonicalUrl: "https://www.youtube.com/watch?v=abcdefghijk",
+      title: "YouTube",
+      caption: "haber başlığı",
+      assetCaption: "kütüphane",
+      durationSeconds: 12,
+      posterMediaId: null,
+      posterPreviewUrl: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg",
+      posterSource: "PROVIDER" as const,
+      rightsNote: "internal",
+      provenance: "desk",
+      sortOrder: 0,
+    };
+    const videoB = {
+      ...videoA,
+      id: "88888888-8888-4888-8888-888888888888",
+      provider: "VIMEO",
+      providerVideoId: "123456789",
+      canonicalUrl: "https://vimeo.com/123456789",
+      title: "Vimeo",
+      caption: null,
+      assetCaption: null,
+      durationSeconds: null,
+      posterPreviewUrl: null,
+      posterSource: "NONE" as const,
+      sortOrder: 1,
+    };
+    const assigned = setArticleVideos(empty(), [videoB, videoA]);
+    assert.equal(assigned.videos[0]?.id, videoB.id);
+    assert.equal(assigned.videos[0]?.sortOrder, 0);
+    assert.equal(assigned.videos[1]?.id, videoA.id);
+    const payload = toDraftRelationPayload(assigned);
+    assert.equal("videos" in payload, false);
+    assert.equal(assigned.videos[1]?.rightsNote, "internal");
   });
 });

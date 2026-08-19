@@ -2,17 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
-  HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
   selectTemporaryHomepageFeatured,
 } from "./homepage-second-viewport";
 
 describe("homepage second-viewport capability markers", () => {
-  it("documents that video and gallery public data sources do not exist yet", () => {
-    assert.equal(
-      HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE,
-      "HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE",
-    );
+  it("documents that gallery public data source does not exist yet", () => {
     assert.equal(
       HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
       "HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE",

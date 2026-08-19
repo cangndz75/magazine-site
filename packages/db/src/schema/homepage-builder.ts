@@ -18,6 +18,7 @@ import {
   type HomepageSlotKey,
 } from "@magazine/domain";
 import { contentItems } from "./content";
+import { editorialVideoAssets } from "./video";
 import { staffUsers } from "./staff";
 
 export const homepageVersions = pgTable(
@@ -118,6 +119,27 @@ export const homepageSlots = pgTable(
     uniqueIndex("homepage_slots_unique_content_item")
       .on(table.homepageVersionId, table.contentItemId)
       .where(sql`${table.contentItemId} IS NOT NULL`),
+  ],
+);
+
+export const homepageVersionVideos = pgTable(
+  "homepage_version_videos",
+  {
+    homepageVersionId: uuid("homepage_version_id").primaryKey(),
+    videoAssetId: uuid("video_asset_id").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: "homepage_version_videos_version_fk",
+      columns: [table.homepageVersionId],
+      foreignColumns: [homepageVersions.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "homepage_version_videos_asset_fk",
+      columns: [table.videoAssetId],
+      foreignColumns: [editorialVideoAssets.id],
+    }).onDelete("restrict"),
+    index("homepage_version_videos_asset_idx").on(table.videoAssetId),
   ],
 );
 

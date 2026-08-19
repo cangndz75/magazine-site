@@ -13,6 +13,7 @@ import {
 } from "@magazine/domain";
 import { getDb } from "../client";
 import { contentItems, contentVersions } from "../schema/content";
+import { media } from "../schema/media";
 import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
@@ -24,6 +25,8 @@ import {
 } from "./audit";
 import { loadVersionRelations } from "./relations";
 import type { PublishingTx } from "./db-types";
+import { resolveEditorVideoPoster } from "../editor/video-projections";
+import { loadMediaRenditionsByMediaIds } from "../media/image-delivery";
 
 export type ContentVideoRelationInput = {
   videoAssetId: string;
@@ -43,8 +46,13 @@ export type ArticleEditorVideoAttachment = {
   canonicalUrl: string;
   title: string;
   caption: string | null;
+  assetCaption: string | null;
   durationSeconds: number | null;
   posterMediaId: string | null;
+  posterPreviewUrl: string | null;
+  posterSource: "EDITORIAL" | "PROVIDER" | "NONE";
+  rightsNote: string | null;
+  provenance: string | null;
   sortOrder: number;
 };
 
@@ -62,6 +70,7 @@ export type SetDraftVersionVideosInput = {
   items: readonly DraftVideoItemInput[];
   scope: EditorStaffScope;
   actorId: string;
+  mediaPublicBaseUrl?: string;
 };
 
 function canonicalizeCaption(raw: string | null | undefined): string | null {
@@ -138,32 +147,67 @@ export async function insertVersionVideoRelations(
 async function loadVideoAttachments(
   tx: PublishingTx,
   contentVersionId: string,
+  mediaPublicBaseUrl: string | undefined,
 ): Promise<ArticleEditorVideoAttachment[]> {
   const rows = await tx
     .select({
       asset: editorialVideoAssets,
       sortOrder: contentVersionVideos.sortOrder,
       relationCaption: contentVersionVideos.caption,
+      posterMediaId: media.id,
+      posterStorageKey: media.storageKey,
+      posterWidth: media.width,
+      posterHeight: media.height,
     })
     .from(contentVersionVideos)
     .innerJoin(
       editorialVideoAssets,
       eq(editorialVideoAssets.id, contentVersionVideos.videoAssetId),
     )
+    .leftJoin(media, eq(media.id, editorialVideoAssets.posterMediaId))
     .where(eq(contentVersionVideos.contentVersionId, contentVersionId))
     .orderBy(asc(contentVersionVideos.sortOrder));
 
-  return rows.map((row) => ({
-    id: row.asset.id,
-    provider: row.asset.provider,
-    providerVideoId: row.asset.providerVideoId,
-    canonicalUrl: row.asset.canonicalUrl,
-    title: row.asset.title,
-    caption: row.relationCaption ?? row.asset.caption,
-    durationSeconds: row.asset.durationSeconds,
-    posterMediaId: row.asset.posterMediaId,
-    sortOrder: row.sortOrder,
-  }));
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds(
+    rows
+      .map((row) => row.posterMediaId)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  return rows.map((row) => {
+    const poster = resolveEditorVideoPoster({
+      provider: row.asset.provider,
+      providerVideoId: row.asset.providerVideoId,
+      posterMediaId: row.asset.posterMediaId,
+      posterRow: row.posterStorageKey
+        ? {
+            storageKey: row.posterStorageKey,
+            width: row.posterWidth,
+            height: row.posterHeight,
+            renditions: row.posterMediaId
+              ? renditionsByMediaId.get(row.posterMediaId)
+              : undefined,
+          }
+        : null,
+      mediaPublicBaseUrl,
+    });
+    return {
+      id: row.asset.id,
+      provider: row.asset.provider,
+      providerVideoId: row.asset.providerVideoId,
+      canonicalUrl: row.asset.canonicalUrl,
+      title: row.asset.title,
+      caption: row.relationCaption,
+      assetCaption: row.asset.caption,
+      durationSeconds: row.asset.durationSeconds,
+      posterMediaId: row.asset.posterMediaId,
+      posterPreviewUrl: poster.posterPreviewUrl,
+      posterSource: poster.posterSource,
+      rightsNote: row.asset.rightsNote,
+      provenance: row.asset.provenance,
+      sortOrder: row.sortOrder,
+    };
+  });
 }
 
 async function authorizeDraftVideoMutation(
@@ -284,7 +328,7 @@ export async function setDraftVersionVideos(
       contentItemId: item.id,
       versionId: version.id,
       updatedAt: nextUpdatedAt,
-      videos: await loadVideoAttachments(tx, version.id),
+      videos: await loadVideoAttachments(tx, version.id, input.mediaPublicBaseUrl),
     };
   });
 }

@@ -17,6 +17,7 @@ import {
   assertHomepageSlotKey,
   authorizeHomepageBuilderWrite,
   canonicalizeHomepageSlotContentItemId,
+  canonicalizeHomepageVideoAssetId,
   emptyHomepageSlotMap,
   publicHomepagePlacementPointer,
   resolveHomepageFeaturedNeighborMove,
@@ -29,9 +30,11 @@ import { contentItems } from "../schema/content";
 import {
   homepageAuditEvents,
   homepageSlots,
+  homepageVersionVideos,
   homepageVersions,
   homepages,
 } from "../schema/homepage-builder";
+import { editorialVideoAssets } from "../schema/video";
 import type { PublishingTx } from "../publishing/db-types";
 
 export type EditorHomepageBuilderSlot = {
@@ -43,6 +46,7 @@ export type EditorHomepageBuilderVersion = {
   versionId: string;
   publishedAt: Date | null;
   slots: EditorHomepageBuilderSlot[];
+  videoAssetId: string | null;
 };
 
 export type EditorHomepageBuilderState = {
@@ -78,6 +82,19 @@ export type MoveHomepageFeaturedSlotInput = {
   expectedUpdatedAt: Date | string;
   slotKey: string;
   direction: string;
+};
+
+export type SetHomepageVideoInput = {
+  scope: EditorStaffScope;
+  actorId: string;
+  expectedUpdatedAt: Date | string;
+  videoAssetId: string | null;
+};
+
+export type ClearHomepageVideoInput = {
+  scope: EditorStaffScope;
+  actorId: string;
+  expectedUpdatedAt: Date | string;
 };
 
 function unwrapDecision<T>(decision: HomepageBuilderDecision<T>): T {
@@ -122,6 +139,18 @@ async function loadSlotsForVersion(
   return slotsFromAssignmentMap(map);
 }
 
+async function loadVideoAssetIdForVersion(
+  tx: PublishingTx,
+  versionId: string,
+): Promise<string | null> {
+  const [row] = await tx
+    .select({ videoAssetId: homepageVersionVideos.videoAssetId })
+    .from(homepageVersionVideos)
+    .where(eq(homepageVersionVideos.homepageVersionId, versionId))
+    .limit(1);
+  return row?.videoAssetId ?? null;
+}
+
 async function assertDraftContentItemExists(
   tx: PublishingTx,
   contentItemId: string | null,
@@ -136,6 +165,40 @@ async function assertDraftContentItemExists(
     .limit(1);
   if (!item || item.deletedAt !== null) {
     throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM);
+  }
+}
+
+async function assertDraftVideoAssetExists(
+  tx: PublishingTx,
+  videoAssetId: string | null,
+): Promise<void> {
+  if (videoAssetId === null) {
+    return;
+  }
+  const [asset] = await tx
+    .select({ id: editorialVideoAssets.id })
+    .from(editorialVideoAssets)
+    .where(eq(editorialVideoAssets.id, videoAssetId))
+    .limit(1);
+  if (!asset) {
+    throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.INVALID_VIDEO_ASSET);
+  }
+}
+
+async function assertPublishSafeVideoAssignment(
+  tx: PublishingTx,
+  videoAssetId: string | null,
+): Promise<void> {
+  if (videoAssetId === null) {
+    return;
+  }
+  const [asset] = await tx
+    .select({ id: editorialVideoAssets.id })
+    .from(editorialVideoAssets)
+    .where(eq(editorialVideoAssets.id, videoAssetId))
+    .limit(1);
+  if (!asset) {
+    throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED);
   }
 }
 
@@ -212,6 +275,34 @@ async function persistHomepageSlotPair(
   }
 }
 
+async function cloneVersionAssignments(
+  tx: PublishingTx,
+  sourceVersionId: string,
+  targetVersionId: string,
+): Promise<void> {
+  await cloneSlots(tx, sourceVersionId, targetVersionId);
+  await cloneVideo(tx, sourceVersionId, targetVersionId);
+}
+
+async function cloneVideo(
+  tx: PublishingTx,
+  sourceVersionId: string,
+  targetVersionId: string,
+): Promise<void> {
+  const [row] = await tx
+    .select({ videoAssetId: homepageVersionVideos.videoAssetId })
+    .from(homepageVersionVideos)
+    .where(eq(homepageVersionVideos.homepageVersionId, sourceVersionId))
+    .limit(1);
+  if (!row) {
+    return;
+  }
+  await tx.insert(homepageVersionVideos).values({
+    homepageVersionId: targetVersionId,
+    videoAssetId: row.videoAssetId,
+  });
+}
+
 async function cloneSlots(
   tx: PublishingTx,
   sourceVersionId: string,
@@ -278,7 +369,7 @@ async function ensureDraftVersion(
 
   const draftVersionId = await createHomepageVersion(tx, actorId);
   if (config.publishedVersionId) {
-    await cloneSlots(tx, config.publishedVersionId, draftVersionId);
+    await cloneVersionAssignments(tx, config.publishedVersionId, draftVersionId);
   }
 
   await tx
@@ -314,6 +405,7 @@ function toEditorVersion(
   versionId: string,
   publishedAt: Date | null,
   slots: HomepageSlotAssignment[],
+  videoAssetId: string | null,
 ): EditorHomepageBuilderVersion {
   return {
     versionId,
@@ -322,6 +414,7 @@ function toEditorVersion(
       slotKey: slot.slotKey,
       contentItemId: slot.contentItemId,
     })),
+    videoAssetId,
   };
 }
 
@@ -333,6 +426,10 @@ async function buildEditorState(
     throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.NO_DRAFT);
   }
   const draftSlots = await loadSlotsForVersion(tx, locked.draftVersionId);
+  const draftVideoAssetId = await loadVideoAssetIdForVersion(
+    tx,
+    locked.draftVersionId,
+  );
   let published: EditorHomepageBuilderVersion | null = null;
   if (locked.publishedVersionId) {
     const [publishedVersion] = await tx
@@ -345,17 +442,27 @@ async function buildEditorState(
       .limit(1);
     if (publishedVersion) {
       const publishedSlots = await loadSlotsForVersion(tx, publishedVersion.id);
+      const publishedVideoAssetId = await loadVideoAssetIdForVersion(
+        tx,
+        publishedVersion.id,
+      );
       published = toEditorVersion(
         publishedVersion.id,
         publishedVersion.publishedAt,
         publishedSlots,
+        publishedVideoAssetId,
       );
     }
   }
   return {
     updatedAt: locked.updatedAt,
     published,
-    draft: toEditorVersion(locked.draftVersionId, null, draftSlots),
+    draft: toEditorVersion(
+      locked.draftVersionId,
+      null,
+      draftSlots,
+      draftVideoAssetId,
+    ),
   };
 }
 
@@ -617,8 +724,10 @@ export async function publishHomepage(
     );
 
     const draftSlots = await loadSlotsForVersion(tx, draftVersionId);
+    const draftVideoAssetId = await loadVideoAssetIdForVersion(tx, draftVersionId);
     unwrapDecision(assertHomepageSlotAssignmentsUnique(draftSlots));
     await assertPublishSafeAssignments(tx, draftSlots);
+    await assertPublishSafeVideoAssignment(tx, draftVideoAssetId);
 
     const now = new Date();
     await tx
@@ -627,7 +736,7 @@ export async function publishHomepage(
       .where(eq(homepageVersions.id, draftVersionId));
 
     const nextDraftVersionId = await createHomepageVersion(tx, input.actorId);
-    await cloneSlots(tx, draftVersionId, nextDraftVersionId);
+    await cloneVersionAssignments(tx, draftVersionId, nextDraftVersionId);
 
     const nextUpdatedAt = nextMonotonicUpdatedAt(locked.updatedAt, now);
     await tx
@@ -650,6 +759,10 @@ export async function publishHomepage(
           previousContentItemId: null,
           nextContentItemId: slot.contentItemId,
         })),
+        video: {
+          previousVideoAssetId: null,
+          nextVideoAssetId: draftVideoAssetId,
+        },
       },
     });
 
@@ -734,4 +847,116 @@ export async function loadPublicSafeEditorialContentItemIds(
     }
   }
   return resolved;
+}
+
+export async function setHomepageVideo(
+  input: SetHomepageVideoInput,
+): Promise<EditorHomepageBuilderState> {
+  authorize(input.scope);
+  const videoAssetId = unwrapDecision(
+    canonicalizeHomepageVideoAssetId(input.videoAssetId),
+  );
+
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const config = await ensureHomepageConfig(tx);
+    const draftVersionId = await ensureDraftVersion(tx, config, input.actorId);
+    const locked = await lockHomepage(tx);
+    unwrapDecision(
+      assertHomepageExpectedUpdatedAt({
+        currentUpdatedAt: locked.updatedAt,
+        expectedUpdatedAt: input.expectedUpdatedAt,
+      }),
+    );
+
+    const previousVideoAssetId = await loadVideoAssetIdForVersion(
+      tx,
+      draftVersionId,
+    );
+    await assertDraftVideoAssetExists(tx, videoAssetId);
+
+    if (videoAssetId === null) {
+      await tx
+        .delete(homepageVersionVideos)
+        .where(eq(homepageVersionVideos.homepageVersionId, draftVersionId));
+    } else {
+      const [existing] = await tx
+        .select({ homepageVersionId: homepageVersionVideos.homepageVersionId })
+        .from(homepageVersionVideos)
+        .where(eq(homepageVersionVideos.homepageVersionId, draftVersionId))
+        .limit(1);
+      if (existing) {
+        await tx
+          .update(homepageVersionVideos)
+          .set({ videoAssetId })
+          .where(eq(homepageVersionVideos.homepageVersionId, draftVersionId));
+      } else {
+        await tx.insert(homepageVersionVideos).values({
+          homepageVersionId: draftVersionId,
+          videoAssetId,
+        });
+      }
+    }
+
+    const nextUpdatedAt = nextMonotonicUpdatedAt(locked.updatedAt);
+    await tx
+      .update(homepageVersions)
+      .set({ updatedAt: nextUpdatedAt })
+      .where(eq(homepageVersions.id, draftVersionId));
+    await tx
+      .update(homepages)
+      .set({ updatedAt: nextUpdatedAt })
+      .where(eq(homepages.id, HOMEPAGE_CONFIG_ID));
+
+    await appendHomepageAudit(tx, {
+      homepageVersionId: draftVersionId,
+      eventType: HOMEPAGE_AUDIT_EVENT_TYPE.HOMEPAGE_DRAFT_UPDATED,
+      actorStaffUserId: input.actorId,
+      changeSet: {
+        video: {
+          previousVideoAssetId,
+          nextVideoAssetId: videoAssetId,
+        },
+      },
+    });
+
+    const [refreshed] = await tx
+      .select()
+      .from(homepages)
+      .where(eq(homepages.id, HOMEPAGE_CONFIG_ID))
+      .limit(1);
+    if (!refreshed) {
+      throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.NO_DRAFT);
+    }
+    return buildEditorState(tx, refreshed);
+  });
+}
+
+export async function clearHomepageVideo(
+  input: ClearHomepageVideoInput,
+): Promise<EditorHomepageBuilderState> {
+  return setHomepageVideo({
+    scope: input.scope,
+    actorId: input.actorId,
+    expectedUpdatedAt: input.expectedUpdatedAt,
+    videoAssetId: null,
+  });
+}
+
+export async function loadPublishedHomepageVideoAssetId(): Promise<string | null> {
+  const db = getDb();
+  const [config] = await db
+    .select({ publishedVersionId: homepages.publishedVersionId })
+    .from(homepages)
+    .where(eq(homepages.id, HOMEPAGE_CONFIG_ID))
+    .limit(1);
+  if (!config?.publishedVersionId) {
+    return null;
+  }
+  const [row] = await db
+    .select({ videoAssetId: homepageVersionVideos.videoAssetId })
+    .from(homepageVersionVideos)
+    .where(eq(homepageVersionVideos.homepageVersionId, config.publishedVersionId))
+    .limit(1);
+  return row?.videoAssetId ?? null;
 }

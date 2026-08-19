@@ -25,11 +25,13 @@ import {
 } from "@/lib/content/article-editor-state";
 import {
   cloneArticleEditorRelations,
+  setArticleVideos,
   setGalleryMedia,
   setHeroMedia,
   toDraftRelationPayload,
   type ArticleEditorMedia,
   type ArticleEditorRelations,
+  type ArticleEditorVideo,
 } from "@/lib/content/article-relation-state";
 import {
   createArticleEditorDraftSnapshot,
@@ -116,6 +118,7 @@ type ArticleEditorModel = {
           reasons: string[];
         } | null;
       }[];
+      videos: ArticleEditorVideo[];
     };
   } | null;
   publishedVersion: {
@@ -201,6 +204,7 @@ export function ArticleEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [heroBusy, setHeroBusy] = useState(false);
   const [galleryBusy, setGalleryBusy] = useState(false);
+  const [videoBusy, setVideoBusy] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
@@ -516,6 +520,67 @@ export function ArticleEditor({
     }
   }
 
+  async function persistVideosMutation(nextVideos: ArticleEditorVideo[]) {
+    if (!version || !canEdit) {
+      return;
+    }
+
+    setVideoBusy(true);
+    try {
+      const response = await fetch(`/api/content/${model.contentItem.id}/videos`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: version.id,
+          expectedUpdatedAt: token,
+          items: nextVideos.map((item) => ({
+            videoAssetId: item.id,
+            caption: item.caption ?? null,
+          })),
+        }),
+      });
+      const body = (await response.json()) as {
+        ok: boolean;
+        data?: {
+          updatedAt: string;
+          videos: ArticleEditorVideo[];
+        };
+        error?: { code: string; message: string };
+      };
+
+      if (
+        !isSuccessfulSaveResponse({
+          okHttp: response.ok,
+          okBody: body.ok,
+          hasData: Boolean(body.data),
+        }) ||
+        !body.data
+      ) {
+        setSaveState(presentSaveFailure(body.error?.code, body.error?.message));
+        return;
+      }
+
+      const persisted = body.data.videos.map((item, index) => ({
+        ...item,
+        sortOrder: item.sortOrder ?? index,
+      }));
+      setRelations((current) => setArticleVideos(current, persisted));
+      setBaselineRelations((current) => setArticleVideos(current, persisted));
+      setToken(body.data.updatedAt);
+      setSaveState({
+        kind: "saved",
+        message:
+          persisted.length > 0
+            ? "Videolar kaydedildi. Yayındaki sürüm değişmedi."
+            : "Videolar taslaktan kaldırıldı. Yayındaki sürüm değişmedi.",
+      });
+      setHistoryRefreshKey((current) => current + 1);
+      router.refresh();
+    } finally {
+      setVideoBusy(false);
+    }
+  }
+
   const backLabel = fromReview ? "İnceleme kuyruğuna dön" : "İçeriklere dön";
   const awaitingReview = version?.workflowStatus === "IN_REVIEW";
 
@@ -644,6 +709,7 @@ export function ArticleEditor({
                 disabled={!canEdit}
                 heroBusy={heroBusy}
                 galleryBusy={galleryBusy}
+                videoBusy={videoBusy}
                 onChange={(next) => {
                   setRelations(next);
                   setSaveState({ kind: "idle" });
@@ -656,6 +722,9 @@ export function ArticleEditor({
                 }}
                 onPersistGallery={(gallery) => {
                   void persistGalleryMutation(gallery);
+                }}
+                onPersistVideos={(videos) => {
+                  void persistVideosMutation(videos);
                 }}
               />
 
@@ -798,7 +867,7 @@ export function ArticleEditor({
                   <SaveMessage state={saveState} isDirty={isDirty} />
                   <button
                     type="submit"
-                    disabled={!canEdit || !isDirty || !validation.ok || isSaving || heroBusy || galleryBusy}
+                    disabled={!canEdit || !isDirty || !validation.ok || isSaving || heroBusy || galleryBusy || videoBusy}
                     className="h-9 rounded bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:bg-zinc-300"
                   >
                     {isSaving ? "Kaydediliyor..." : "Taslağı kaydet"}

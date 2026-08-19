@@ -1,5 +1,6 @@
 import { HomepageFeatured } from "@/components/homepage-featured";
 import { HomepageLeadGrid } from "@/components/homepage-lead-grid";
+import { HomepageVideo } from "@/components/homepage-video";
 import { getPublicHomepage } from "@/lib/public-homepage";
 /**
  * Homepage reads are still uncached: there is no homepage invalidation graph.
@@ -31,6 +32,7 @@ export default async function Home() {
         <div className="homepage__canvas">
           <div className="homepage__main">
             <HomepageLeadGrid homepage={homepage} />
+            {homepage.video ? <HomepageVideo video={homepage.video} /> : null}
           </div>
           <HomepageFeatured stories={homepage.featured} />
         </div>

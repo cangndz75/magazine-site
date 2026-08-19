@@ -88,6 +88,46 @@ export function parsePublishHomepageBody(body: unknown): { expectedUpdatedAt: st
   return { expectedUpdatedAt };
 }
 
+export function parseSetHomepageVideoBody(body: unknown): {
+  expectedUpdatedAt: string;
+  videoAssetId: string | null;
+} {
+  if (!body || typeof body !== "object") {
+    throw new EditorHttpError(
+      400,
+      EDITOR_API_ERROR.INVALID_REQUEST,
+      "The request is invalid.",
+    );
+  }
+
+  const record = body as Record<string, unknown>;
+  const expectedUpdatedAt =
+    typeof record.expectedUpdatedAt === "string"
+      ? record.expectedUpdatedAt.trim()
+      : "";
+  if (!expectedUpdatedAt) {
+    throw new EditorHttpError(
+      400,
+      EDITOR_API_ERROR.INVALID_REQUEST,
+      "The request is invalid.",
+    );
+  }
+
+  let videoAssetId: string | null = null;
+  if (record.videoAssetId !== undefined && record.videoAssetId !== null) {
+    if (typeof record.videoAssetId !== "string" || !isUuid(record.videoAssetId)) {
+      throw new EditorHttpError(
+        400,
+        EDITOR_API_ERROR.INVALID_REQUEST,
+        "The request is invalid.",
+      );
+    }
+    videoAssetId = record.videoAssetId;
+  }
+
+  return { expectedUpdatedAt, videoAssetId };
+}
+
 export function parseMoveHomepageFeaturedBody(body: unknown): {
   expectedUpdatedAt: string;
   slotKey: HomepageSlotKey;

@@ -1,9 +1,11 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  foreignKey,
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -99,5 +101,37 @@ export const media = pgTable(
     index("media_license_expires_at_idx")
       .on(table.licenseExpiresAt)
       .where(sql`${table.licenseExpiresAt} IS NOT NULL`),
+  ],
+);
+
+export const mediaRenditions = pgTable(
+  "media_renditions",
+  {
+    mediaId: uuid("media_id").notNull(),
+    variant: text("variant").notNull(),
+    storageKey: text("storage_key").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    byteSize: integer("byte_size").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "media_renditions_pk",
+      columns: [table.mediaId, table.variant],
+    }),
+    foreignKey({
+      name: "media_renditions_media_fk",
+      columns: [table.mediaId],
+      foreignColumns: [media.id],
+    }).onDelete("cascade"),
+    unique("media_renditions_storage_key_key").on(table.storageKey),
+    check(
+      "media_renditions_variant_check",
+      sql`${table.variant} IN ('thumb', 'medium', 'large')`,
+    ),
+    check("media_renditions_width_positive", sql`${table.width} > 0`),
+    check("media_renditions_height_positive", sql`${table.height} > 0`),
+    check("media_renditions_byte_size_non_negative", sql`${table.byteSize} >= 0`),
+    index("media_renditions_media_idx").on(table.mediaId),
   ],
 );

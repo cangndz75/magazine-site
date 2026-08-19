@@ -9,10 +9,12 @@ import {
 } from "./article-relation-pickers";
 import { ArticleHeroSection } from "./article-hero-section";
 import { ArticleGallerySection } from "./article-gallery-section";
+import { ArticleVideoSection } from "./article-video-section";
 import {
   addAuthor,
   addEntity,
   addTag,
+  getArticleVideos,
   getGalleryMedia,
   getHeroMedia,
   getPrimaryCategory,
@@ -26,6 +28,7 @@ import {
   setSecondaryCategories,
   type ArticleEditorMedia,
   type ArticleEditorRelations,
+  type ArticleEditorVideo,
 } from "@/lib/content/article-relation-state";
 import type {
   AuthorLookupOption,
@@ -38,10 +41,12 @@ type Props = {
   disabled: boolean;
   heroBusy: boolean;
   galleryBusy: boolean;
+  videoBusy: boolean;
   onChange: (next: ArticleEditorRelations) => void;
   onPersistHero: (media: NonNullable<ReturnType<typeof getHeroMedia>>) => void;
   onRemoveHero: () => void;
   onPersistGallery: (gallery: ArticleEditorMedia[]) => void;
+  onPersistVideos: (videos: ArticleEditorVideo[]) => void;
 };
 
 export function ArticleMetadataEditor({
@@ -49,15 +54,18 @@ export function ArticleMetadataEditor({
   disabled,
   heroBusy,
   galleryBusy,
+  videoBusy,
   onChange,
   onPersistHero,
   onRemoveHero,
   onPersistGallery,
+  onPersistVideos,
 }: Props) {
   const primary = getPrimaryCategory(relations);
   const secondary = getSecondaryCategories(relations);
   const hero = getHeroMedia(relations);
   const gallery = getGalleryMedia(relations);
+  const videos = getArticleVideos(relations);
 
   return (
     <section className="space-y-5 border-t border-zinc-200 pt-6">
@@ -152,6 +160,12 @@ export function ArticleMetadataEditor({
           busy={galleryBusy}
           onChange={(next) => onChange(setGalleryMedia(relations, next))}
           onPersist={onPersistGallery}
+        />
+        <ArticleVideoSection
+          videos={videos}
+          disabled={disabled}
+          busy={videoBusy}
+          onPersist={onPersistVideos}
         />
       </div>
     </section>

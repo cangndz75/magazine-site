@@ -4,6 +4,7 @@ export type MemoryMediaObjectStore = MediaObjectStore & {
   objects: Map<string, { body: Buffer; contentType: string }>;
   failNextPut?: Error;
   failNextDelete?: Error;
+  failPutOfKey?: string;
 };
 
 export function createMemoryMediaObjectStore(): MemoryMediaObjectStore {
@@ -11,6 +12,10 @@ export function createMemoryMediaObjectStore(): MemoryMediaObjectStore {
   const store: MemoryMediaObjectStore = {
     objects,
     async put(input: MediaObjectPutInput) {
+      if (store.failPutOfKey && input.key === store.failPutOfKey) {
+        store.failPutOfKey = undefined;
+        throw new Error("put denied for key");
+      }
       if (store.failNextPut) {
         const error = store.failNextPut;
         store.failNextPut = undefined;

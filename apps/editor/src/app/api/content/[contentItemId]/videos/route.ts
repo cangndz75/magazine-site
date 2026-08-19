@@ -1,7 +1,14 @@
 import { setDraftVersionVideos } from "@magazine/db/publishing";
 import { CAPABILITY } from "@magazine/domain";
 import { withEditorWrite } from "@/lib/content/api-auth";
+import {
+  editorScopeFromSession,
+  loadAccessibleContent,
+} from "@/lib/content/authorize";
 import { EDITOR_API_ERROR, EditorHttpError, editorOk } from "@/lib/content/http";
+import { parseContentItemId } from "@/lib/content/list-params";
+import { env } from "@/lib/env";
+import { serializeDraftVideos } from "@/lib/video/serialize";
 
 export const dynamic = "force-dynamic";
 
@@ -43,13 +50,8 @@ export async function PUT(request: Request, context: RouteContext) {
     CAPABILITY.CONTENT_EDIT,
     async (session, body) => {
       const { contentItemId } = await context.params;
-      if (!contentItemId || contentItemId.trim().length === 0) {
-        throw new EditorHttpError(
-          400,
-          EDITOR_API_ERROR.INVALID_REQUEST,
-          "Invalid content item id.",
-        );
-      }
+      const id = parseContentItemId(contentItemId);
+      await loadAccessibleContent(session, id);
       if (!isVideoRelationBody(body)) {
         throw new EditorHttpError(
           400,
@@ -59,19 +61,21 @@ export async function PUT(request: Request, context: RouteContext) {
       }
 
       const result = await setDraftVersionVideos({
-        contentItemId,
+        contentItemId: id,
         versionId: body.versionId,
         expectedUpdatedAt: body.expectedUpdatedAt,
         items: body.items,
-        scope: {
-          roles: session.roles,
-          scopeMode: session.scopeMode,
-          scopedCategoryIds: session.scopedCategoryIds,
-        },
+        scope: editorScopeFromSession(session),
         actorId: session.staffUserId,
+        mediaPublicBaseUrl: env.MEDIA_PUBLIC_BASE_URL,
       });
 
-      return editorOk(result);
+      return editorOk({
+        contentItemId: result.contentItemId,
+        versionId: result.versionId,
+        updatedAt: result.updatedAt.toISOString(),
+        videos: serializeDraftVideos(result.videos),
+      });
     },
   );
 }

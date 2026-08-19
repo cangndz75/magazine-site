@@ -8,6 +8,7 @@ import { createLocalMediaObjectStore } from "./local";
 import { createMemoryMediaObjectStore } from "./memory";
 
 const KEY = "uploads/2026/08/5a74e0f7-75a8-4da2-a7a1-e8d0a93de772.jpg";
+const THUMB_KEY = "uploads/2026/08/5a74e0f7-75a8-4da2-a7a1-e8d0a93de772.thumb.jpg";
 
 describe("media object stores", () => {
   it("puts and deletes in memory", async () => {
@@ -49,6 +50,14 @@ describe("media object stores", () => {
           error.code === MEDIA_UPLOAD_ERROR.INVALID_UPLOAD,
       );
       await store.delete(KEY);
+      await store.put({
+        key: THUMB_KEY,
+        body: Buffer.from("thumb-bytes"),
+        contentType: "image/jpeg",
+      });
+      const thumbWritten = await readFile(path.join(root, ...THUMB_KEY.split("/")), "utf8");
+      assert.equal(thumbWritten, "thumb-bytes");
+      await store.delete(THUMB_KEY);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

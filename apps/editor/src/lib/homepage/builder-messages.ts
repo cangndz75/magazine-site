@@ -8,6 +8,7 @@ const MESSAGES: Record<string, string> = {
   [HOMEPAGE_BUILDER_ERROR.FORBIDDEN]: "Bu işlem için yetkin yok.",
   [HOMEPAGE_BUILDER_ERROR.DUPLICATE_CONTENT_ITEM]:
     "Aynı haber ana sayfada birden fazla slotta kullanılamaz.",
+  [HOMEPAGE_BUILDER_ERROR.INVALID_VIDEO_ASSET]: "Seçilen video bulunamadı.",
   [HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM]: "Seçilen içerik bulunamadı.",
   [HOMEPAGE_BUILDER_ERROR.INVALID_SLOT]: "Geçersiz slot.",
   [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]:

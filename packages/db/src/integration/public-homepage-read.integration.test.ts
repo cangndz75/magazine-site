@@ -3,7 +3,6 @@ import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import {
   AUTHOR_ROLE,
   HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
-  HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE,
   MEDIA_ROLE,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
   PUBLICATION_STATUS,
@@ -471,7 +470,7 @@ describe("public homepage read PostgreSQL", () => {
     return published;
   }
 
-  it("keeps video and galleries absent because those data sources do not exist", async () => {
+  it("keeps galleries absent and exposes explicit homepage video when published", async () => {
     await publishApproved({
       title: "Homepage modules absent",
       body: articleBody("homepage-modules-absent"),
@@ -479,10 +478,6 @@ describe("public homepage read PostgreSQL", () => {
     const homepage = await getPublicHomepage();
     assert.equal(homepage.video, null);
     assert.deepEqual(homepage.galleries, []);
-    assert.equal(
-      HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE,
-      "HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE",
-    );
     assert.equal(
       HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
       "HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE",

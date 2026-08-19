@@ -13,6 +13,16 @@ export type HomepageStorySummary = {
   heroThumbnail: EditorSafeHeroThumbnail | null;
 };
 
+export type HomepageVideoSummary = {
+  id: string;
+  provider: string;
+  providerVideoId: string;
+  title: string;
+  durationSeconds: number | null;
+  posterPreviewUrl: string | null;
+  posterSource: "EDITORIAL" | "PROVIDER" | "NONE";
+};
+
 export type HomepageBuilderSlotView = {
   slotKey: HomepageSlotKey;
   contentItemId: string | null;
@@ -22,6 +32,7 @@ export type HomepageBuilderVersionView = {
   versionId: string;
   publishedAt: string | null;
   slots: HomepageBuilderSlotView[];
+  videoAssetId: string | null;
 };
 
 export type HomepageBuilderView = {
@@ -29,6 +40,7 @@ export type HomepageBuilderView = {
   published: HomepageBuilderVersionView | null;
   draft: HomepageBuilderVersionView;
   stories: Record<string, HomepageStorySummary>;
+  videos: Record<string, HomepageVideoSummary>;
 };
 
 export type HomepageBuilderMutationResponse = {

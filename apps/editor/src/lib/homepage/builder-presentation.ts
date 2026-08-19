@@ -7,6 +7,7 @@ import {
 } from "@magazine/domain";
 import {
   getEditorContentDetail,
+  getEditorVideoAsset,
   getHomepageBuilder,
   heroThumbnailForEditorItem,
   loadEditorHeroThumbnailsByVersionIds,
@@ -18,6 +19,7 @@ import { env } from "@/lib/env";
 import type {
   HomepageBuilderView,
   HomepageStorySummary,
+  HomepageVideoSummary,
 } from "./builder-types";
 
 function collectContentItemIds(state: EditorHomepageBuilderState): string[] {
@@ -33,6 +35,17 @@ function collectContentItemIds(state: EditorHomepageBuilderState): string[] {
         ids.add(slot.contentItemId);
       }
     }
+  }
+  return [...ids];
+}
+
+function collectVideoAssetIds(state: EditorHomepageBuilderState): string[] {
+  const ids = new Set<string>();
+  if (state.draft.videoAssetId) {
+    ids.add(state.draft.videoAssetId);
+  }
+  if (state.published?.videoAssetId) {
+    ids.add(state.published.videoAssetId);
   }
   return [...ids];
 }
@@ -83,6 +96,20 @@ function storySummaryFromDetail(
   };
 }
 
+function videoSummaryFromDetail(
+  detail: NonNullable<Awaited<ReturnType<typeof getEditorVideoAsset>>>,
+): HomepageVideoSummary {
+  return {
+    id: detail.id,
+    provider: detail.provider,
+    providerVideoId: detail.providerVideoId,
+    title: detail.title,
+    durationSeconds: detail.durationSeconds,
+    posterPreviewUrl: detail.posterPreviewUrl,
+    posterSource: detail.posterSource,
+  };
+}
+
 async function loadStorySummaries(
   contentItemIds: readonly string[],
 ): Promise<Record<string, HomepageStorySummary>> {
@@ -111,6 +138,31 @@ async function loadStorySummaries(
   return stories;
 }
 
+async function loadVideoSummaries(
+  videoAssetIds: readonly string[],
+  scope: ReturnType<typeof editorScopeFromSession>,
+): Promise<Record<string, HomepageVideoSummary>> {
+  const details = await Promise.all(
+    videoAssetIds.map((id) =>
+      getEditorVideoAsset({
+        videoAssetId: id,
+        roles: scope.roles,
+        scopeMode: scope.scopeMode,
+        scopedCategoryIds: scope.scopedCategoryIds,
+        mediaPublicBaseUrl: env.MEDIA_PUBLIC_BASE_URL,
+      }),
+    ),
+  );
+  const videos: Record<string, HomepageVideoSummary> = {};
+  for (const detail of details) {
+    if (!detail) {
+      continue;
+    }
+    videos[detail.id] = videoSummaryFromDetail(detail);
+  }
+  return videos;
+}
+
 function serializeVersion(
   version: EditorHomepageBuilderState["draft"],
 ): HomepageBuilderView["draft"] {
@@ -121,6 +173,7 @@ function serializeVersion(
       slotKey: slot.slotKey as HomepageSlotKey,
       contentItemId: slot.contentItemId,
     })),
+    videoAssetId: version.videoAssetId,
   };
 }
 
@@ -129,12 +182,16 @@ export async function loadHomepageBuilderView(
 ): Promise<HomepageBuilderView> {
   const scope = editorScopeFromSession(session);
   const state = await getHomepageBuilder(scope, session.staffUserId);
-  const stories = await loadStorySummaries(collectContentItemIds(state));
+  const [stories, videos] = await Promise.all([
+    loadStorySummaries(collectContentItemIds(state)),
+    loadVideoSummaries(collectVideoAssetIds(state), scope),
+  ]);
 
   return {
     updatedAt: state.updatedAt.toISOString(),
     published: state.published ? serializeVersion(state.published) : null,
     draft: serializeVersion(state.draft),
     stories,
+    videos,
   };
 }

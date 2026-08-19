@@ -1,7 +1,7 @@
 "use client";
 
 import type { HomepageSlotKey } from "@magazine/domain";
-import type { HomepageBuilderView, HomepageStorySummary } from "@/lib/homepage/builder-types";
+import type { HomepageBuilderView, HomepageStorySummary, HomepageVideoSummary } from "@/lib/homepage/builder-types";
 import {
   HOMEPAGE_FEATURED_KEYS,
   HOMEPAGE_SLOT_LABEL,
@@ -11,13 +11,23 @@ import { StatusBadge } from "@/components/status-badge";
 import { deriveContentStatus } from "@/lib/content/status";
 import { HomepageBuilderHeroThumbnail } from "@/components/homepage-builder-hero-thumbnail";
 
+import {
+  formatVideoDuration,
+  videoPosterFallbackLabel,
+  videoProviderLabel,
+} from "@/lib/video/presentation";
+
 type Props = {
   builder: HomepageBuilderView;
   selectedSlotKey: HomepageSlotKey | null;
   pendingSlotKey: HomepageSlotKey | null;
+  videoPickerOpen: boolean;
+  videoPending: boolean;
   onSelectSlot: (slotKey: HomepageSlotKey) => void;
   onClearSlot: (slotKey: HomepageSlotKey) => void;
   onMoveFeatured: (slotKey: HomepageSlotKey, direction: "left" | "right") => void;
+  onSelectVideo: () => void;
+  onClearVideo: () => void;
   disabled?: boolean;
 };
 
@@ -25,9 +35,13 @@ export function HomepageBuilderComposition({
   builder,
   selectedSlotKey,
   pendingSlotKey,
+  videoPickerOpen,
+  videoPending,
   onSelectSlot,
   onClearSlot,
   onMoveFeatured,
+  onSelectVideo,
+  onClearVideo,
   disabled = false,
 }: Props) {
   const draftMap = new Map(
@@ -72,6 +86,28 @@ export function HomepageBuilderComposition({
         </div>
       </div>
 
+      <section aria-label="Video">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            Video
+          </h2>
+          <span className="text-xs text-zinc-400">Tek editorial video</span>
+        </div>
+        <VideoSlotCard
+          videoAssetId={builder.draft.videoAssetId}
+          video={
+            builder.draft.videoAssetId
+              ? builder.videos[builder.draft.videoAssetId]
+              : undefined
+          }
+          selected={videoPickerOpen}
+          pending={videoPending}
+          disabled={disabled}
+          onSelect={onSelectVideo}
+          onClear={onClearVideo}
+        />
+      </section>
+
       <section aria-label="Öne Çıkanlar">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
@@ -105,6 +141,72 @@ export function HomepageBuilderComposition({
         </div>
       </section>
     </div>
+  );
+}
+
+function VideoSlotCard({
+  videoAssetId,
+  video,
+  selected,
+  pending,
+  disabled,
+  onSelect,
+  onClear,
+}: {
+  videoAssetId: string | null;
+  video?: HomepageVideoSummary;
+  selected: boolean;
+  pending: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+  onClear: () => void;
+}) {
+  const hasContent = Boolean(videoAssetId && video);
+
+  return (
+    <SlotShell
+      label="Video"
+      selected={selected}
+      pending={pending}
+      disabled={disabled}
+      onSelect={onSelect}
+      onClear={onClear}
+      hasContent={hasContent}
+      emptyLabel="Video seç"
+    >
+      {video && (
+        <div className="flex min-w-0 gap-3">
+          <div
+            className="flex h-16 w-28 shrink-0 items-center justify-center rounded bg-zinc-100 text-[10px] text-zinc-500"
+            aria-hidden={video.posterPreviewUrl ? undefined : true}
+          >
+            {video.posterPreviewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={video.posterPreviewUrl}
+                alt=""
+                className="h-full w-full rounded object-cover"
+              />
+            ) : (
+              videoPosterFallbackLabel({
+                provider: video.provider,
+                posterSource: video.posterSource,
+              })
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-medium leading-snug text-zinc-900">{video.title}</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {videoProviderLabel(video.provider)}
+              {video.durationSeconds
+                ? ` · ${formatVideoDuration(video.durationSeconds)}`
+                : " · Süre yok"}
+            </p>
+            <p className="mt-1 text-[10px] text-zinc-400">{video.providerVideoId}</p>
+          </div>
+        </div>
+      )}
+    </SlotShell>
   );
 }
 

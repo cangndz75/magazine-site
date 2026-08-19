@@ -1,6 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
+  MEDIA_ROLE,
+  MEDIA_RENDITION_SURFACE,
   PUBLISHING_ERROR,
   PublishingError,
   selectEditorDisplayVersionId,
@@ -27,12 +29,15 @@ import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import type { DraftScalarFields } from "../publishing/update-draft-scalars";
 import type { EditorVersionSummary } from "./types";
 import { formatEditorMediaLabel } from "./media-label";
+import { loadMediaRenditionsByMediaIds } from "../media/image-delivery";
 import {
   eligibilityForRow,
-  previewUrlForRow,
+  previewUrlForImageSurface,
 } from "./media-projections";
+import { resolveEditorVideoPoster } from "./video-projections";
 
 const parentCategory = alias(categories, "article_editor_parent_category");
+const videoPosterMedia = alias(media, "article_editor_video_poster");
 
 export type ArticleEditorRelationSummary = {
   categories: {
@@ -84,8 +89,13 @@ export type ArticleEditorRelationSummary = {
     canonicalUrl: string;
     title: string;
     caption: string | null;
+    assetCaption: string | null;
     durationSeconds: number | null;
     posterMediaId: string | null;
+    posterPreviewUrl: string | null;
+    posterSource: "EDITORIAL" | "PROVIDER" | "NONE";
+    rightsNote: string | null;
+    provenance: string | null;
     sortOrder: number;
   }[];
 };
@@ -363,15 +373,30 @@ async function loadRelationSummary(
           asset: editorialVideoAssets,
           sortOrder: contentVersionVideos.sortOrder,
           relationCaption: contentVersionVideos.caption,
+          posterMediaId: videoPosterMedia.id,
+          posterStorageKey: videoPosterMedia.storageKey,
+          posterWidth: videoPosterMedia.width,
+          posterHeight: videoPosterMedia.height,
         })
         .from(contentVersionVideos)
         .innerJoin(
           editorialVideoAssets,
           eq(editorialVideoAssets.id, contentVersionVideos.videoAssetId),
         )
+        .leftJoin(
+          videoPosterMedia,
+          eq(videoPosterMedia.id, editorialVideoAssets.posterMediaId),
+        )
         .where(eq(contentVersionVideos.contentVersionId, versionId))
         .orderBy(contentVersionVideos.sortOrder),
     ]);
+
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds([
+    ...mediaRows.map((item) => item.row.id),
+    ...videoRows
+      .map((item) => item.posterMediaId)
+      .filter((id): id is string => Boolean(id)),
+  ]);
 
   return {
     categories: categoryRows,
@@ -389,21 +414,54 @@ async function loadRelationSummary(
       caption: item.caption,
       altText: item.altText,
       credit: item.credit,
-      previewUrl: previewUrlForRow(mediaPublicBaseUrl, item.row),
+      previewUrl: previewUrlForImageSurface({
+        mediaPublicBaseUrl,
+        originalStorageKey: item.row.storageKey,
+        originalWidth: item.row.width,
+        originalHeight: item.row.height,
+        renditions: renditionsByMediaId.get(item.row.id),
+        surface:
+          item.role === MEDIA_ROLE.HERO
+            ? MEDIA_RENDITION_SURFACE.ARTICLE_HERO
+            : MEDIA_RENDITION_SURFACE.GALLERY_THUMB,
+      }),
       creatorName: item.row.creatorName,
       creditLine: item.row.creditLine,
       eligibility: eligibilityForRow(item.row, new Date()),
     })),
-    videos: videoRows.map((item) => ({
-      id: item.asset.id,
-      provider: item.asset.provider,
-      providerVideoId: item.asset.providerVideoId,
-      canonicalUrl: item.asset.canonicalUrl,
-      title: item.asset.title,
-      caption: item.relationCaption ?? item.asset.caption,
-      durationSeconds: item.asset.durationSeconds,
-      posterMediaId: item.asset.posterMediaId,
-      sortOrder: item.sortOrder,
-    })),
+    videos: videoRows.map((item) => {
+      const poster = resolveEditorVideoPoster({
+        provider: item.asset.provider,
+        providerVideoId: item.asset.providerVideoId,
+        posterMediaId: item.asset.posterMediaId,
+        posterRow: item.posterStorageKey
+          ? {
+              storageKey: item.posterStorageKey,
+              width: item.posterWidth,
+              height: item.posterHeight,
+              renditions: item.posterMediaId
+                ? renditionsByMediaId.get(item.posterMediaId)
+                : undefined,
+            }
+          : null,
+        mediaPublicBaseUrl,
+      });
+      return {
+        id: item.asset.id,
+        provider: item.asset.provider,
+        providerVideoId: item.asset.providerVideoId,
+        canonicalUrl: item.asset.canonicalUrl,
+        title: item.asset.title,
+        caption: item.relationCaption,
+        assetCaption: item.asset.caption,
+        durationSeconds: item.asset.durationSeconds,
+        posterMediaId: item.asset.posterMediaId,
+        posterPreviewUrl: poster.posterPreviewUrl,
+        posterSource: poster.posterSource,
+        rightsNote: item.asset.rightsNote,
+        provenance: item.asset.provenance,
+        sortOrder: item.sortOrder,
+      };
+    }),
   };
 }

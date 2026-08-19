@@ -42,15 +42,22 @@ async function encodeNormalized(
   image: sharp.Sharp,
   format: MediaImageFormat,
 ): Promise<Buffer> {
+  return encodeNormalizedFormat(image.rotate(), format);
+}
+
+export async function encodeNormalizedFormat(
+  image: sharp.Sharp,
+  format: MediaImageFormat,
+): Promise<Buffer> {
   switch (format) {
     case "jpeg":
-      return image.rotate().jpeg({ quality: 90, mozjpeg: true }).toBuffer();
+      return image.jpeg({ quality: 90, mozjpeg: true }).toBuffer();
     case "png":
-      return image.rotate().png({ compressionLevel: 8 }).toBuffer();
+      return image.png({ compressionLevel: 8 }).toBuffer();
     case "webp":
-      return image.rotate().webp({ quality: 90 }).toBuffer();
+      return image.webp({ quality: 90 }).toBuffer();
     case "avif":
-      return image.rotate().avif({ quality: 55 }).toBuffer();
+      return image.avif({ quality: 55 }).toBuffer();
     default:
       throw new MediaUploadError(MEDIA_UPLOAD_ERROR.UNSUPPORTED_FORMAT);
   }

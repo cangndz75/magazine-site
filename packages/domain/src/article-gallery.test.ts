@@ -122,6 +122,9 @@ describe("toPublicArticleGalleryItem", () => {
       altText: "Crowd",
       caption: "Opening night",
       credit: "Desk Photo",
+      thumbUrl: "https://media.example.test/a.jpg",
+      srcSet: null,
+      sizes: null,
     });
     const serialized = JSON.stringify(item);
     assert.equal(serialized.includes("storageKey"), false);

@@ -2,8 +2,13 @@ import {
   evaluateMediaPublicEligibility,
   type CanonicalMediaRights,
   type MediaPublicEligibility,
+  type MediaRenditionSurface,
 } from "@magazine/domain";
 import { resolvePublicMediaUrl } from "../public/resolve-public-media-url";
+import {
+  resolvePublicImageDelivery,
+  type StoredMediaRendition,
+} from "../media/image-delivery";
 import type { media } from "../schema/media";
 
 export type EditorMediaRightsFields = CanonicalMediaRights & {
@@ -36,7 +41,18 @@ export function eligibilityForRow(
 
 export function previewUrlForRow(
   mediaPublicBaseUrl: string | undefined,
-  row: typeof media.$inferSelect,
+  row: { storageKey: string },
 ): string | null {
   return resolvePublicMediaUrl(mediaPublicBaseUrl, row.storageKey);
+}
+
+export function previewUrlForImageSurface(input: {
+  mediaPublicBaseUrl: string | undefined;
+  originalStorageKey: string;
+  originalWidth: number | null;
+  originalHeight: number | null;
+  renditions?: readonly StoredMediaRendition[];
+  surface: MediaRenditionSurface;
+}): string | null {
+  return resolvePublicImageDelivery(input).url;
 }

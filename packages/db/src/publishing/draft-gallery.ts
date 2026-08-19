@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   CONTENT_AUDIT_EVENT_TYPE,
   MEDIA_ROLE,
+  MEDIA_RENDITION_SURFACE,
   PUBLISHING_ERROR,
   PublishingError,
   assertContentNotDeleted,
@@ -33,9 +34,10 @@ import {
 } from "./relations";
 import type { PublishingTx } from "./db-types";
 import { formatEditorMediaLabel } from "../editor/media-label";
+import { loadMediaRenditionsByMediaIds } from "../media/image-delivery";
 import {
   eligibilityForRow,
-  previewUrlForRow,
+  previewUrlForImageSurface,
 } from "../editor/media-projections";
 import { runAfterDraftGalleryReplaced } from "./test-hooks";
 import type { ArticleEditorHeroAttachment } from "./draft-hero";
@@ -88,6 +90,10 @@ async function loadGalleryAttachments(
     )
     .orderBy(asc(contentVersionMedia.sortOrder));
 
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds(
+    rows.map((row) => row.mediaRow.id),
+  );
+
   return rows.map((row) => ({
     id: row.mediaRow.id,
     label: formatEditorMediaLabel(row.mediaRow),
@@ -99,7 +105,14 @@ async function loadGalleryAttachments(
     caption: row.caption,
     altText: row.altText,
     credit: row.credit,
-    previewUrl: previewUrlForRow(mediaPublicBaseUrl, row.mediaRow),
+    previewUrl: previewUrlForImageSurface({
+      mediaPublicBaseUrl,
+      originalStorageKey: row.mediaRow.storageKey,
+      originalWidth: row.mediaRow.width,
+      originalHeight: row.mediaRow.height,
+      renditions: renditionsByMediaId.get(row.mediaRow.id),
+      surface: MEDIA_RENDITION_SURFACE.GALLERY_THUMB,
+    }),
     creatorName: row.mediaRow.creatorName,
     creditLine: row.mediaRow.creditLine,
     eligibility: eligibilityForRow(row.mediaRow, new Date()),

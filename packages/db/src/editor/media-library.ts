@@ -23,6 +23,7 @@ import {
   MEDIA_RIGHTS_STATUS,
   MEDIA_SOURCE_KIND,
   MEDIA_USAGE_RESTRICTION,
+  MEDIA_RENDITION_SURFACE,
   MediaRightsError,
   type MediaRightsStatus,
   type MediaType,
@@ -37,9 +38,10 @@ import {
   contentVersions,
 } from "../schema/content";
 import { media } from "../schema/media";
+import { loadMediaRenditionsByMediaIds } from "../media/image-delivery";
 import {
   eligibilityForRow,
-  previewUrlForRow,
+  previewUrlForImageSurface,
   rightsFromMediaRow,
   type EditorMediaRightsFields,
 } from "./media-projections";
@@ -519,6 +521,9 @@ export async function listEditorMedia(input: {
 
   const pageRows = rows.slice(0, pageSize);
   const hasMore = rows.length > pageSize;
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds(
+    pageRows.map(({ row }) => row.id),
+  );
 
   const items: EditorMediaListItem[] = pageRows.map(({ row, usageCount }) => ({
     id: row.id,
@@ -527,7 +532,14 @@ export async function listEditorMedia(input: {
     mimeType: row.mimeType,
     width: row.width,
     height: row.height,
-    previewUrl: previewUrlForRow(input.mediaPublicBaseUrl, row),
+    previewUrl: previewUrlForImageSurface({
+      mediaPublicBaseUrl: input.mediaPublicBaseUrl,
+      originalStorageKey: row.storageKey,
+      originalWidth: row.width,
+      originalHeight: row.height,
+      renditions: renditionsByMediaId.get(row.id),
+      surface: MEDIA_RENDITION_SURFACE.LIBRARY_CARD,
+    }),
     creatorName: row.creatorName,
     creditLine: row.creditLine,
     eligibility: eligibilityForRow(row, now),
@@ -652,6 +664,8 @@ export async function getEditorMediaInspector(input: {
     });
   }
 
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds([row.id]);
+
   return {
     id: row.id,
     label: displayLabel(row),
@@ -660,7 +674,14 @@ export async function getEditorMediaInspector(input: {
     width: row.width,
     height: row.height,
     byteSize: row.byteSize,
-    previewUrl: previewUrlForRow(input.mediaPublicBaseUrl, row),
+    previewUrl: previewUrlForImageSurface({
+      mediaPublicBaseUrl: input.mediaPublicBaseUrl,
+      originalStorageKey: row.storageKey,
+      originalWidth: row.width,
+      originalHeight: row.height,
+      renditions: renditionsByMediaId.get(row.id),
+      surface: MEDIA_RENDITION_SURFACE.LIBRARY_INSPECTOR,
+    }),
     createdAt: row.createdAt,
     rights: rightsFromMediaRow(row),
     eligibility: eligibilityForRow(row, now),

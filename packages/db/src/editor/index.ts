@@ -56,17 +56,22 @@ export {
 } from "./homepage-conversation";
 export {
   clearHomepageSlot,
+  clearHomepageVideo,
   getHomepageBuilder,
   loadPublishedHomepageSlotMap,
+  loadPublishedHomepageVideoAssetId,
   moveHomepageFeaturedSlot,
   publishHomepage,
   setHomepageSlot,
+  setHomepageVideo,
   type ClearHomepageSlotInput,
+  type ClearHomepageVideoInput,
   type EditorHomepageBuilderState,
   type EditorHomepageBuilderVersion,
   type MoveHomepageFeaturedSlotInput,
   type PublishHomepageInput,
   type SetHomepageSlotInput,
+  type SetHomepageVideoInput,
 } from "./homepage-builder";
 export {
   getEditorMediaDetail,
@@ -79,9 +84,24 @@ export {
   getEditorVideoAsset,
   listEditorVideoAssets,
   updateEditorVideoAsset,
+  encodeVideoCursor,
+  decodeVideoCursor,
+  parseEditorVideoPageSize,
+  parseEditorVideoSearch,
+  EDITOR_VIDEO_PAGE_SIZE_DEFAULT,
+  EDITOR_VIDEO_PAGE_SIZE_MAX,
+  EDITOR_VIDEO_SEARCH_MAX,
   type EditorVideoAsset,
+  type EditorVideoAssetDetail,
   type EditorVideoAssetListResult,
+  type EditorVideoListItem,
+  type EditorVideoUsage,
 } from "./video";
+export {
+  VIDEO_POSTER_SOURCE,
+  resolveEditorVideoPoster,
+  type VideoPosterSource,
+} from "./video-projections";
 export {
   listEditorMedia,
   getEditorMediaInspector,

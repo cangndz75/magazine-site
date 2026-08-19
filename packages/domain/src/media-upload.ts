@@ -147,7 +147,28 @@ export function generateMediaStorageKey(input: {
   return `uploads/${year}/${month}/${input.id}.${extension}`;
 }
 
-export function assertSafeMediaStorageKey(key: string): MediaUploadDecision<string> {
+export const MEDIA_STORAGE_RENDITION_VARIANTS = ["thumb", "medium", "large"] as const;
+
+export type MediaStorageRenditionVariant =
+  (typeof MEDIA_STORAGE_RENDITION_VARIANTS)[number];
+
+export type ParsedMediaStorageKey = {
+  year: string;
+  month: string;
+  id: string;
+  variant: MediaStorageRenditionVariant | null;
+  extension: (typeof MEDIA_IMAGE_EXTENSION)[MediaImageFormat];
+  key: string;
+};
+
+const MEDIA_STORAGE_FILENAME_RE =
+  /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\.(thumb|medium|large))?\.(jpg|png|webp|avif)$/i;
+
+function isRenditionVariant(value: string): value is MediaStorageRenditionVariant {
+  return (MEDIA_STORAGE_RENDITION_VARIANTS as readonly string[]).includes(value);
+}
+
+export function parseMediaStorageKey(key: string): MediaUploadDecision<ParsedMediaStorageKey> {
   if (key.length === 0 || key.length > 240) {
     return { ok: false, code: MEDIA_UPLOAD_ERROR.INVALID_UPLOAD };
   }
@@ -158,11 +179,40 @@ export function assertSafeMediaStorageKey(key: string): MediaUploadDecision<stri
   if (segments.length !== 4 || segments[0] !== "uploads") {
     return { ok: false, code: MEDIA_UPLOAD_ERROR.INVALID_UPLOAD };
   }
-  if (!/^\d{4}$/.test(segments[1]) || !/^\d{2}$/.test(segments[2])) {
+  const year = segments[1];
+  const month = segments[2];
+  const filename = segments[3];
+  if (!year || !month || !filename) {
     return { ok: false, code: MEDIA_UPLOAD_ERROR.INVALID_UPLOAD };
   }
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp|avif)$/i.test(segments[3])) {
+  if (!/^\d{4}$/.test(year) || !/^\d{2}$/.test(month)) {
     return { ok: false, code: MEDIA_UPLOAD_ERROR.INVALID_UPLOAD };
   }
-  return { ok: true, value: key };
+  const match = MEDIA_STORAGE_FILENAME_RE.exec(filename);
+  if (!match || match[1] === undefined || match[3] === undefined) {
+    return { ok: false, code: MEDIA_UPLOAD_ERROR.INVALID_UPLOAD };
+  }
+  const variantRaw = match[2];
+  if (variantRaw !== undefined && !isRenditionVariant(variantRaw)) {
+    return { ok: false, code: MEDIA_UPLOAD_ERROR.INVALID_UPLOAD };
+  }
+  return {
+    ok: true,
+    value: {
+      year,
+      month,
+      id: match[1].toLowerCase(),
+      variant: variantRaw ?? null,
+      extension: match[3].toLowerCase() as ParsedMediaStorageKey["extension"],
+      key,
+    },
+  };
+}
+
+export function assertSafeMediaStorageKey(key: string): MediaUploadDecision<string> {
+  const parsed = parseMediaStorageKey(key);
+  if (!parsed.ok) {
+    return parsed;
+  }
+  return { ok: true, value: parsed.value.key };
 }

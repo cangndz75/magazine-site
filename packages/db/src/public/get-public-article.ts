@@ -3,6 +3,8 @@ import {
   canonicalizeContentSlug,
   MEDIA_ROLE,
   MEDIA_TYPE,
+  MEDIA_RENDITION_SURFACE,
+  PUBLIC_GALLERY_IMAGE_SIZES,
   PUBLICATION_STATUS,
   toPublicEditorialVideoProjection,
   publicPublishedVersionId,
@@ -24,7 +26,10 @@ import {
 import { media } from "../schema/media";
 import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import { categories } from "../schema/taxonomy";
-import { resolvePublicMediaUrl } from "./resolve-public-media-url";
+import {
+  loadMediaRenditionsByMediaIds,
+  resolvePublicImageDelivery,
+} from "../media/image-delivery";
 import { alias } from "drizzle-orm/pg-core";
 
 export type PublicArticleCategory = {
@@ -163,6 +168,7 @@ export async function getPublicArticleBySlug(
       .orderBy(contentVersionAuthors.sortOrder),
     db
       .select({
+        mediaId: media.id,
         storageKey: media.storageKey,
         mediaType: media.mediaType,
         width: media.width,
@@ -211,6 +217,7 @@ export async function getPublicArticleBySlug(
         assetCaption: editorialVideoAssets.caption,
         relationCaption: contentVersionVideos.caption,
         durationSeconds: editorialVideoAssets.durationSeconds,
+        posterMediaId: posterMedia.id,
         posterStorageKey: posterMedia.storageKey,
         posterMediaType: posterMedia.mediaType,
         posterWidth: posterMedia.width,
@@ -227,6 +234,14 @@ export async function getPublicArticleBySlug(
       .orderBy(asc(contentVersionVideos.sortOrder)),
   ]);
 
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds([
+    ...heroRows.map((row) => row.mediaId),
+    ...galleryRows.map((row) => row.mediaId),
+    ...videoRows
+      .map((row) => row.posterMediaId)
+      .filter((id): id is string => Boolean(id)),
+  ]);
+
   const publicCategories = [...categoryRows].sort((left, right) => {
     if (left.isPrimary !== right.isPrimary) {
       return left.isPrimary ? -1 : 1;
@@ -234,27 +249,54 @@ export async function getPublicArticleBySlug(
     return left.name.localeCompare(right.name, "tr");
   });
   const heroRow = heroRows[0];
-  const heroUrl = heroRow
-    ? resolvePublicMediaUrl(options.mediaPublicBaseUrl, heroRow.storageKey)
+  const heroDelivery = heroRow
+    ? resolvePublicImageDelivery({
+        mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+        originalStorageKey: heroRow.storageKey,
+        originalWidth: heroRow.width,
+        originalHeight: heroRow.height,
+        renditions: renditionsByMediaId.get(heroRow.mediaId),
+        surface: MEDIA_RENDITION_SURFACE.ARTICLE_HERO,
+      })
     : null;
   const gallery = galleryRows.flatMap((row) => {
+    const stage = resolvePublicImageDelivery({
+      mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+      originalStorageKey: row.storageKey,
+      originalWidth: row.width,
+      originalHeight: row.height,
+      renditions: renditionsByMediaId.get(row.mediaId),
+      surface: MEDIA_RENDITION_SURFACE.GALLERY_STAGE,
+    });
     const item = toPublicArticleGalleryItem({
       mediaId: row.mediaId,
       mediaType: row.mediaType,
-      publicUrl: resolvePublicMediaUrl(options.mediaPublicBaseUrl, row.storageKey),
-      width: row.width,
-      height: row.height,
+      publicUrl: stage.url,
+      width: stage.width,
+      height: stage.height,
       altText: row.altText,
       caption: row.caption,
       attachmentCredit: row.credit,
       creditLine: row.creditLine,
+      thumbUrl: stage.thumbUrl,
+      srcSet: stage.srcSet,
+      sizes: stage.srcSet ? PUBLIC_GALLERY_IMAGE_SIZES : null,
     });
     return item ? [item] : [];
   });
   const videos = videoRows.flatMap((row) => {
-    const posterUrl =
+    const posterDelivery =
       row.posterStorageKey && row.posterMediaType === MEDIA_TYPE.IMAGE
-        ? resolvePublicMediaUrl(options.mediaPublicBaseUrl, row.posterStorageKey)
+        ? resolvePublicImageDelivery({
+            mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+            originalStorageKey: row.posterStorageKey,
+            originalWidth: row.posterWidth,
+            originalHeight: row.posterHeight,
+            renditions: row.posterMediaId
+              ? renditionsByMediaId.get(row.posterMediaId)
+              : undefined,
+            surface: MEDIA_RENDITION_SURFACE.VIDEO_POSTER,
+          })
         : null;
     const item = toPublicEditorialVideoProjection({
       provider: row.provider as VideoProvider,
@@ -263,11 +305,11 @@ export async function getPublicArticleBySlug(
       caption: row.relationCaption ?? row.assetCaption,
       durationSeconds: row.durationSeconds,
       editorialPoster:
-        posterUrl !== null
+        posterDelivery?.url
           ? {
-              publicUrl: posterUrl,
-              width: row.posterWidth,
-              height: row.posterHeight,
+              publicUrl: posterDelivery.url,
+              width: posterDelivery.width,
+              height: posterDelivery.height,
               altText: row.title,
               attachmentCredit: null,
               creditLine: row.posterCreditLine,
@@ -287,11 +329,11 @@ export async function getPublicArticleBySlug(
     publicDateModified: item.publicDateModified,
     body: version.body,
     hero:
-      heroRow && heroUrl
+      heroRow && heroDelivery?.url
         ? {
-            url: heroUrl,
-            width: heroRow.width,
-            height: heroRow.height,
+            url: heroDelivery.url,
+            width: heroDelivery.width,
+            height: heroDelivery.height,
             altText: heroRow.altText,
             credit: heroRow.credit?.trim() || heroRow.creditLine?.trim() || null,
           }

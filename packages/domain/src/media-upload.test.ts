@@ -127,6 +127,10 @@ describe("generateMediaStorageKey", () => {
       assertSafeMediaStorageKey(`uploads/2026/08/${id}.jpg`),
       { ok: true, value: `uploads/2026/08/${id}.jpg` },
     );
+    assert.deepEqual(
+      assertSafeMediaStorageKey(`uploads/2026/08/${id}.thumb.jpg`),
+      { ok: true, value: `uploads/2026/08/${id}.thumb.jpg` },
+    );
   });
 
   it("rejects path traversal and user-controlled keys", () => {

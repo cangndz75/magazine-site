@@ -89,12 +89,37 @@ export {
   assertDecodedImageConstraints,
   canonicalizeOriginalFilename,
   generateMediaStorageKey,
+  parseMediaStorageKey,
   assertSafeMediaStorageKey,
   isMediaImageFormat,
   type MediaUploadErrorCode,
   type MediaUploadDecision,
   type MediaImageFormat,
+  type MediaStorageRenditionVariant,
+  type ParsedMediaStorageKey,
 } from "./media-upload";
+export {
+  MEDIA_RENDITION_VARIANT,
+  MEDIA_RENDITION_VARIANTS,
+  MEDIA_RENDITION_MAX_EDGE,
+  MEDIA_RENDITION_SURFACE,
+  MEDIA_RENDITION_SURFACE_PREFERENCE,
+  PUBLIC_GALLERY_IMAGE_SIZES,
+  fitRenditionSize,
+  plannedRenditionSizes,
+  generateMediaRenditionStorageKey,
+  plannedMediaRenditionKeys,
+  selectResolvedImageDelivery,
+  publicMediaRenditionsFromResolved,
+  buildPublicImageSrcSet,
+  publicImageProjectionLeaksInternal,
+  isMediaRenditionVariant,
+  type MediaRenditionVariant,
+  type MediaRenditionSurface,
+  type MediaRenditionSize,
+  type ResolvedMediaRendition,
+  type SelectedImageDelivery,
+} from "./media-rendition";
 export {
   ARTICLE_HERO_ALT_TEXT_MAX,
   canonicalizeHeroAltText,
@@ -211,11 +236,9 @@ export {
 } from "./homepage-conversation";
 export {
   HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
-  HOMEPAGE_VIDEO_DATA_SOURCE_NOT_YET_AVAILABLE,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
   selectTemporaryHomepageFeatured,
   type HomepageGalleryDataSourceStatus,
-  type HomepageVideoDataSourceStatus,
 } from "./homepage-second-viewport";
 export {
   HOMEPAGE_CONFIG_ID,
@@ -232,6 +255,7 @@ export {
   assertHomepageSlotAssignmentsUnique,
   assertHomepageSlotKey,
   canonicalizeHomepageSlotContentItemId,
+  canonicalizeHomepageVideoAssetId,
   assignmentMapFromSlots,
   slotsFromAssignmentMap,
   emptyHomepageSlotMap,
@@ -249,6 +273,7 @@ export {
   type HomepageAuditEventType,
   type HomepageAuditChangeSet,
   type HomepageAuditSlotChange,
+  type HomepageAuditVideoChange,
 } from "./homepage-builder";
 export { CAPABILITY, CAPABILITIES, type Capability } from "./capability";
 export { ROLE_CAPABILITIES } from "./role-capabilities";

@@ -52,6 +52,7 @@ export const HOMEPAGE_BUILDER_ERROR = {
   FORBIDDEN: "FORBIDDEN",
   INVALID_SLOT: "INVALID_SLOT",
   INVALID_CONTENT_ITEM: "INVALID_CONTENT_ITEM",
+  INVALID_VIDEO_ASSET: "INVALID_VIDEO_ASSET",
   DUPLICATE_CONTENT_ITEM: "DUPLICATE_CONTENT_ITEM",
   WRITE_CONFLICT: "WRITE_CONFLICT",
   NO_DRAFT: "NO_DRAFT",
@@ -153,6 +154,19 @@ export function canonicalizeHomepageSlotContentItemId(
   const id = raw.trim();
   if (!isUuid(id)) {
     return { ok: false, code: HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM };
+  }
+  return { ok: true, value: id };
+}
+
+export function canonicalizeHomepageVideoAssetId(
+  raw: string | null | undefined,
+): HomepageBuilderDecision<string | null> {
+  if (raw === undefined || raw === null || raw.trim().length === 0) {
+    return { ok: true, value: null };
+  }
+  const id = raw.trim();
+  if (!isUuid(id)) {
+    return { ok: false, code: HOMEPAGE_BUILDER_ERROR.INVALID_VIDEO_ASSET };
   }
   return { ok: true, value: id };
 }
@@ -314,7 +328,13 @@ export type HomepageAuditSlotChange = {
   nextContentItemId: string | null;
 };
 
+export type HomepageAuditVideoChange = {
+  previousVideoAssetId: string | null;
+  nextVideoAssetId: string | null;
+};
+
 export type HomepageAuditChangeSet = {
   slots?: HomepageAuditSlotChange[];
   publishedVersionId?: string;
+  video?: HomepageAuditVideoChange;
 };

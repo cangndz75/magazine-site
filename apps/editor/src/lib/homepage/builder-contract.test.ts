@@ -7,6 +7,7 @@ import {
   parseMoveHomepageFeaturedBody,
   parsePublishHomepageBody,
   parseSetHomepageSlotBody,
+  parseSetHomepageVideoBody,
 } from "./builder-payload";
 import { EditorHttpError } from "@/lib/content/http";
 import { analyzePublishEligibility, countEmptySlots } from "./builder-utils";
@@ -32,6 +33,14 @@ describe("homepage builder payload", () => {
       expectedUpdatedAt: "2026-08-18T12:00:00.000Z",
     });
     assert.equal(parsed.expectedUpdatedAt, "2026-08-18T12:00:00.000Z");
+  });
+
+  it("parses homepage video mutation body", () => {
+    const parsed = parseSetHomepageVideoBody({
+      expectedUpdatedAt: "2026-08-18T12:00:00.000Z",
+      videoAssetId: "00000000-0000-4000-8000-000000000099",
+    });
+    assert.equal(parsed.videoAssetId, "00000000-0000-4000-8000-000000000099");
   });
 
   it("parses featured neighbor move body with concurrency token", () => {
@@ -85,6 +94,7 @@ describe("homepage builder eligibility", () => {
     draft: {
       versionId: "draft-1",
       publishedAt: null,
+      videoAssetId: null,
       slots: [
         { slotKey: "LEAD", contentItemId: "a" },
         { slotKey: "SUPPORT_1", contentItemId: null },
@@ -120,6 +130,7 @@ describe("homepage builder eligibility", () => {
         heroThumbnail: null,
       },
     },
+    videos: {},
   };
 
   it("treats empty slots as informational not blocking", () => {
@@ -172,6 +183,10 @@ describe("homepage builder API routes", () => {
       path.join(homepageApiRoot, "builder/publish/route.ts"),
       "utf8",
     );
+    const video = readFileSync(
+      path.join(homepageApiRoot, "builder/video/route.ts"),
+      "utf8",
+    );
     const get = readFileSync(path.join(homepageApiRoot, "builder/route.ts"), "utf8");
 
     assert.equal(slots.includes("withEditorWrite"), true);
@@ -188,6 +203,10 @@ describe("homepage builder API routes", () => {
     assert.equal(publish.includes("withEditorWrite"), true);
     assert.equal(publish.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
     assert.equal(publish.includes("session.staffUserId"), true);
+
+    assert.equal(video.includes("withEditorWrite"), true);
+    assert.equal(video.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
+    assert.equal(video.includes("setHomepageVideo"), true);
 
     assert.equal(get.includes("withEditorRead"), true);
     assert.equal(get.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);

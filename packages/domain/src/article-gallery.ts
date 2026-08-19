@@ -33,6 +33,9 @@ export type PublicArticleGalleryItem = {
   altText: string | null;
   caption: string | null;
   credit: string | null;
+  thumbUrl: string;
+  srcSet: string | null;
+  sizes: string | null;
 };
 
 function trimOrNull(value: string | null | undefined): string | null {
@@ -117,6 +120,9 @@ export function toPublicArticleGalleryItem(input: {
   caption: string | null;
   attachmentCredit: string | null;
   creditLine: string | null;
+  thumbUrl?: string | null;
+  srcSet?: string | null;
+  sizes?: string | null;
 }): PublicArticleGalleryItem | null {
   if (input.mediaType !== MEDIA_TYPE.IMAGE) {
     return null;
@@ -129,6 +135,9 @@ export function toPublicArticleGalleryItem(input: {
 
   const attachmentCredit = input.attachmentCredit?.trim() || null;
   const creditLine = input.creditLine?.trim() || null;
+  const thumbUrl = input.thumbUrl?.trim() || url;
+  const srcSet = input.srcSet?.trim() || null;
+  const sizes = input.sizes?.trim() || null;
 
   return {
     mediaId: input.mediaId,
@@ -138,5 +147,8 @@ export function toPublicArticleGalleryItem(input: {
     altText: trimOrNull(input.altText),
     caption: trimOrNull(input.caption),
     credit: attachmentCredit ?? creditLine,
+    thumbUrl,
+    srcSet,
+    sizes,
   };
 }

@@ -86,6 +86,7 @@ const HOMEPAGE_BUILDER_STATUS: Record<HomepageBuilderErrorCode, number> = {
   [HOMEPAGE_BUILDER_ERROR.FORBIDDEN]: 403,
   [HOMEPAGE_BUILDER_ERROR.INVALID_SLOT]: 400,
   [HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM]: 400,
+  [HOMEPAGE_BUILDER_ERROR.INVALID_VIDEO_ASSET]: 400,
   [HOMEPAGE_BUILDER_ERROR.DUPLICATE_CONTENT_ITEM]: 409,
   [HOMEPAGE_BUILDER_ERROR.WRITE_CONFLICT]: 409,
   [HOMEPAGE_BUILDER_ERROR.NO_DRAFT]: 409,
@@ -159,6 +160,8 @@ const SAFE_MESSAGES: Record<string, string> = {
     "The same story cannot occupy multiple homepage slots.",
   [HOMEPAGE_BUILDER_ERROR.INVALID_CONTENT_ITEM]:
     "The selected content item was not found.",
+  [HOMEPAGE_BUILDER_ERROR.INVALID_VIDEO_ASSET]:
+    "The selected video asset was not found.",
   [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]:
     "The homepage draft cannot be published until all assignments are publicly eligible.",
   [MEDIA_RIGHTS_ERROR.MEDIA_NOT_FOUND]: "Medya bulunamadı.",
@@ -172,14 +175,15 @@ const SAFE_MESSAGES: Record<string, string> = {
   [MEDIA_UPLOAD_ERROR.STORAGE_NOT_CONFIGURED]: "Medya depolama yapılandırılmadı.",
   [MEDIA_UPLOAD_ERROR.INVALID_UPLOAD]: "Yükleme isteği geçersiz.",
   [VIDEO_ERROR.NOT_FOUND]: "Video bulunamadı.",
-  [VIDEO_ERROR.UNSUPPORTED_PROVIDER]: "Bu video sağlayıcısı desteklenmiyor.",
+  [VIDEO_ERROR.UNSUPPORTED_PROVIDER]:
+    "Şu anda yalnızca YouTube ve Vimeo destekleniyor.",
   [VIDEO_ERROR.INVALID_VIDEO_URL]: "Video bağlantısı geçersiz.",
   [VIDEO_ERROR.INVALID_PROVIDER_ID]: "Video kimliği geçersiz.",
   [VIDEO_ERROR.DUPLICATE_VIDEO]: "Bu video zaten kayıtlı.",
   [VIDEO_ERROR.INVALID_POSTER]: "Video posteri yalnızca görsel medya olabilir.",
   [VIDEO_ERROR.INVALID_METADATA]: "Video alanları geçersiz.",
   [VIDEO_ERROR.STALE_WRITE]:
-    "This video was updated elsewhere. Reload and try again.",
+    "Bu video başka bir oturumda güncellendi. Yenileyip tekrar deneyin.",
 };
 
 export function editorJson(body: unknown, status = 200): NextResponse {

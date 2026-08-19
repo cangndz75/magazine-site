@@ -159,9 +159,13 @@ export function HomepagePreviewDialog({
           builder={builder}
           selectedSlotKey={null}
           pendingSlotKey={null}
+          videoPickerOpen={false}
+          videoPending={false}
           onSelectSlot={() => {}}
           onClearSlot={() => {}}
           onMoveFeatured={() => {}}
+          onSelectVideo={() => {}}
+          onClearVideo={() => {}}
           disabled
         />
       </div>

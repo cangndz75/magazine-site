@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import {
   MEDIA_ROLE,
+  MEDIA_RENDITION_SURFACE,
   selectEditorHomepageHeroVersionId,
   toEditorSafeHeroThumbnail,
   type EditorSafeHeroThumbnail,
@@ -9,7 +10,8 @@ import {
 import { getDb } from "../client";
 import { contentVersionMedia } from "../schema/content";
 import { media } from "../schema/media";
-import { resolvePublicMediaUrl } from "../public/resolve-public-media-url";
+import { loadMediaRenditionsByMediaIds } from "../media/image-delivery";
+import { previewUrlForImageSurface } from "./media-projections";
 
 export type EditorHeroThumbnailLookupItem = {
   publicationStatus: PublicationStatus;
@@ -33,6 +35,7 @@ export async function loadEditorHeroThumbnailsByVersionIds(input: {
   const rows = await db
     .select({
       contentVersionId: contentVersionMedia.contentVersionId,
+      mediaId: media.id,
       storageKey: media.storageKey,
       mediaType: media.mediaType,
       width: media.width,
@@ -50,10 +53,21 @@ export async function loadEditorHeroThumbnailsByVersionIds(input: {
       ),
     );
 
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds(
+    rows.map((row) => row.mediaId),
+  );
+
   for (const row of rows) {
     const thumbnail = toEditorSafeHeroThumbnail({
       mediaType: row.mediaType,
-      publicUrl: resolvePublicMediaUrl(input.mediaPublicBaseUrl, row.storageKey),
+      publicUrl: previewUrlForImageSurface({
+        mediaPublicBaseUrl: input.mediaPublicBaseUrl,
+        originalStorageKey: row.storageKey,
+        originalWidth: row.width,
+        originalHeight: row.height,
+        renditions: renditionsByMediaId.get(row.mediaId),
+        surface: MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB,
+      }),
       width: row.width,
       height: row.height,
       altText: row.altText,

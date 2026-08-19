@@ -22,6 +22,8 @@ const MEDIA_RIGHTS_SQL = "0008_media-rights-foundation.sql";
 const MEDIA_UPLOAD_SQL = "0009_media-upload-original-filename.sql";
 const ARTICLE_GALLERY_SQL = "0010_article-gallery-foundation.sql";
 const EDITORIAL_VIDEO_SQL = "0011_editorial-video-foundation.sql";
+const HOMEPAGE_VIDEO_SLOT_SQL = "0012_homepage-video-slot.sql";
+const MEDIA_IMAGE_RENDITIONS_SQL = "0013_media-image-renditions.sql";
 
 async function publicTableExists(
   client: Client,
@@ -163,5 +165,18 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
         await client.query(statement);
       }
     }
+  }
+
+  const hasHomepageVersionVideos = await publicTableExists(
+    client,
+    "homepage_version_videos",
+  );
+  if (!hasHomepageVersionVideos) {
+    await applySqlFile(client, HOMEPAGE_VIDEO_SLOT_SQL);
+  }
+
+  const hasMediaRenditions = await publicTableExists(client, "media_renditions");
+  if (!hasMediaRenditions) {
+    await applySqlFile(client, MEDIA_IMAGE_RENDITIONS_SQL);
   }
 }

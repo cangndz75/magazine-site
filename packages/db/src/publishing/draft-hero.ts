@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import {
   CONTENT_AUDIT_EVENT_TYPE,
   MEDIA_ROLE,
+  MEDIA_RENDITION_SURFACE,
   PUBLISHING_ERROR,
   PublishingError,
   assertContentNotDeleted,
@@ -34,9 +35,10 @@ import {
 } from "./relations";
 import type { PublishingTx } from "./db-types";
 import { formatEditorMediaLabel } from "../editor/media-label";
+import { loadMediaRenditionsByMediaIds } from "../media/image-delivery";
 import {
   eligibilityForRow,
-  previewUrlForRow,
+  previewUrlForImageSurface,
 } from "../editor/media-projections";
 import { runAfterDraftHeroReplaced } from "./test-hooks";
 
@@ -112,6 +114,8 @@ async function loadHeroAttachment(
     return null;
   }
 
+  const renditionsByMediaId = await loadMediaRenditionsByMediaIds([row.mediaRow.id]);
+
   return {
     id: row.mediaRow.id,
     label: formatEditorMediaLabel(row.mediaRow),
@@ -123,7 +127,14 @@ async function loadHeroAttachment(
     caption: row.caption,
     altText: row.altText,
     credit: row.credit,
-    previewUrl: previewUrlForRow(mediaPublicBaseUrl, row.mediaRow),
+    previewUrl: previewUrlForImageSurface({
+      mediaPublicBaseUrl,
+      originalStorageKey: row.mediaRow.storageKey,
+      originalWidth: row.mediaRow.width,
+      originalHeight: row.mediaRow.height,
+      renditions: renditionsByMediaId.get(row.mediaRow.id),
+      surface: MEDIA_RENDITION_SURFACE.ARTICLE_HERO,
+    }),
     creatorName: row.mediaRow.creatorName,
     creditLine: row.mediaRow.creditLine,
     eligibility: eligibilityForRow(row.mediaRow, new Date()),

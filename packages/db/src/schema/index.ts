@@ -18,7 +18,7 @@ export {
 } from "./enums";
 export { authors } from "./authors";
 export { entities, entityAliases } from "./entities";
-export { media } from "./media";
+export { media, mediaRenditions } from "./media";
 export { categories, tags } from "./taxonomy";
 export {
   contentItems,
@@ -45,5 +45,6 @@ export {
   homepages,
   homepageAuditEvents,
   homepageSlots,
+  homepageVersionVideos,
   homepageVersions,
 } from "./homepage-builder";
