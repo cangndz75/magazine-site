@@ -20,7 +20,7 @@
     "generate": "drizzle-kit generate",
     "check": "drizzle-kit check",
     "migrate": "node ./scripts/require-database-url.mjs && drizzle-kit migrate",
-    "test": "tsx --test src/media/**/*.test.ts src/storage/**/*.test.ts src/editor/media-upload.test.ts",
+    "test": "tsx --test src/media/**/*.test.ts src/storage/**/*.test.ts src/editor/media-upload.test.ts src/editor/hero-thumbnails.test.ts",
     "test:integration": "node ./scripts/run-content-integration.mjs"
   },
   "dependencies": {

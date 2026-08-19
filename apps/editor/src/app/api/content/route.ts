@@ -6,13 +6,16 @@ import { editorScopeFromSession, queryScopeFromSession } from "@/lib/content/aut
 import { editorOk } from "@/lib/content/http";
 import { parseEditorListSearchParams } from "@/lib/content/list-params";
 import { parseCreateContentBody } from "@/lib/content/payload";
+import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withEditorRead(request, CAPABILITY.CONTENT_READ, async (session) => {
     const filters = parseEditorListSearchParams(new URL(request.url));
-    const result = await listEditorContent(queryScopeFromSession(session), filters);
+    const result = await listEditorContent(queryScopeFromSession(session), filters, {
+      mediaPublicBaseUrl: env.MEDIA_PUBLIC_BASE_URL,
+    });
     return editorOk(result);
   });
 }

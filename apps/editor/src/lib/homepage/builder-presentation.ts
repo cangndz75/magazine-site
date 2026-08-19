@@ -2,15 +2,19 @@ import "server-only";
 
 import {
   PUBLICATION_STATUS,
+  type EditorSafeHeroThumbnail,
   type HomepageSlotKey,
 } from "@magazine/domain";
 import {
   getEditorContentDetail,
   getHomepageBuilder,
+  heroThumbnailForEditorItem,
+  loadEditorHeroThumbnailsByVersionIds,
   type EditorHomepageBuilderState,
 } from "@magazine/db/editor";
 import type { StaffSessionContext } from "@/lib/auth/session";
 import { editorScopeFromSession } from "@/lib/content/authorize";
+import { env } from "@/lib/env";
 import type {
   HomepageBuilderView,
   HomepageStorySummary,
@@ -33,12 +37,10 @@ function collectContentItemIds(state: EditorHomepageBuilderState): string[] {
   return [...ids];
 }
 
-async function loadStorySummary(contentItemId: string): Promise<HomepageStorySummary | null> {
-  const detail = await getEditorContentDetail(contentItemId);
-  if (!detail) {
-    return null;
-  }
-
+function storySummaryFromDetail(
+  detail: NonNullable<Awaited<ReturnType<typeof getEditorContentDetail>>>,
+  thumbnailsByVersionId: ReadonlyMap<string, EditorSafeHeroThumbnail>,
+): HomepageStorySummary {
   const publishedTitle =
     detail.publishedVersion?.title ??
     (detail.publicationStatus === PUBLICATION_STATUS.PUBLISHED
@@ -70,21 +72,42 @@ async function loadStorySummary(contentItemId: string): Promise<HomepageStorySum
     isPublishEligible:
       detail.publicationStatus === PUBLICATION_STATUS.PUBLISHED &&
       detail.publishedVersionId !== null,
+    heroThumbnail: heroThumbnailForEditorItem(
+      {
+        publicationStatus: detail.publicationStatus,
+        publishedVersionId: detail.publishedVersionId,
+        displayVersionId: detail.currentVersion?.id ?? null,
+      },
+      thumbnailsByVersionId,
+    ),
   };
 }
 
 async function loadStorySummaries(
   contentItemIds: readonly string[],
 ): Promise<Record<string, HomepageStorySummary>> {
-  const stories: Record<string, HomepageStorySummary> = {};
-  await Promise.all(
-    contentItemIds.map(async (id) => {
-      const summary = await loadStorySummary(id);
-      if (summary) {
-        stories[id] = summary;
-      }
-    }),
+  const details = await Promise.all(
+    contentItemIds.map((id) => getEditorContentDetail(id)),
   );
+  const present = details.filter(
+    (detail): detail is NonNullable<typeof detail> => detail !== null,
+  );
+  const thumbnailsByVersionId = await loadEditorHeroThumbnailsByVersionIds({
+    versionIds: [
+      ...present
+        .map((detail) => detail.publishedVersionId)
+        .filter((versionId): versionId is string => versionId !== null),
+      ...present
+        .map((detail) => detail.currentVersion?.id ?? null)
+        .filter((versionId): versionId is string => versionId !== null),
+    ],
+    mediaPublicBaseUrl: env.MEDIA_PUBLIC_BASE_URL,
+  });
+
+  const stories: Record<string, HomepageStorySummary> = {};
+  for (const detail of present) {
+    stories[detail.id] = storySummaryFromDetail(detail, thumbnailsByVersionId);
+  }
   return stories;
 }
 

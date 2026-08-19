@@ -106,6 +106,7 @@ describe("homepage builder eligibility", () => {
         primaryCategory: { name: "Cat", slug: "cat" },
         publishedAt: "2026-08-18T10:00:00.000Z",
         isPublishEligible: true,
+        heroThumbnail: null,
       },
       b: {
         id: "b",
@@ -116,6 +117,7 @@ describe("homepage builder eligibility", () => {
         primaryCategory: null,
         publishedAt: null,
         isPublishEligible: false,
+        heroThumbnail: null,
       },
     },
   };
@@ -125,6 +127,37 @@ describe("homepage builder eligibility", () => {
     const eligibility = analyzePublishEligibility(builder);
     assert.equal(eligibility.blockingCount, 1);
     assert.equal(eligibility.emptyCount, 6);
+  });
+
+  it("does not treat a thumbnail as homepage publication authority", () => {
+    const withThumbnails: HomepageBuilderView = {
+      ...builder,
+      stories: {
+        a: {
+          ...builder.stories.a!,
+          heroThumbnail: {
+            url: "https://media.example.test/qa/hero.jpg",
+            width: 1600,
+            height: 900,
+            altText: null,
+            credit: null,
+          },
+        },
+        b: {
+          ...builder.stories.b!,
+          heroThumbnail: {
+            url: "https://media.example.test/qa/draft.jpg",
+            width: 800,
+            height: 600,
+            altText: null,
+            credit: null,
+          },
+        },
+      },
+    };
+    const eligibility = analyzePublishEligibility(withThumbnails);
+    assert.equal(eligibility.blockingCount, 1);
+    assert.equal(withThumbnails.stories.b?.isPublishEligible, false);
   });
 });
 
@@ -195,5 +228,39 @@ describe("homepage builder page authorization", () => {
     assert.equal(page.includes("requireCapability"), true);
     assert.equal(page.includes("env.SITE_URL"), true);
     assert.equal(page.includes("localhost"), false);
+  });
+});
+
+describe("homepage builder hero thumbnail contracts", () => {
+  it("batches editor HERO thumbnails instead of per-card media fetches", () => {
+    const presentation = readFileSync(
+      path.join(
+        fileURLToPath(new URL("./builder-presentation.ts", import.meta.url)),
+      ),
+      "utf8",
+    );
+    const pool = readFileSync(
+      path.join(
+        fileURLToPath(
+          new URL("../../components/homepage-builder-content-pool.tsx", import.meta.url),
+        ),
+      ),
+      "utf8",
+    );
+    const contentRoute = readFileSync(
+      path.join(
+        fileURLToPath(new URL("../../app/api/content/route.ts", import.meta.url)),
+      ),
+      "utf8",
+    );
+
+    assert.equal(presentation.includes("loadEditorHeroThumbnailsByVersionIds"), true);
+    assert.equal(presentation.includes("revalidateTag"), false);
+    assert.equal(presentation.includes("getEditorMediaDetail"), false);
+    assert.equal(pool.includes("/api/media/"), false);
+    assert.equal(pool.includes("heroThumbnail"), true);
+    assert.equal(contentRoute.includes("MEDIA_PUBLIC_BASE_URL"), true);
+    assert.equal(contentRoute.includes("NEXT_PUBLIC_MEDIA"), false);
+    assert.equal(contentRoute.includes("listEditorContent"), true);
   });
 });

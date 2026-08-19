@@ -11,7 +11,15 @@ export {
 export { getEditorContentAccess, getOwnedVersionCategories } from "./access";
 export { getContentVersionDiff } from "./diff";
 export { getEditorContentDetail } from "./detail";
-export { listEditorContent, type EditorContentListResult } from "./list";
+export {
+  listEditorContent,
+  type EditorContentListResult,
+  type EditorContentListOptions,
+} from "./list";
+export {
+  loadEditorHeroThumbnailsByVersionIds,
+  heroThumbnailForEditorItem,
+} from "./hero-thumbnails";
 export {
   listContentRevisionHistory,
   type EditorRevisionHistoryResult,

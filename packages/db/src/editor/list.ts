@@ -28,6 +28,10 @@ import type {
   EditorStaffQueryScope,
 } from "./types";
 import { loadVersionAuthorSummaries } from "./summaries";
+import {
+  heroThumbnailForEditorItem,
+  loadEditorHeroThumbnailsByVersionIds,
+} from "./hero-thumbnails";
 
 const displayVersion = alias(contentVersions, "editor_display_version");
 const displayPrimary = alias(
@@ -41,9 +45,14 @@ export type EditorContentListResult = {
   nextCursor: string | null;
 };
 
+export type EditorContentListOptions = {
+  mediaPublicBaseUrl?: string;
+};
+
 export async function listEditorContent(
   scope: EditorStaffQueryScope,
   filters: EditorContentListFilters,
+  options: EditorContentListOptions = {},
 ): Promise<EditorContentListResult> {
   if (
     scope.scopedCategoryIds !== null &&
@@ -207,7 +216,28 @@ export async function listEditorContent(
         : null,
     authors: authorsByVersion.get(row.displayVersionId) ?? [],
     updatedAt: row.updatedAt,
+    heroThumbnail: null,
   }));
+
+  const thumbnailsByVersionId = await loadEditorHeroThumbnailsByVersionIds({
+    versionIds: [
+      ...items
+        .map((item) => item.publishedVersionId)
+        .filter((versionId): versionId is string => versionId !== null),
+      ...items.map((item) => item.displayVersion.id),
+    ],
+    mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+  });
+  for (const item of items) {
+    item.heroThumbnail = heroThumbnailForEditorItem(
+      {
+        publicationStatus: item.publicationStatus,
+        publishedVersionId: item.publishedVersionId,
+        displayVersionId: item.displayVersion.id,
+      },
+      thumbnailsByVersionId,
+    );
+  }
 
   const last = items[items.length - 1];
   return {

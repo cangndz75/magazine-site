@@ -9,6 +9,7 @@ import {
 } from "@/lib/homepage/slot-meta";
 import { StatusBadge } from "@/components/status-badge";
 import { deriveContentStatus } from "@/lib/content/status";
+import { HomepageBuilderHeroThumbnail } from "@/components/homepage-builder-hero-thumbnail";
 
 type Props = {
   builder: HomepageBuilderView;
@@ -251,6 +252,11 @@ function LeadSlotCard({
     >
       {story && (
         <div>
+          <HomepageBuilderHeroThumbnail
+            hero={story.heroThumbnail}
+            size="lead"
+            loading="eager"
+          />
           <p className="text-lg font-semibold leading-snug text-zinc-900">
             {story.title}
           </p>
@@ -292,9 +298,15 @@ function SupportSlotCard({
       emptyLabel="Destek haberi seç"
     >
       {story && (
-        <div>
-          <p className="font-medium leading-snug text-zinc-900">{story.title}</p>
-          <StoryMeta story={story} />
+        <div className="flex min-w-0 gap-3">
+          <HomepageBuilderHeroThumbnail
+            hero={story.heroThumbnail}
+            size="support"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium leading-snug text-zinc-900">{story.title}</p>
+            <StoryMeta story={story} />
+          </div>
         </div>
       )}
     </SlotShell>
@@ -344,6 +356,10 @@ function FeaturedSlotCard({
       >
         {story && (
           <div>
+            <HomepageBuilderHeroThumbnail
+              hero={story.heroThumbnail}
+              size="featured"
+            />
             <p className="text-sm font-medium leading-snug text-zinc-900 line-clamp-3">
               {story.title}
             </p>

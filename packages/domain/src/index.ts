@@ -78,6 +78,11 @@ export {
   assertHeroAssignableMediaType,
   type DraftHeroMutationInput,
 } from "./article-hero";
+export {
+  selectEditorHomepageHeroVersionId,
+  toEditorSafeHeroThumbnail,
+  type EditorSafeHeroThumbnail,
+} from "./editor-hero-thumbnail";
 export { AUTHOR_ROLE, AUTHOR_ROLES, type AuthorRole } from "./author-role";
 export {
   PRIMARY_CATEGORY_ISSUE,

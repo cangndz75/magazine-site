@@ -16,6 +16,10 @@ env:
   APP_ENV: test
   SITE_URL: http://localhost:3000
   EDITOR_URL: http://localhost:3001
+  PUBLIC_WEB_INTERNAL_BASE_URL: http://localhost:3000
+  MEDIA_PUBLIC_BASE_URL: http://localhost:3000/media
+  SCHEDULED_PUBLISH_RUNNER_SECRET: ci-scheduled-publish-runner-secret-32
+  PUBLIC_CACHE_INVALIDATION_SECRET: ci-public-cache-invalidation-secret-32
 
 jobs:
   verify:

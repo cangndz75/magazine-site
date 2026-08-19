@@ -1,5 +1,5 @@
 import type { PublicationStatus, WorkflowStatus } from "@magazine/domain";
-import type { HomepageSlotKey } from "@magazine/domain";
+import type { HomepageSlotKey, EditorSafeHeroThumbnail } from "@magazine/domain";
 
 export type HomepageStorySummary = {
   id: string;
@@ -10,6 +10,7 @@ export type HomepageStorySummary = {
   primaryCategory: { name: string; slug: string } | null;
   publishedAt: string | null;
   isPublishEligible: boolean;
+  heroThumbnail: EditorSafeHeroThumbnail | null;
 };
 
 export type HomepageBuilderSlotView = {
