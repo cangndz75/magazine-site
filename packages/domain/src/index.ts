@@ -71,6 +71,13 @@ export {
   type MediaUploadDecision,
   type MediaImageFormat,
 } from "./media-upload";
+export {
+  ARTICLE_HERO_ALT_TEXT_MAX,
+  canonicalizeHeroAltText,
+  canonicalizeHeroCredit,
+  assertHeroAssignableMediaType,
+  type DraftHeroMutationInput,
+} from "./article-hero";
 export { AUTHOR_ROLE, AUTHOR_ROLES, type AuthorRole } from "./author-role";
 export {
   PRIMARY_CATEGORY_ISSUE,
@@ -97,10 +104,20 @@ export {
   type VersionPointers,
 } from "./content-item-invariants";
 export {
+  PUBLIC_ARTICLE_CACHE_INVALIDATE_SCHEMA_VERSION,
+  PUBLIC_CACHE_INVALIDATION_PATH,
   PUBLIC_CACHE_TAG,
+  parsePublicArticleCacheInvalidatePayload,
+  publicArticleInvalidationTags,
   publicArticleSlugCacheTag,
   publicContentCacheTag,
+  type PublicArticleCacheInvalidatePayload,
 } from "./public-cache";
+export {
+  extractBearerToken,
+  isBearerMachineAuthorized,
+  machineSecretsEqual,
+} from "./machine-secret";
 export { STAFF_STATUS, STAFF_STATUSES, type StaffStatus } from "./staff-status";
 export {
   STAFF_SCOPE_MODE,

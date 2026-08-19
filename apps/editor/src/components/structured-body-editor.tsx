@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import Bold from "@tiptap/extension-bold";
 import Document from "@tiptap/extension-document";
@@ -12,6 +12,7 @@ import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
 import { EditorContent, useEditor } from "@tiptap/react";
 import {
+  bodyEditorDocumentsEqual,
   editorDocumentToTiptapDocument,
   isSafeHttpUrl,
   tiptapDocumentToEditorDocument,
@@ -55,6 +56,7 @@ export function StructuredBodyEditor({
   onChange,
 }: Props) {
   const [linkError, setLinkError] = useState<string | null>(null);
+  const documentRef = useRef(document);
   const tiptapContent = useMemo(
     () => editorDocumentToTiptapDocument(document),
     [document],
@@ -74,14 +76,22 @@ export function StructuredBodyEditor({
     },
     onUpdate: ({ editor: currentEditor }) => {
       const parsed = tiptapDocumentToEditorDocument(currentEditor.getJSON());
-      if (parsed.ok) {
-        setLinkError(null);
-        onChange(parsed.document);
+      if (!parsed.ok) {
+        setLinkError(parsed.message);
         return;
       }
-      setLinkError(parsed.message);
+      if (bodyEditorDocumentsEqual(parsed.document, documentRef.current)) {
+        setLinkError(null);
+        return;
+      }
+      setLinkError(null);
+      onChange(parsed.document);
     },
   });
+
+  useEffect(() => {
+    documentRef.current = document;
+  }, [document]);
 
   useEffect(() => {
     if (!editor) {

@@ -1,6 +1,6 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import {
   SCHEDULED_PUBLISH_DECISION,
+  isBearerMachineAuthorized,
   isUuid,
   type ScheduledPublishDecisionCode,
 } from "@magazine/domain";
@@ -59,12 +59,12 @@ export function assertScheduledPublishRunnerAuthorized(
   request: Pick<Request, "headers">,
   expectedSecret: string,
 ): void {
-  const authorization = request.headers.get("authorization");
-  const token = authorization?.startsWith("Bearer ")
-    ? authorization.slice("Bearer ".length)
-    : "";
-
-  if (!token || !constantTimeEqual(token, expectedSecret)) {
+  if (
+    !isBearerMachineAuthorized(
+      request.headers.get("authorization"),
+      expectedSecret,
+    )
+  ) {
     throw new ScheduledPublishRunnerError(
       SCHEDULED_PUBLISH_RUNNER_ERROR.UNAUTHORIZED,
       401,
@@ -115,12 +115,6 @@ export async function runScheduledPublishJob(
     slug: result.publish.slug,
     publishedVersionId: result.publish.publishedVersionId,
   };
-}
-
-function constantTimeEqual(left: string, right: string): boolean {
-  const leftDigest = createHash("sha256").update(left).digest();
-  const rightDigest = createHash("sha256").update(right).digest();
-  return timingSafeEqual(leftDigest, rightDigest);
 }
 
 function invalidRequest(): ScheduledPublishRunnerError {

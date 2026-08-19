@@ -4,11 +4,11 @@ import {
   AssociatedMediaPicker,
   AuthorRelationPicker,
   EntityRelationPicker,
-  HeroMediaPicker,
   PrimaryCategoryPicker,
   SecondaryCategoryPicker,
   TagRelationPicker,
 } from "./article-relation-pickers";
+import { ArticleHeroSection } from "./article-hero-section";
 import {
   addAssociatedMedia,
   addAuthor,
@@ -37,10 +37,20 @@ import type {
 type Props = {
   relations: ArticleEditorRelations;
   disabled: boolean;
+  heroBusy: boolean;
   onChange: (next: ArticleEditorRelations) => void;
+  onPersistHero: (media: NonNullable<ReturnType<typeof getHeroMedia>>) => void;
+  onRemoveHero: () => void;
 };
 
-export function ArticleMetadataEditor({ relations, disabled, onChange }: Props) {
+export function ArticleMetadataEditor({
+  relations,
+  disabled,
+  heroBusy,
+  onChange,
+  onPersistHero,
+  onRemoveHero,
+}: Props) {
   const primary = getPrimaryCategory(relations);
   const secondary = getSecondaryCategories(relations);
   const hero = getHeroMedia(relations);
@@ -112,33 +122,27 @@ export function ArticleMetadataEditor({ relations, disabled, onChange }: Props) 
       />
 
       <div className="grid gap-5 md:grid-cols-2">
-        <HeroMediaPicker
-          selected={hero ? toMediaOption(hero) : null}
-          disabled={disabled}
-          onSelect={(media) =>
-            onChange(
-              setHeroMedia(
-                relations,
-                media
-                  ? {
-                      ...toMediaOption(media),
-                      role: "HERO",
-                      sortOrder: 0,
-                      caption:
-                        relations.media.find((item) => item.id === media.id)
-                          ?.caption ?? null,
-                      altText:
-                        relations.media.find((item) => item.id === media.id)
-                          ?.altText ?? null,
-                      credit:
-                        relations.media.find((item) => item.id === media.id)
-                          ?.credit ?? null,
-                    }
-                  : null,
-              ),
-            )
-          }
-        />
+        <div className="md:col-span-2">
+          <ArticleHeroSection
+            hero={hero}
+            disabled={disabled}
+            busy={heroBusy}
+            onSelect={onPersistHero}
+            onRemove={onRemoveHero}
+            onPresentationChange={(patch) => {
+              if (!hero) {
+                return;
+              }
+              onChange(
+                setHeroMedia(relations, {
+                  ...hero,
+                  altText: patch.altText,
+                  credit: patch.credit,
+                }),
+              );
+            }}
+          />
+        </div>
         <AssociatedMediaPicker
           selected={associated.map(toMediaOption)}
           excludedIds={hero ? [hero.id] : []}

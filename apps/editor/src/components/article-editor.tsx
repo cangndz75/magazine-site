@@ -13,26 +13,27 @@ import { ArticleReviewPanel, type ReviewHistoryItem } from "@/components/article
 import { StructuredBodyEditor } from "@/components/structured-body-editor";
 import { StatusBadge } from "@/components/status-badge";
 import {
-  bodyEditorDocumentsEqual,
-  bodyToEditorDocument,
   cloneBodyEditorDocument,
   editorDocumentToBody,
   type BodyEditorDocument,
 } from "@/lib/content/body-editor-state";
 import {
   CREDIBILITY_LABELS,
-  articleEditorFieldsEqual,
   normalizeArticleEditorFields,
   validateArticleEditorFields,
   type ArticleEditorFields,
 } from "@/lib/content/article-editor-state";
 import {
-  ARTICLE_EDITOR_EMPTY_RELATIONS,
-  articleEditorRelationsEqual,
   cloneArticleEditorRelations,
+  setHeroMedia,
   toDraftRelationPayload,
+  type ArticleEditorMedia,
   type ArticleEditorRelations,
 } from "@/lib/content/article-relation-state";
+import {
+  createArticleEditorDraftSnapshot,
+  isArticleEditorDirty,
+} from "@/lib/content/article-editor-session";
 import {
   isSuccessfulSaveResponse,
   presentSaveFailure,
@@ -94,7 +95,7 @@ type ArticleEditorModel = {
         role: EntityRole;
         sortOrder: number;
       }[];
-      media: {
+        media: {
         id: string;
         label: string;
         mediaType: string;
@@ -105,6 +106,14 @@ type ArticleEditorModel = {
         caption: string | null;
         altText: string | null;
         credit: string | null;
+        previewUrl?: string | null;
+        creatorName?: string | null;
+        creditLine?: string | null;
+        eligibility?: {
+          eligible: boolean;
+          status: string;
+          reasons: string[];
+        } | null;
       }[];
     };
   } | null;
@@ -165,48 +174,44 @@ export function ArticleEditor({
 }: Props) {
   const router = useRouter();
   const version = model.editableVersion;
-  const initialRelations = version?.relations ?? ARTICLE_EDITOR_EMPTY_RELATIONS;
+  const initialSnapshot = createArticleEditorDraftSnapshot(version);
   const [baseline, setBaseline] = useState<ArticleEditorFields | null>(
-    version?.fields ?? null,
+    initialSnapshot.fields,
   );
   const [fields, setFields] = useState<ArticleEditorFields | null>(
-    version?.fields ?? null,
+    initialSnapshot.fields,
   );
   const [baselineRelations, setBaselineRelations] = useState<ArticleEditorRelations>(
-    cloneArticleEditorRelations(initialRelations),
+    initialSnapshot.relations,
   );
   const [relations, setRelations] = useState<ArticleEditorRelations>(
-    cloneArticleEditorRelations(initialRelations),
-  );
-  const bodyParse = useMemo(
-    () => (version ? bodyToEditorDocument(version.body) : null),
-    [version],
+    initialSnapshot.relations,
   );
   const [baselineBody, setBaselineBody] = useState<BodyEditorDocument | null>(
-    bodyParse?.ok ? cloneBodyEditorDocument(bodyParse.document) : null,
+    initialSnapshot.body,
   );
   const [bodyDocument, setBodyDocument] = useState<BodyEditorDocument | null>(
-    bodyParse?.ok ? cloneBodyEditorDocument(bodyParse.document) : null,
+    initialSnapshot.body,
   );
+  const [bodyError, setBodyError] = useState<string | null>(initialSnapshot.bodyError);
   const [token, setToken] = useState(version?.concurrencyToken ?? "");
   const [boundVersionId, setBoundVersionId] = useState(version?.id ?? null);
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const [isSaving, setIsSaving] = useState(false);
+  const [heroBusy, setHeroBusy] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   if (boundVersionId !== (version?.id ?? null)) {
+    const nextSnapshot = createArticleEditorDraftSnapshot(version);
     setBoundVersionId(version?.id ?? null);
-    setFields(version?.fields ?? null);
-    setBaseline(version?.fields ?? null);
-    setRelations(cloneArticleEditorRelations(initialRelations));
-    setBaselineRelations(cloneArticleEditorRelations(initialRelations));
-    setBaselineBody(
-      bodyParse?.ok ? cloneBodyEditorDocument(bodyParse.document) : null,
-    );
-    setBodyDocument(
-      bodyParse?.ok ? cloneBodyEditorDocument(bodyParse.document) : null,
-    );
+    setFields(nextSnapshot.fields);
+    setBaseline(nextSnapshot.fields);
+    setRelations(nextSnapshot.relations);
+    setBaselineRelations(nextSnapshot.relations);
+    setBaselineBody(nextSnapshot.body);
+    setBodyDocument(nextSnapshot.body);
+    setBodyError(nextSnapshot.bodyError);
     setToken(version?.concurrencyToken ?? "");
     setSaveState({ kind: "idle" });
   }
@@ -215,15 +220,14 @@ export function ArticleEditor({
     () => (fields ? validateArticleEditorFields(fields) : { ok: true, errors: {} }),
     [fields],
   );
-  const isDirty = Boolean(
-    fields &&
-      baseline &&
-      ((!articleEditorFieldsEqual(fields, baseline)) ||
-        !articleEditorRelationsEqual(relations, baselineRelations) ||
-        (bodyDocument &&
-          baselineBody &&
-          !bodyEditorDocumentsEqual(bodyDocument, baselineBody))),
-  );
+  const isDirty = isArticleEditorDirty({
+    fields,
+    baseline,
+    relations,
+    baselineRelations,
+    body: bodyDocument,
+    baselineBody,
+  });
 
   if (
     boundVersionId === (version?.id ?? null) &&
@@ -370,16 +374,79 @@ export function ArticleEditor({
 
       setFields(body.data.fields);
       setBaseline(body.data.fields);
-      setRelations(cloneArticleEditorRelations(nextRelations));
-      setBaselineRelations(cloneArticleEditorRelations(nextRelations));
-      setBodyDocument(cloneBodyEditorDocument(nextBodyDocument));
-      setBaselineBody(cloneBodyEditorDocument(nextBodyDocument));
+      setRelations(nextRelations);
+      setBaselineRelations(nextRelations);
+      setBodyDocument(nextBodyDocument);
+      setBaselineBody(nextBodyDocument);
       setToken(body.data.updatedAt);
       setSaveState({ kind: "saved", message: "Taslak kaydedildi. Yayındaki sürüm değişmedi." });
       setHistoryRefreshKey((current) => current + 1);
       router.refresh();
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function persistHeroMutation(nextHero: ArticleEditorMedia | null) {
+    if (!version || !canEdit) {
+      return;
+    }
+
+    setHeroBusy(true);
+    try {
+      const response = await fetch(`/api/content/${model.contentItem.id}/hero`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          versionId: version.id,
+          expectedUpdatedAt: token,
+          mediaId: nextHero?.id ?? null,
+          altText: nextHero?.altText ?? null,
+          credit: nextHero?.credit ?? null,
+        }),
+      });
+      const body = (await response.json()) as {
+        ok: boolean;
+        data?: {
+          updatedAt: string;
+          hero: ArticleEditorMedia | null;
+        };
+        error?: { code: string; message: string };
+      };
+
+      if (
+        !isSuccessfulSaveResponse({
+          okHttp: response.ok,
+          okBody: body.ok,
+          hasData: Boolean(body.data),
+        }) ||
+        !body.data
+      ) {
+        setSaveState(presentSaveFailure(body.error?.code, body.error?.message));
+        return;
+      }
+
+      const persisted = body.data.hero
+        ? {
+            ...body.data.hero,
+            role: "HERO" as const,
+            sortOrder: body.data.hero.sortOrder ?? 0,
+            caption: body.data.hero.caption ?? null,
+          }
+        : null;
+      setRelations((current) => setHeroMedia(current, persisted));
+      setBaselineRelations((current) => setHeroMedia(current, persisted));
+      setToken(body.data.updatedAt);
+      setSaveState({
+        kind: "saved",
+        message: persisted
+          ? "Kapak görseli kaydedildi. Yayındaki sürüm değişmedi."
+          : "Kapak görseli taslaktan kaldırıldı. Yayındaki sürüm değişmedi.",
+      });
+      setHistoryRefreshKey((current) => current + 1);
+      router.refresh();
+    } finally {
+      setHeroBusy(false);
     }
   }
 
@@ -509,9 +576,16 @@ export function ArticleEditor({
               <ArticleMetadataEditor
                 relations={relations}
                 disabled={!canEdit}
+                heroBusy={heroBusy}
                 onChange={(next) => {
                   setRelations(next);
                   setSaveState({ kind: "idle" });
+                }}
+                onPersistHero={(media) => {
+                  void persistHeroMutation(media);
+                }}
+                onRemoveHero={() => {
+                  void persistHeroMutation(null);
                 }}
               />
 
@@ -634,7 +708,7 @@ export function ArticleEditor({
                 </div>
               </details>
 
-              {bodyParse?.ok && bodyDocument ? (
+              {bodyDocument ? (
                 <StructuredBodyEditor
                   document={bodyDocument}
                   disabled={!canEdit}
@@ -645,9 +719,7 @@ export function ArticleEditor({
                 />
               ) : (
                 <Notice>
-                  {bodyParse && !bodyParse.ok
-                    ? bodyParse.message
-                    : "Gövde bu editörde güvenli şekilde açılamıyor."}
+                  {bodyError ?? "Gövde bu editörde güvenli şekilde açılamıyor."}
                 </Notice>
               )}
 
@@ -656,7 +728,7 @@ export function ArticleEditor({
                   <SaveMessage state={saveState} isDirty={isDirty} />
                   <button
                     type="submit"
-                    disabled={!canEdit || !isDirty || !validation.ok || isSaving}
+                    disabled={!canEdit || !isDirty || !validation.ok || isSaving || heroBusy}
                     className="h-9 rounded bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:bg-zinc-300"
                   >
                     {isSaving ? "Kaydediliyor..." : "Taslağı kaydet"}

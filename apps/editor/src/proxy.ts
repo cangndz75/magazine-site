@@ -1,20 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEditorEnv } from "@magazine/config/env/editor";
 import { editorSessionCookieName } from "@/lib/auth/cookie-name";
-
-const PUBLIC_PATHS = new Set(["/login", "/api/health"]);
-
-function isPublicPath(pathname: string): boolean {
-  if (PUBLIC_PATHS.has(pathname)) {
-    return true;
-  }
-
-  if (pathname.startsWith("/api/auth/login")) {
-    return true;
-  }
-
-  return false;
-}
+import { isEditorSessionExemptPath } from "@/lib/auth/proxy-paths";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -27,7 +14,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isPublicPath(pathname)) {
+  if (isEditorSessionExemptPath(pathname)) {
     return NextResponse.next();
   }
 

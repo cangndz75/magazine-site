@@ -26,6 +26,10 @@ import { media } from "../schema/media";
 import type { DraftScalarFields } from "../publishing/update-draft-scalars";
 import type { EditorVersionSummary } from "./types";
 import { formatEditorMediaLabel } from "./media-label";
+import {
+  eligibilityForRow,
+  previewUrlForRow,
+} from "./media-projections";
 
 const parentCategory = alias(categories, "article_editor_parent_category");
 
@@ -67,6 +71,10 @@ export type ArticleEditorRelationSummary = {
     caption: string | null;
     altText: string | null;
     credit: string | null;
+    previewUrl: string | null;
+    creatorName: string | null;
+    creditLine: string | null;
+    eligibility: ReturnType<typeof eligibilityForRow> | null;
   }[];
 };
 
@@ -103,7 +111,7 @@ export type ArticleEditorModel = {
 
 export async function getArticleEditorModel(
   contentItemId: string,
-  options?: { focusVersionId?: string | null },
+  options?: { focusVersionId?: string | null; mediaPublicBaseUrl?: string },
 ): Promise<ArticleEditorModel | null> {
   const db = getDb();
   const [item] = await db
@@ -151,7 +159,7 @@ export async function getArticleEditorModel(
   }
 
   const editableVersion = editableVersionId
-    ? await loadEditableDraft(editableVersionId, item)
+    ? await loadEditableDraft(editableVersionId, item, options?.mediaPublicBaseUrl)
     : null;
 
   return {
@@ -207,6 +215,7 @@ async function loadEditableDraft(
     draftVersionId: string | null;
     updatedAt: Date;
   },
+  mediaPublicBaseUrl?: string,
 ) {
   const db = getDb();
   const [version] = await db
@@ -264,12 +273,13 @@ async function loadEditableDraft(
     canEdit:
       version.workflowStatus === "DRAFT" && version.id === item.draftVersionId,
     concurrencyToken: item.updatedAt,
-    relations: await loadRelationSummary(version.id),
+    relations: await loadRelationSummary(version.id, mediaPublicBaseUrl),
   };
 }
 
 async function loadRelationSummary(
   versionId: string,
+  mediaPublicBaseUrl?: string,
 ): Promise<ArticleEditorRelationSummary> {
   const db = getDb();
   const [categoryRows, authorRows, tagRows, entityRows, mediaRows] =
@@ -325,10 +335,7 @@ async function loadRelationSummary(
         .orderBy(contentVersionEntities.sortOrder),
       db
         .select({
-          id: media.id,
-          mediaType: media.mediaType,
-          width: media.width,
-          height: media.height,
+          row: media,
           role: contentVersionMedia.role,
           sortOrder: contentVersionMedia.sortOrder,
           caption: contentVersionMedia.caption,
@@ -346,17 +353,21 @@ async function loadRelationSummary(
     authors: authorRows,
     tags: tagRows,
     entities: entityRows,
-    media: mediaRows.map((row) => ({
-      id: row.id,
-      label: formatEditorMediaLabel(row),
-      mediaType: row.mediaType,
-      width: row.width,
-      height: row.height,
-      role: row.role,
-      sortOrder: row.sortOrder,
-      caption: row.caption,
-      altText: row.altText,
-      credit: row.credit,
+    media: mediaRows.map((item) => ({
+      id: item.row.id,
+      label: formatEditorMediaLabel(item.row),
+      mediaType: item.row.mediaType,
+      width: item.row.width,
+      height: item.row.height,
+      role: item.role,
+      sortOrder: item.sortOrder,
+      caption: item.caption,
+      altText: item.altText,
+      credit: item.credit,
+      previewUrl: previewUrlForRow(mediaPublicBaseUrl, item.row),
+      creatorName: item.row.creatorName,
+      creditLine: item.row.creditLine,
+      eligibility: eligibilityForRow(item.row, new Date()),
     })),
   };
 }

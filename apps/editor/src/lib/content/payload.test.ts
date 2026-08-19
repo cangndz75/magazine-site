@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EDITOR_LIST_MAX_LIMIT, PUBLISHING_ERROR, STAFF_ROLE, STAFF_SCOPE_MODE } from "@magazine/domain";
 import { parseEditorListSearchParams, parseReviewQueueSearchParams, parseRevisionHistorySearchParams, parseDiffSearchParams } from "./list-params";
-import { parseArticleEditorSaveBody, parseCreateContentBody, parseDraftSaveBody, parseRequestChangesBody, parseRevisionBody, parseScheduleBody, parseSubmitReviewBody } from "./payload";
+import { parseArticleEditorSaveBody, parseCreateContentBody, parseDraftHeroBody, parseDraftSaveBody, parseRequestChangesBody, parseRevisionBody, parseScheduleBody, parseSubmitReviewBody } from "./payload";
 
 const CAT = "11111111-1111-4111-8111-111111111111";
 const VER = "22222222-2222-4222-8222-222222222222";
@@ -249,5 +249,66 @@ describe("create/draft payload validation", () => {
     const implicit = parseRevisionBody({});
     assert.equal("sourceVersionId" in implicit, true);
     assert.equal(implicit.sourceVersionId, undefined);
+  });
+});
+
+describe("draft hero payload", () => {
+  const MEDIA = "55555555-5555-4555-8555-555555555555";
+
+  it("parses assign and remove payloads", () => {
+    const assigned = parseDraftHeroBody({
+      versionId: VER,
+      expectedUpdatedAt: "2026-08-19T10:00:00.000Z",
+      mediaId: MEDIA,
+      altText: "  crowd  ",
+      credit: " Ada ",
+    });
+    assert.equal(assigned.mediaId, MEDIA);
+    assert.equal(assigned.altText, "crowd");
+    assert.equal(assigned.credit, "Ada");
+
+    const removed = parseDraftHeroBody({
+      versionId: VER,
+      expectedUpdatedAt: "2026-08-19T10:00:00.000Z",
+      mediaId: null,
+    });
+    assert.equal(removed.mediaId, null);
+  });
+
+  it("rejects invalid media id, malformed timestamp, wrong type, and oversized text", () => {
+    assert.throws(
+      () =>
+        parseDraftHeroBody({
+          versionId: VER,
+          expectedUpdatedAt: "2026-08-19T10:00:00.000Z",
+          mediaId: "not-a-uuid",
+        }),
+    );
+    assert.throws(
+      () =>
+        parseDraftHeroBody({
+          versionId: VER,
+          expectedUpdatedAt: "yesterday",
+          mediaId: MEDIA,
+        }),
+    );
+    assert.throws(
+      () =>
+        parseDraftHeroBody({
+          versionId: VER,
+          expectedUpdatedAt: "2026-08-19T10:00:00.000Z",
+          mediaId: MEDIA,
+          altText: "x".repeat(501),
+        }),
+    );
+    assert.throws(
+      () =>
+        parseDraftHeroBody({
+          versionId: VER,
+          expectedUpdatedAt: "2026-08-19T10:00:00.000Z",
+          mediaId: MEDIA,
+          credit: "x".repeat(201),
+        }),
+    );
   });
 });

@@ -22,6 +22,7 @@ import { lockContentItem } from "./lock";
 import { loadLockedDisplayCategories } from "./locked-scope";
 import {
   assertRelatedRecordsExist,
+  assertHeroMediaAssignable,
   loadVersionRelations,
   replaceVersionRelations,
   type ContentRelationInput,
@@ -142,6 +143,7 @@ export async function updateDraftContent(
     });
 
     await assertRelatedRecordsExist(tx, input);
+    await assertHeroMediaAssignable(tx, input);
     await replaceVersionRelations(tx, version.id, input);
 
     await tx

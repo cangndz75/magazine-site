@@ -12,6 +12,8 @@ import {
   canonicalizeDraftTitle,
   canonicalizeOptionalReviewNote,
   canonicalizeRequiredReviewNote,
+  canonicalizeHeroAltText,
+  canonicalizeHeroCredit,
   isUuid,
   optionalTrimmedText,
   parseCredibility,
@@ -462,6 +464,37 @@ export function parseRevisionBody(body: unknown): {
   sourceVersionId?: string;
 } {
   return { sourceVersionId: optionalUuid(asRecord(body), "sourceVersionId") };
+}
+
+export function parseDraftHeroBody(body: unknown): {
+  versionId: string;
+  expectedUpdatedAt: string;
+  mediaId: string | null;
+  altText: string | null;
+  credit: string | null;
+} {
+  const record = asRecord(body);
+  const mediaIdValue = record.mediaId;
+  let mediaId: string | null;
+  if (mediaIdValue === null) {
+    mediaId = null;
+  } else if (typeof mediaIdValue === "string" && isUuid(mediaIdValue)) {
+    mediaId = mediaIdValue;
+  } else {
+    throw new EditorHttpError(
+      400,
+      EDITOR_API_ERROR.INVALID_REQUEST,
+      "The request is invalid.",
+    );
+  }
+
+  return {
+    versionId: requiredUuid(record, "versionId"),
+    expectedUpdatedAt: requiredExpectedUpdatedAt(record),
+    mediaId,
+    altText: unwrap(canonicalizeHeroAltText(optionalString(record, "altText"))),
+    credit: unwrap(canonicalizeHeroCredit(optionalString(record, "credit"))),
+  };
 }
 
 export function parseScheduleBody(body: unknown): {

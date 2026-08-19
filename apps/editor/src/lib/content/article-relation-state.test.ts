@@ -244,6 +244,42 @@ describe("article relation form state", () => {
     assert.equal(replaced.media[0]?.role, MEDIA_ROLE.HERO);
   });
 
+  it("does not put preview or eligibility fields into the draft-save payload", () => {
+    const withHero = setHeroMedia(empty(), {
+      id: MEDIA_A,
+      label: "Kapak",
+      mediaType: "IMAGE",
+      width: 1200,
+      height: 800,
+      role: MEDIA_ROLE.HERO,
+      sortOrder: 0,
+      caption: null,
+      altText: "alt",
+      credit: null,
+      previewUrl: "https://media.example.test/secret",
+      creatorName: "Ada",
+      creditLine: "Ada Photo",
+      eligibility: {
+        eligible: false,
+        status: "INCOMPLETE",
+        reasons: ["RIGHTS_INCOMPLETE"],
+      },
+    });
+    const payload = toDraftRelationPayload(withHero);
+    assert.deepEqual(payload.media, [
+      {
+        mediaId: MEDIA_A,
+        role: MEDIA_ROLE.HERO,
+        sortOrder: 0,
+        caption: null,
+        altText: "alt",
+        credit: null,
+      },
+    ]);
+    assert.equal("previewUrl" in payload.media[0]!, false);
+    assert.equal("storageKey" in payload.media[0]!, false);
+  });
+
   it("preserves media caption metadata when the same hero is kept", () => {
     const withHero = setHeroMedia(empty(), {
       id: MEDIA_A,

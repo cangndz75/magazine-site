@@ -12,6 +12,9 @@ export type PublishingTestHooks = {
   afterVersionRelationsReplaced?: (input: {
     contentVersionId: string;
   }) => Promise<void>;
+  afterDraftHeroReplaced?: (input: {
+    contentVersionId: string;
+  }) => Promise<void>;
   beforeAuditEventInserted?: (input: {
     contentItemId: string;
     versionId: string | null;
@@ -63,6 +66,18 @@ export async function runAfterVersionRelationsReplaced(input: {
   contentVersionId: string;
 }): Promise<void> {
   const hook = hooks?.afterVersionRelationsReplaced;
+  if (!hook) {
+    return;
+  }
+
+  assertIntegrationHooksAllowed();
+  await hook(input);
+}
+
+export async function runAfterDraftHeroReplaced(input: {
+  contentVersionId: string;
+}): Promise<void> {
+  const hook = hooks?.afterDraftHeroReplaced;
   if (!hook) {
     return;
   }

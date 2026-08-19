@@ -15,6 +15,12 @@ export const editorEnvSchema = baseEnvSchema
     SCHEDULED_PUBLISH_RUNNER_SECRET: z
       .string()
       .min(32, "SCHEDULED_PUBLISH_RUNNER_SECRET must be at least 32 characters"),
+    /** Server-only origin of the public web app used for cache-outbox delivery. Never expose via NEXT_PUBLIC_*. */
+    PUBLIC_WEB_INTERNAL_BASE_URL: httpUrlSchema,
+    /** Server-only machine secret for public web cache invalidation delivery. Never expose via NEXT_PUBLIC_*. */
+    PUBLIC_CACHE_INVALIDATION_SECRET: z
+      .string()
+      .min(32, "PUBLIC_CACHE_INVALIDATION_SECRET must be at least 32 characters"),
     /** Server-only base URL for public media asset paths. Never expose via NEXT_PUBLIC_*. */
     MEDIA_PUBLIC_BASE_URL: httpUrlSchema.optional(),
     MEDIA_STORAGE_MODE: mediaStorageModeSchema.optional(),

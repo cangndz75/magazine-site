@@ -9,9 +9,9 @@ import {
 
 type CacheOptions = Parameters<typeof unstable_cache>[2];
 
-function fakeCachedArticle(title: string) {
+function fakeCachedArticle(title: string, id = "content-1") {
   return {
-    id: "content-1",
+    id,
     slug: "haber",
     title,
     subtitle: null,
@@ -61,41 +61,71 @@ describe("public article shared cache wrapper", () => {
     let resolverCalls = 0;
     const load: PublicArticleLoader = async () => {
       resolverCalls += 1;
-      return fakeCachedArticle(`Title ${resolverCalls}`);
+      return fakeCachedArticle("Title 1");
     };
 
     const first = await cachedPublicArticleLoader("haber", load, cache.factory);
     const second = await cachedPublicArticleLoader("haber", load, cache.factory);
 
-    assert.equal(resolverCalls, 1);
+    assert.equal(resolverCalls, 2);
     assert.equal(first?.title, "Title 1");
     assert.equal(second?.title, "Title 1");
     assert.equal(second?.publishedAt instanceof Date, true);
     assert.deepEqual(cache.calls[0]?.keyParts, [
-      "public-article",
+      "public-article-identity",
       "article-slug:haber",
     ]);
     assert.deepEqual(cache.calls[0]?.options, {
       revalidate: PUBLIC_ARTICLE_CACHE_REVALIDATE_SECONDS,
       tags: ["article-slug:haber"],
     });
+    assert.deepEqual(cache.calls[1]?.keyParts, [
+      "public-article",
+      "article-slug:haber",
+      "content:content-1",
+    ]);
+    assert.deepEqual(cache.calls[1]?.options, {
+      revalidate: PUBLIC_ARTICLE_CACHE_REVALIDATE_SECONDS,
+      tags: ["article-slug:haber", "content:content-1"],
+    });
   });
 
-  it("refreshes the next read after tag invalidation", async () => {
+  it("refreshes the next read after slug tag invalidation, including cached null", async () => {
     const cache = new TaggedCache();
     let resolverCalls = 0;
+    let current: ReturnType<typeof fakeCachedArticle> | null = fakeCachedArticle("Old");
     const load: PublicArticleLoader = async () => {
       resolverCalls += 1;
-      return resolverCalls === 1 ? fakeCachedArticle("Old") : null;
+      return current;
     };
 
     const first = await cachedPublicArticleLoader("haber", load, cache.factory);
+    current = null;
     cache.invalidateTag("article-slug:haber");
     const second = await cachedPublicArticleLoader("haber", load, cache.factory);
 
     assert.equal(first?.title, "Old");
     assert.equal(second, null);
-    assert.equal(resolverCalls, 2);
+    assert.equal(resolverCalls, 3);
+  });
+
+  it("refreshes article HTML after content-level invalidation even if the slug identity remains", async () => {
+    const cache = new TaggedCache();
+    let resolverCalls = 0;
+    let current = "Hero A";
+    const load: PublicArticleLoader = async () => {
+      resolverCalls += 1;
+      return fakeCachedArticle(current);
+    };
+
+    const first = await cachedPublicArticleLoader("haber", load, cache.factory);
+    current = "Hero B";
+    cache.invalidateTag("content:content-1");
+    const second = await cachedPublicArticleLoader("haber", load, cache.factory);
+
+    assert.equal(first?.title, "Hero A");
+    assert.equal(second?.title, "Hero B");
+    assert.equal(resolverCalls, 3);
   });
 
   it("does not cache malformed slugs", async () => {

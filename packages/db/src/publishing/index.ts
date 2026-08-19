@@ -11,6 +11,14 @@ export {
   type UpdateDraftScalarFieldsInput,
   type UpdateDraftScalarFieldsResult,
 } from "./update-draft-scalars";
+export {
+  setDraftVersionHero,
+  removeDraftVersionHero,
+  type ArticleEditorHeroAttachment,
+  type DraftVersionHeroResult,
+  type SetDraftVersionHeroInput,
+  type RemoveDraftVersionHeroInput,
+} from "./draft-hero";
 export { approveVersion, requestChanges, submitForReview, type ReviewResult } from "./review";
 export {
   executeScheduledPublish,

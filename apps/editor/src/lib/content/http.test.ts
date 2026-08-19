@@ -49,6 +49,17 @@ describe("editor content error mapper", () => {
     assert.equal(response.status, 409);
   });
 
+  it("maps invalid hero media type without leaking internals", async () => {
+    const response = mapEditorError(
+      new PublishingError(PUBLISHING_ERROR.INVALID_HERO_MEDIA, "video/mp4 decoder stack"),
+    );
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.equal(body.error.code, "INVALID_HERO_MEDIA");
+    assert.equal(JSON.stringify(body).includes("video/mp4"), false);
+    assert.equal(JSON.stringify(body).includes("decoder"), false);
+  });
+
   it("maps invalid review notes to 400 without leaking internals", async () => {
     const response = mapEditorError(
       new PublishingError(PUBLISHING_ERROR.INVALID_REVIEW_NOTE, "CHECK content_review_events_note_bounds"),

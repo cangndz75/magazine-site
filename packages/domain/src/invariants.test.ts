@@ -22,6 +22,8 @@ import {
   versionPointersAreSeparated,
 } from "./content-item-invariants";
 import {
+  parsePublicArticleCacheInvalidatePayload,
+  publicArticleInvalidationTags,
   publicArticleSlugCacheTag,
   publicContentCacheTag,
 } from "./public-cache";
@@ -260,5 +262,51 @@ describe("public cache tags", () => {
       publicContentCacheTag("11111111-1111-4111-8111-111111111111"),
       "content:11111111-1111-4111-8111-111111111111",
     );
+    assert.deepEqual(
+      publicArticleInvalidationTags({
+        contentItemId: "11111111-1111-4111-8111-111111111111",
+        slug: "kanonik-haber",
+      }),
+      [
+        "content:11111111-1111-4111-8111-111111111111",
+        "article-slug:kanonik-haber",
+      ],
+    );
+  });
+
+  it("accepts only the versioned public cache invalidation payload", () => {
+    assert.deepEqual(
+      parsePublicArticleCacheInvalidatePayload({
+        schemaVersion: 1,
+        contentItemId: "11111111-1111-4111-8111-111111111111",
+        slug: "kanonik-haber",
+      }),
+      {
+        ok: true,
+        value: {
+          schemaVersion: 1,
+          contentItemId: "11111111-1111-4111-8111-111111111111",
+          slug: "kanonik-haber",
+        },
+      },
+    );
+
+    for (const body of [
+      null,
+      [],
+      { schemaVersion: 2, contentItemId: "11111111-1111-4111-8111-111111111111", slug: "kanonik-haber" },
+      { schemaVersion: 1, contentItemId: "not-a-uuid", slug: "kanonik-haber" },
+      { schemaVersion: 1, contentItemId: "11111111-1111-4111-8111-111111111111" },
+      {
+        schemaVersion: 1,
+        contentItemId: "11111111-1111-4111-8111-111111111111",
+        slug: "kanonik-haber",
+        tags: ["article-slug:kanonik-haber"],
+      },
+    ]) {
+      assert.deepEqual(parsePublicArticleCacheInvalidatePayload(body), {
+        ok: false,
+      });
+    }
   });
 });

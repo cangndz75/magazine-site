@@ -31,6 +31,12 @@ export type ArticleEditorEntity = {
   sortOrder: number;
 };
 
+export type ArticleEditorMediaEligibility = {
+  eligible: boolean;
+  status: string;
+  reasons: string[];
+};
+
 export type ArticleEditorMedia = {
   id: string;
   label: string;
@@ -42,6 +48,10 @@ export type ArticleEditorMedia = {
   caption: string | null;
   altText: string | null;
   credit: string | null;
+  previewUrl?: string | null;
+  creatorName?: string | null;
+  creditLine?: string | null;
+  eligibility?: ArticleEditorMediaEligibility | null;
 };
 
 export type ArticleEditorRelations = {
