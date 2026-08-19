@@ -77,7 +77,16 @@ export function assertDraftRelationInputs(
   if (hasDuplicateIds(entities.map((item) => item.entityId))) {
     return { ok: false, code: PUBLISHING_ERROR.DUPLICATE_RELATION };
   }
-  if (hasDuplicateIds(media.map((item) => item.mediaId))) {
+  if (
+    hasDuplicateIds(media.map((item) => `${item.role}:${item.mediaId}`))
+  ) {
+    return { ok: false, code: PUBLISHING_ERROR.DUPLICATE_RELATION };
+  }
+  const gallerySortOrders = media
+    .filter((item) => item.role === MEDIA_ROLE.GALLERY)
+    .map((item) => item.sortOrder)
+    .filter((sortOrder): sortOrder is number => sortOrder !== undefined);
+  if (hasDuplicateIds(gallerySortOrders.map(String))) {
     return { ok: false, code: PUBLISHING_ERROR.DUPLICATE_RELATION };
   }
   if (hasDuplicateIds(authors.map((item) => item.authorId))) {

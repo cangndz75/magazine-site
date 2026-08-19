@@ -7,6 +7,7 @@ import {
   bootstrapInitialStaff,
 } from "../staff-provisioning";
 import {
+  cleanupStaffAuthTables,
   closeIntegrationConnections,
   ensureEditorContentTestDatabase,
   getRacerPool,
@@ -175,15 +176,6 @@ describe("staff initial bootstrap PostgreSQL integration", () => {
     assert.equal(state.roles.length, 1);
   });
 });
-
-async function cleanupStaffAuthTables(): Promise<void> {
-  const pool = getRacerPool();
-  await pool.query("DELETE FROM staff_sessions");
-  await pool.query("DELETE FROM staff_user_category_scopes");
-  await pool.query("DELETE FROM staff_user_roles");
-  await pool.query("DELETE FROM staff_password_credentials");
-  await pool.query("DELETE FROM staff_users");
-}
 
 async function readStaffState(): Promise<StaffState> {
   const pool = getRacerPool();

@@ -13,6 +13,7 @@ import {
   normalizeArticleEditorRelations,
   removeTag,
   setHeroMedia,
+  setGalleryMedia,
   setPrimaryCategory,
   setSecondaryCategories,
   toDraftRelationPayload,
@@ -242,6 +243,44 @@ describe("article relation form state", () => {
     assert.equal(replaced.media.length, 1);
     assert.equal(replaced.media[0]?.id, MEDIA_B);
     assert.equal(replaced.media[0]?.role, MEDIA_ROLE.HERO);
+  });
+
+  it("allows the same Media asset as HERO and Gallery", () => {
+    const withHero = setHeroMedia(empty(), {
+      id: MEDIA_A,
+      label: "Kapak",
+      mediaType: "IMAGE",
+      width: 1200,
+      height: 800,
+      role: MEDIA_ROLE.HERO,
+      sortOrder: 0,
+      caption: null,
+      altText: "hero-alt",
+      credit: "hero-credit",
+    });
+    const withBoth = setGalleryMedia(withHero, [
+      {
+        id: MEDIA_A,
+        label: "Kapak",
+        mediaType: "IMAGE",
+        width: 1200,
+        height: 800,
+        role: MEDIA_ROLE.GALLERY,
+        sortOrder: 0,
+        caption: "gallery caption",
+        altText: "gallery-alt",
+        credit: null,
+      },
+    ]);
+    assert.equal(withBoth.media.length, 2);
+    assert.equal(
+      withBoth.media.filter((item) => item.role === MEDIA_ROLE.HERO)[0]?.altText,
+      "hero-alt",
+    );
+    assert.equal(
+      withBoth.media.filter((item) => item.role === MEDIA_ROLE.GALLERY)[0]?.altText,
+      "gallery-alt",
+    );
   });
 
   it("does not put preview or eligibility fields into the draft-save payload", () => {

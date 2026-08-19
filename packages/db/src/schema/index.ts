@@ -13,6 +13,7 @@ export {
   staffRoleEnum,
   staffScopeModeEnum,
   staffStatusEnum,
+  videoProviderEnum,
   workflowStatusEnum,
 } from "./enums";
 export { authors } from "./authors";
@@ -38,6 +39,7 @@ export {
   staffUserRoles,
   staffUsers,
 } from "./staff";
+export { contentVersionVideos, editorialVideoAssets } from "./video";
 export { homepageConversationItems } from "./homepage-conversation";
 export {
   homepages,

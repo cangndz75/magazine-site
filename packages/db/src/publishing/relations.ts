@@ -3,6 +3,7 @@ import {
   PUBLISHING_ERROR,
   PublishingError,
   MEDIA_ROLE,
+  assertGalleryAssignableMediaType,
   assertHeroAssignableMediaType,
   type AuthorRole,
   type EntityRole,
@@ -116,6 +117,34 @@ export async function assertHeroMediaAssignable(
 
   for (const row of rows) {
     const decision = assertHeroAssignableMediaType(row.mediaType);
+    if (!decision.ok) {
+      throw new PublishingError(decision.code);
+    }
+  }
+}
+
+export async function assertGalleryMediaAssignable(
+  tx: PublishingTx,
+  input: ContentRelationInput,
+): Promise<void> {
+  const galleryIds = [
+    ...new Set(
+      (input.media ?? [])
+        .filter((item) => item.role === MEDIA_ROLE.GALLERY)
+        .map((item) => item.mediaId),
+    ),
+  ];
+  if (galleryIds.length === 0) {
+    return;
+  }
+
+  const rows = await tx
+    .select({ id: media.id, mediaType: media.mediaType })
+    .from(media)
+    .where(inArray(media.id, galleryIds));
+
+  for (const row of rows) {
+    const decision = assertGalleryAssignableMediaType(row.mediaType);
     if (!decision.ok) {
       throw new PublishingError(decision.code);
     }

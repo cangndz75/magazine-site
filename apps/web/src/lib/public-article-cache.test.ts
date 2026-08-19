@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { unstable_cache } from "next/cache";
+import type { PublicArticle } from "@magazine/db/public";
 import {
   PUBLIC_ARTICLE_CACHE_REVALIDATE_SECONDS,
   cachedPublicArticleLoader,
@@ -20,6 +21,8 @@ function fakeCachedArticle(title: string, id = "content-1") {
     publicDateModified: null,
     body: { blocks: [] },
     hero: null,
+    gallery: [],
+    videos: [],
     categories: [],
     authors: [],
   };
@@ -126,6 +129,25 @@ describe("public article shared cache wrapper", () => {
     assert.equal(first?.title, "Hero A");
     assert.equal(second?.title, "Hero B");
     assert.equal(resolverCalls, 3);
+  });
+
+  it("defaults missing gallery and videos on restored cache payloads", async () => {
+    const cache = new TaggedCache();
+    const load: PublicArticleLoader = async () => {
+      const stale = { ...fakeCachedArticle("Old shape") } as Record<
+        string,
+        unknown
+      >;
+      delete stale.gallery;
+      delete stale.videos;
+      return stale as unknown as PublicArticle;
+    };
+
+    const result = await cachedPublicArticleLoader("haber", load, cache.factory);
+
+    assert.equal(result?.title, "Old shape");
+    assert.deepEqual(result?.gallery, []);
+    assert.deepEqual(result?.videos, []);
   });
 
   it("does not cache malformed slugs", async () => {

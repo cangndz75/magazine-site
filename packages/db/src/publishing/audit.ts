@@ -13,6 +13,7 @@ import { contentAuditEvents } from "../schema/audit-events";
 import type { PublishingTx } from "./db-types";
 import { runBeforeAuditEventInserted } from "./test-hooks";
 import type { ContentRelationInput } from "./relations";
+import type { ContentVideoRelationInput } from "./draft-video";
 
 export type AuditActorInput = ContentAuditActor;
 
@@ -94,6 +95,8 @@ export function buildDraftUpdateChangeSet(input: {
   bodyChanged?: boolean;
   beforeRelations?: ContentRelationInput;
   afterRelations?: ContentRelationInput;
+  beforeVideos?: readonly ContentVideoRelationInput[];
+  afterVideos?: readonly ContentVideoRelationInput[];
 }): ContentAuditChangeSet | null {
   const scalarChanges = diffAuditScalarFields(
     draftScalarInput(input.before),
@@ -103,6 +106,13 @@ export function buildDraftUpdateChangeSet(input: {
     input.beforeRelations && input.afterRelations
       ? relationSummaries(input.beforeRelations, input.afterRelations)
       : [];
+  const videoRelationChange =
+    input.beforeVideos && input.afterVideos
+      ? relationSummary("videos", input.beforeVideos, input.afterVideos)
+      : null;
+  if (videoRelationChange?.changed) {
+    relationChanges.push(videoRelationChange);
+  }
   const bodyChange = input.bodyChanged
     ? { changed: true, detailLimited: true }
     : undefined;

@@ -15,6 +15,9 @@ export type PublishingTestHooks = {
   afterDraftHeroReplaced?: (input: {
     contentVersionId: string;
   }) => Promise<void>;
+  afterDraftGalleryReplaced?: (input: {
+    contentVersionId: string;
+  }) => Promise<void>;
   beforeAuditEventInserted?: (input: {
     contentItemId: string;
     versionId: string | null;
@@ -78,6 +81,18 @@ export async function runAfterDraftHeroReplaced(input: {
   contentVersionId: string;
 }): Promise<void> {
   const hook = hooks?.afterDraftHeroReplaced;
+  if (!hook) {
+    return;
+  }
+
+  assertIntegrationHooksAllowed();
+  await hook(input);
+}
+
+export async function runAfterDraftGalleryReplaced(input: {
+  contentVersionId: string;
+}): Promise<void> {
+  const hook = hooks?.afterDraftGalleryReplaced;
   if (!hook) {
     return;
   }

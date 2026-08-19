@@ -263,7 +263,7 @@ export const contentVersionMedia = pgTable(
   (table) => [
     primaryKey({
       name: "content_version_media_pk",
-      columns: [table.contentVersionId, table.mediaId],
+      columns: [table.contentVersionId, table.mediaId, table.role],
     }),
     foreignKey({
       name: "content_version_media_version_fk",
@@ -278,6 +278,9 @@ export const contentVersionMedia = pgTable(
     uniqueIndex("content_version_media_one_hero")
       .on(table.contentVersionId)
       .where(sql`${table.role} = 'HERO'`),
+    uniqueIndex("content_version_media_gallery_sort_order")
+      .on(table.contentVersionId, table.sortOrder)
+      .where(sql`${table.role} = 'GALLERY'`),
     check(
       "content_version_media_sort_order_non_negative",
       sql`${table.sortOrder} >= 0`,

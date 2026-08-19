@@ -23,6 +23,7 @@ import { categories, tags } from "../schema/taxonomy";
 import { authors } from "../schema/authors";
 import { entities } from "../schema/entities";
 import { media } from "../schema/media";
+import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import type { DraftScalarFields } from "../publishing/update-draft-scalars";
 import type { EditorVersionSummary } from "./types";
 import { formatEditorMediaLabel } from "./media-label";
@@ -75,6 +76,17 @@ export type ArticleEditorRelationSummary = {
     creatorName: string | null;
     creditLine: string | null;
     eligibility: ReturnType<typeof eligibilityForRow> | null;
+  }[];
+  videos: {
+    id: string;
+    provider: string;
+    providerVideoId: string;
+    canonicalUrl: string;
+    title: string;
+    caption: string | null;
+    durationSeconds: number | null;
+    posterMediaId: string | null;
+    sortOrder: number;
   }[];
 };
 
@@ -282,7 +294,7 @@ async function loadRelationSummary(
   mediaPublicBaseUrl?: string,
 ): Promise<ArticleEditorRelationSummary> {
   const db = getDb();
-  const [categoryRows, authorRows, tagRows, entityRows, mediaRows] =
+  const [categoryRows, authorRows, tagRows, entityRows, mediaRows, videoRows] =
     await Promise.all([
       db
         .select({
@@ -345,7 +357,20 @@ async function loadRelationSummary(
         .from(contentVersionMedia)
         .innerJoin(media, eq(media.id, contentVersionMedia.mediaId))
         .where(eq(contentVersionMedia.contentVersionId, versionId))
-        .orderBy(contentVersionMedia.sortOrder),
+        .orderBy(contentVersionMedia.role, contentVersionMedia.sortOrder),
+      db
+        .select({
+          asset: editorialVideoAssets,
+          sortOrder: contentVersionVideos.sortOrder,
+          relationCaption: contentVersionVideos.caption,
+        })
+        .from(contentVersionVideos)
+        .innerJoin(
+          editorialVideoAssets,
+          eq(editorialVideoAssets.id, contentVersionVideos.videoAssetId),
+        )
+        .where(eq(contentVersionVideos.contentVersionId, versionId))
+        .orderBy(contentVersionVideos.sortOrder),
     ]);
 
   return {
@@ -368,6 +393,17 @@ async function loadRelationSummary(
       creatorName: item.row.creatorName,
       creditLine: item.row.creditLine,
       eligibility: eligibilityForRow(item.row, new Date()),
+    })),
+    videos: videoRows.map((item) => ({
+      id: item.asset.id,
+      provider: item.asset.provider,
+      providerVideoId: item.asset.providerVideoId,
+      canonicalUrl: item.asset.canonicalUrl,
+      title: item.asset.title,
+      caption: item.relationCaption ?? item.asset.caption,
+      durationSeconds: item.asset.durationSeconds,
+      posterMediaId: item.asset.posterMediaId,
+      sortOrder: item.sortOrder,
     })),
   };
 }

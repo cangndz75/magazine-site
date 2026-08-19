@@ -18,6 +18,7 @@ const SAVE_ERROR_MESSAGES: Record<string, string> = {
   MULTIPLE_PRIMARY_CATEGORIES: "Yalnızca bir ana kategori seçilebilir.",
   MULTIPLE_HERO_MEDIA: "Yalnızca bir kapak görseli seçilebilir.",
   INVALID_HERO_MEDIA: "Kapak görseli yalnızca bir görsel olabilir.",
+  INVALID_GALLERY_MEDIA: "Galeri yalnızca görsellerden oluşabilir.",
   CONTENT_NOT_FOUND: "İçerik bulunamadı.",
   VERSION_NOT_FOUND: "Sürüm bulunamadı.",
 };

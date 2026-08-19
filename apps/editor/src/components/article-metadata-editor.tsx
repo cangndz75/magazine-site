@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  AssociatedMediaPicker,
   AuthorRelationPicker,
   EntityRelationPicker,
   PrimaryCategoryPicker,
@@ -9,52 +8,56 @@ import {
   TagRelationPicker,
 } from "./article-relation-pickers";
 import { ArticleHeroSection } from "./article-hero-section";
+import { ArticleGallerySection } from "./article-gallery-section";
 import {
-  addAssociatedMedia,
   addAuthor,
   addEntity,
   addTag,
-  getAssociatedMedia,
+  getGalleryMedia,
   getHeroMedia,
   getPrimaryCategory,
   getSecondaryCategories,
   removeAuthor,
   removeEntity,
-  removeMedia,
   removeTag,
+  setGalleryMedia,
   setHeroMedia,
   setPrimaryCategory,
   setSecondaryCategories,
+  type ArticleEditorMedia,
   type ArticleEditorRelations,
 } from "@/lib/content/article-relation-state";
 import type {
   AuthorLookupOption,
   CategoryLookupOption,
   EntityLookupOption,
-  MediaLookupOption,
 } from "@/lib/content/lookup-labels";
 
 type Props = {
   relations: ArticleEditorRelations;
   disabled: boolean;
   heroBusy: boolean;
+  galleryBusy: boolean;
   onChange: (next: ArticleEditorRelations) => void;
   onPersistHero: (media: NonNullable<ReturnType<typeof getHeroMedia>>) => void;
   onRemoveHero: () => void;
+  onPersistGallery: (gallery: ArticleEditorMedia[]) => void;
 };
 
 export function ArticleMetadataEditor({
   relations,
   disabled,
   heroBusy,
+  galleryBusy,
   onChange,
   onPersistHero,
   onRemoveHero,
+  onPersistGallery,
 }: Props) {
   const primary = getPrimaryCategory(relations);
   const secondary = getSecondaryCategories(relations);
   const hero = getHeroMedia(relations);
-  const associated = getAssociatedMedia(relations);
+  const gallery = getGalleryMedia(relations);
 
   return (
     <section className="space-y-5 border-t border-zinc-200 pt-6">
@@ -143,29 +146,12 @@ export function ArticleMetadataEditor({
             }}
           />
         </div>
-        <AssociatedMediaPicker
-          selected={associated.map(toMediaOption)}
-          excludedIds={hero ? [hero.id] : []}
+        <ArticleGallerySection
+          gallery={gallery}
           disabled={disabled}
-          onAdd={(media) =>
-            onChange(
-              addAssociatedMedia(relations, {
-                ...toMediaOption(media),
-                role: "GALLERY",
-                sortOrder: associated.length,
-                caption:
-                  relations.media.find((item) => item.id === media.id)?.caption ??
-                  null,
-                altText:
-                  relations.media.find((item) => item.id === media.id)?.altText ??
-                  null,
-                credit:
-                  relations.media.find((item) => item.id === media.id)?.credit ??
-                  null,
-              }),
-            )
-          }
-          onRemove={(id) => onChange(removeMedia(relations, id))}
+          busy={galleryBusy}
+          onChange={(next) => onChange(setGalleryMedia(relations, next))}
+          onPersist={onPersistGallery}
         />
       </div>
     </section>
@@ -218,21 +204,5 @@ function toEntityOption(entity: {
     id: entity.id,
     name: entity.name,
     kind: entity.kind,
-  };
-}
-
-function toMediaOption(media: {
-  id: string;
-  label: string;
-  mediaType: string;
-  width: number | null;
-  height: number | null;
-}): MediaLookupOption {
-  return {
-    id: media.id,
-    label: media.label,
-    mediaType: media.mediaType,
-    width: media.width,
-    height: media.height,
   };
 }

@@ -20,6 +20,10 @@ import {
   insertVersionRelations,
   loadVersionRelations,
 } from "./relations";
+import {
+  insertVersionVideoRelations,
+  loadVersionVideoRelations,
+} from "./draft-video";
 import { appendContentAuditEvent, staffAuditActor } from "./audit";
 
 export type CreateDraftRevisionResult = {
@@ -95,6 +99,9 @@ export async function createDraftRevision(
       media: loaded.media ?? [],
       authors: loaded.authors ?? [],
     });
+    const videoRelations = (await loadVersionVideoRelations(tx, source.id)).map(
+      (item) => ({ ...item }),
+    );
 
     const nextUpdatedAt = nextMonotonicUpdatedAt(item.updatedAt);
 
@@ -128,6 +135,7 @@ export async function createDraftRevision(
     }
 
     await insertVersionRelations(tx, created.id, relations);
+    await insertVersionVideoRelations(tx, created.id, videoRelations);
 
     await tx
       .update(contentItems)

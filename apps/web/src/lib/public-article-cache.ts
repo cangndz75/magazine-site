@@ -52,17 +52,21 @@ export function cachedPublicArticleLoader(
       },
     );
 
-    return loadCachedArticle(slug).then(restorePublicArticleDates);
+    return loadCachedArticle(slug).then(restorePublicArticleCachePayload);
   });
 }
 
-function restorePublicArticleDates(article: PublicArticle | null): PublicArticle | null {
+function restorePublicArticleCachePayload(
+  article: PublicArticle | null,
+): PublicArticle | null {
   if (!article) {
     return null;
   }
 
   return {
     ...article,
+    gallery: Array.isArray(article.gallery) ? article.gallery : [],
+    videos: Array.isArray(article.videos) ? article.videos : [],
     publishedAt: new Date(article.publishedAt),
     publicDateModified: article.publicDateModified
       ? new Date(article.publicDateModified)

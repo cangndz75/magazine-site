@@ -81,6 +81,7 @@ export type ContentAuditRelationSummary = {
     | "tags"
     | "entities"
     | "media"
+    | "videos"
     | "authors";
   beforeCount: number;
   afterCount: number;
@@ -185,14 +186,14 @@ export function assertContentAuditChangeSet(
   if (candidate.relationChanges !== undefined) {
     if (
       !Array.isArray(candidate.relationChanges) ||
-      candidate.relationChanges.length > 5
+      candidate.relationChanges.length > 6
     ) {
       throw new Error("Invalid content audit relation changes.");
     }
 
     for (const change of candidate.relationChanges) {
       if (
-        !["categories", "tags", "entities", "media", "authors"].includes(
+        !["categories", "tags", "entities", "media", "videos", "authors"].includes(
           change.relation,
         ) ||
         !Number.isInteger(change.beforeCount) ||

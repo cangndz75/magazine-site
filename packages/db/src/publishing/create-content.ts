@@ -16,6 +16,8 @@ import { contentItems, contentVersions } from "../schema/content";
 import { rethrowPublishingDbError, unwrapPublishingDecision } from "./errors";
 import {
   assertRelatedRecordsExist,
+  assertGalleryMediaAssignable,
+  assertHeroMediaAssignable,
   insertVersionRelations,
   type ContentRelationInput,
 } from "./relations";
@@ -78,6 +80,8 @@ export async function createContent(
         }),
       );
       await assertRelatedRecordsExist(tx, input);
+      await assertHeroMediaAssignable(tx, input);
+      await assertGalleryMediaAssignable(tx, input);
 
       const [item] = await tx
         .insert(contentItems)

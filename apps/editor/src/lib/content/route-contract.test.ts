@@ -51,6 +51,7 @@ const WRITE_SERVICES = [
   "unscheduleVersion",
   "setDraftVersionHero",
   "removeDraftVersionHero",
+  "setDraftVersionGallery",
 ];
 
 const STAFF_ATTRIBUTED_MUTATION_ROUTES = [
@@ -64,6 +65,7 @@ const STAFF_ATTRIBUTED_MUTATION_ROUTES = [
   ["content", "[contentItemId]", "reschedule", "route.ts"],
   ["content", "[contentItemId]", "unschedule", "route.ts"],
   ["content", "[contentItemId]", "hero", "route.ts"],
+  ["content", "[contentItemId]", "gallery", "route.ts"],
 ];
 
 describe("editor content route contracts", () => {

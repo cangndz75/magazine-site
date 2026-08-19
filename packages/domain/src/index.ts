@@ -49,6 +49,30 @@ export {
   type PublicMediaProjection,
 } from "./media-rights";
 export {
+  VIDEO_PROVIDER,
+  VIDEO_PROVIDERS,
+  VIDEO_ERROR,
+  VIDEO_TEXT_MAX,
+  VIDEO_DURATION_SECONDS_MAX,
+  VideoError,
+  assertProviderVideoId,
+  assertVideoDurationSeconds,
+  buildVideoIdentity,
+  canonicalizeEditorialVideoWrite,
+  parseVideoProviderInput,
+  providerThumbnailUrl,
+  toPublicEditorialVideoProjection,
+  videoCanonicalUrl,
+  videoEmbedUrl,
+  type VideoProvider,
+  type VideoErrorCode,
+  type VideoDecision,
+  type CanonicalVideoIdentity,
+  type EditorialVideoWriteInput,
+  type CanonicalEditorialVideoWrite,
+  type PublicEditorialVideoProjection,
+} from "./editorial-video";
+export {
   MEDIA_UPLOAD_ERROR,
   MEDIA_IMAGE_MAX_BYTES,
   MEDIA_UPLOAD_MAX_REQUEST_BYTES,
@@ -78,6 +102,18 @@ export {
   assertHeroAssignableMediaType,
   type DraftHeroMutationInput,
 } from "./article-hero";
+export {
+  ARTICLE_GALLERY_ALT_TEXT_MAX,
+  ARTICLE_GALLERY_CAPTION_MAX,
+  ARTICLE_GALLERY_MAX_ITEMS,
+  assertGalleryAssignableMediaType,
+  canonicalizeDraftGalleryItems,
+  canonicalizeGalleryCaption,
+  toPublicArticleGalleryItem,
+  type CanonicalGalleryItem,
+  type DraftGalleryItemInput,
+  type PublicArticleGalleryItem,
+} from "./article-gallery";
 export {
   selectEditorHomepageHeroVersionId,
   toEditorSafeHeroThumbnail,

@@ -14,6 +14,7 @@ import {
   STAFF_ROLES,
   STAFF_SCOPE_MODES,
   STAFF_STATUSES,
+  VIDEO_PROVIDERS,
   WORKFLOW_STATUSES,
 } from "@magazine/domain";
 
@@ -58,3 +59,5 @@ export const reviewEventTypeEnum = pgEnum(
   "review_event_type",
   REVIEW_EVENT_TYPES,
 );
+
+export const videoProviderEnum = pgEnum("video_provider", VIDEO_PROVIDERS);

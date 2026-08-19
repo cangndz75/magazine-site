@@ -20,6 +20,8 @@ const HOMEPAGE_CONVERSATION_SQL = "0006_homepage-conversation.sql";
 const HOMEPAGE_BUILDER_SQL = "0007_homepage-builder.sql";
 const MEDIA_RIGHTS_SQL = "0008_media-rights-foundation.sql";
 const MEDIA_UPLOAD_SQL = "0009_media-upload-original-filename.sql";
+const ARTICLE_GALLERY_SQL = "0010_article-gallery-foundation.sql";
+const EDITORIAL_VIDEO_SQL = "0011_editorial-video-foundation.sql";
 
 async function publicTableExists(
   client: Client,
@@ -130,5 +132,36 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   );
   if (hasOriginalFilename.rows[0]?.exists !== true) {
     await applySqlFile(client, MEDIA_UPLOAD_SQL);
+  }
+
+  const hasGallerySortOrder = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND indexname = 'content_version_media_gallery_sort_order'
+     ) AS exists`,
+  );
+  if (hasGallerySortOrder.rows[0]?.exists !== true) {
+    await applySqlFile(client, ARTICLE_GALLERY_SQL);
+  }
+
+  const hasVersionVideos = await publicTableExists(
+    client,
+    "content_version_videos",
+  );
+  const hasEditorialVideos = await publicTableExists(
+    client,
+    "editorial_video_assets",
+  );
+  if (!hasEditorialVideos && !hasVersionVideos) {
+    await applySqlFile(client, EDITORIAL_VIDEO_SQL);
+  } else if (!hasVersionVideos) {
+    const sql = readFileSync(path.join(DRIZZLE_DIR, EDITORIAL_VIDEO_SQL), "utf8");
+    for (const statement of statementsFromDrizzleSql(sql)) {
+      if (statement.includes("content_version_videos")) {
+        await client.query(statement);
+      }
+    }
   }
 }

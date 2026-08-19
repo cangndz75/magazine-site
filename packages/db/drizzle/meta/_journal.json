@@ -64,6 +64,20 @@
       "when": 1787120000000,
       "tag": "0009_media-upload-original-filename",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787150000000,
+      "tag": "0010_article-gallery-foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1787180000000,
+      "tag": "0011_editorial-video-foundation",
+      "breakpoints": true
     }
   ]
 }

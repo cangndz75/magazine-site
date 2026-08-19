@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   CONTENT_AUDIT_EVENT_TYPE,
   MEDIA_ROLE,
@@ -140,7 +140,7 @@ function heroAfterRelations(
   } | null,
 ): ContentRelationInput {
   const nonHero = (before.media ?? []).filter(
-    (item) => item.role !== MEDIA_ROLE.HERO && item.mediaId !== hero?.mediaId,
+    (item) => item.role !== MEDIA_ROLE.HERO,
   );
   if (!hero) {
     return { ...before, media: nonHero };
@@ -156,10 +156,7 @@ function heroAfterRelations(
         altText: hero.altText,
         credit: hero.credit,
       },
-      ...nonHero.map((item, index) => ({
-        ...item,
-        sortOrder: index + 1,
-      })),
+      ...nonHero,
     ],
   };
 }
@@ -225,12 +222,7 @@ async function replaceVersionHeroRelation(
     .where(
       and(
         eq(contentVersionMedia.contentVersionId, contentVersionId),
-        hero
-          ? or(
-              eq(contentVersionMedia.role, MEDIA_ROLE.HERO),
-              eq(contentVersionMedia.mediaId, hero.mediaId),
-            )
-          : eq(contentVersionMedia.role, MEDIA_ROLE.HERO),
+        eq(contentVersionMedia.role, MEDIA_ROLE.HERO),
       ),
     );
 

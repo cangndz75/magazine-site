@@ -75,6 +75,14 @@ export {
   type EditorMediaRights,
 } from "./media-rights";
 export {
+  createEditorVideoAsset,
+  getEditorVideoAsset,
+  listEditorVideoAssets,
+  updateEditorVideoAsset,
+  type EditorVideoAsset,
+  type EditorVideoAssetListResult,
+} from "./video";
+export {
   listEditorMedia,
   getEditorMediaInspector,
   encodeMediaCursor,

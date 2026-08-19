@@ -100,6 +100,15 @@ export function getHeroMedia(
   return relations.media.find((item) => item.role === MEDIA_ROLE.HERO) ?? null;
 }
 
+export function getGalleryMedia(
+  relations: ArticleEditorRelations,
+): ArticleEditorMedia[] {
+  return relations.media
+    .filter((item) => item.role === MEDIA_ROLE.GALLERY)
+    .slice()
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+}
+
 export function getAssociatedMedia(
   relations: ArticleEditorRelations,
 ): ArticleEditorMedia[] {
@@ -245,9 +254,7 @@ export function setHeroMedia(
   relations: ArticleEditorRelations,
   media: ArticleEditorMedia | null,
 ): ArticleEditorRelations {
-  const others = getAssociatedMedia(relations).filter(
-    (item) => item.id !== media?.id,
-  );
+  const others = relations.media.filter((item) => item.role !== MEDIA_ROLE.HERO);
   const nextHero = media
     ? {
         ...media,
@@ -257,9 +264,31 @@ export function setHeroMedia(
     : null;
   return {
     ...relations,
-    media: nextHero
-      ? [nextHero, ...others.map((item, index) => ({ ...item, sortOrder: index + 1 }))]
-      : others.map((item, index) => ({ ...item, sortOrder: index })),
+    media: nextHero ? [nextHero, ...others] : others,
+  };
+}
+
+export function setGalleryMedia(
+  relations: ArticleEditorRelations,
+  gallery: readonly ArticleEditorMedia[],
+): ArticleEditorRelations {
+  const others = relations.media.filter((item) => item.role !== MEDIA_ROLE.GALLERY);
+  const unique = new Map<string, ArticleEditorMedia>();
+  for (const item of gallery) {
+    unique.set(item.id, {
+      ...item,
+      role: MEDIA_ROLE.GALLERY,
+    });
+  }
+  return {
+    ...relations,
+    media: [
+      ...others,
+      ...[...unique.values()].map((item, index) => ({
+        ...item,
+        sortOrder: index,
+      })),
+    ],
   };
 }
 
@@ -318,6 +347,8 @@ export function normalizeArticleEditorRelations(
     .slice()
     .sort((left, right) => left.id.localeCompare(right.id));
 
+  const hero = getHeroMedia(relations);
+
   return {
     categories: primary
       ? [{ ...primary, isPrimary: true }, ...secondary.map((item) => ({ ...item, isPrimary: false }))]
@@ -346,10 +377,24 @@ export function normalizeArticleEditorRelations(
         role: item.role,
         sortOrder: index,
       })),
-    media: relations.media
-      .slice()
-      .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
-      .map((item, index) => ({
+    media: [
+      ...(hero
+        ? [
+            {
+              id: hero.id,
+              label: hero.label,
+              mediaType: hero.mediaType,
+              width: hero.width,
+              height: hero.height,
+              role: hero.role,
+              sortOrder: 0,
+              caption: hero.caption,
+              altText: hero.altText,
+              credit: hero.credit,
+            },
+          ]
+        : []),
+      ...getGalleryMedia(relations).map((item, index) => ({
         id: item.id,
         label: item.label,
         mediaType: item.mediaType,
@@ -361,6 +406,23 @@ export function normalizeArticleEditorRelations(
         altText: item.altText,
         credit: item.credit,
       })),
+      ...relations.media
+        .filter((item) => item.role === MEDIA_ROLE.INLINE)
+        .slice()
+        .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
+        .map((item, index) => ({
+          id: item.id,
+          label: item.label,
+          mediaType: item.mediaType,
+          width: item.width,
+          height: item.height,
+          role: item.role,
+          sortOrder: index,
+          caption: item.caption,
+          altText: item.altText,
+          credit: item.credit,
+        })),
+    ],
   };
 }
 

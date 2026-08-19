@@ -1,11 +1,16 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import {
   canonicalizeContentSlug,
   MEDIA_ROLE,
   MEDIA_TYPE,
   PUBLICATION_STATUS,
+  toPublicEditorialVideoProjection,
   publicPublishedVersionId,
+  toPublicArticleGalleryItem,
   type AuthorRole,
+  type PublicArticleGalleryItem,
+  type PublicEditorialVideoProjection,
+  type VideoProvider,
 } from "@magazine/domain";
 import { getDb } from "../client";
 import { authors } from "../schema/authors";
@@ -17,8 +22,10 @@ import {
   contentVersions,
 } from "../schema/content";
 import { media } from "../schema/media";
+import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import { categories } from "../schema/taxonomy";
 import { resolvePublicMediaUrl } from "./resolve-public-media-url";
+import { alias } from "drizzle-orm/pg-core";
 
 export type PublicArticleCategory = {
   name: string;
@@ -40,6 +47,9 @@ export type PublicArticleHeroMedia = {
   credit: string | null;
 };
 
+export type { PublicArticleGalleryItem };
+export type { PublicEditorialVideoProjection };
+
 export type PublicArticle = {
   id: string;
   slug: string;
@@ -50,6 +60,8 @@ export type PublicArticle = {
   publicDateModified: Date | null;
   body: unknown;
   hero: PublicArticleHeroMedia | null;
+  gallery: PublicArticleGalleryItem[];
+  videos: PublicEditorialVideoProjection[];
   categories: PublicArticleCategory[];
   authors: PublicArticleAuthor[];
 };
@@ -123,7 +135,9 @@ export async function getPublicArticleBySlug(
     return null;
   }
 
-  const [categoryRows, authorRows, heroRows] = await Promise.all([
+  const posterMedia = alias(media, "public_article_video_poster_media");
+  const [categoryRows, authorRows, heroRows, galleryRows, videoRows] =
+    await Promise.all([
     db
       .select({
         name: categories.name,
@@ -155,6 +169,7 @@ export async function getPublicArticleBySlug(
         height: media.height,
         altText: contentVersionMedia.altText,
         credit: contentVersionMedia.credit,
+        creditLine: media.creditLine,
       })
       .from(contentVersionMedia)
       .innerJoin(media, eq(media.id, contentVersionMedia.mediaId))
@@ -166,6 +181,50 @@ export async function getPublicArticleBySlug(
         ),
       )
       .limit(1),
+    db
+      .select({
+        mediaId: media.id,
+        storageKey: media.storageKey,
+        mediaType: media.mediaType,
+        width: media.width,
+        height: media.height,
+        altText: contentVersionMedia.altText,
+        caption: contentVersionMedia.caption,
+        credit: contentVersionMedia.credit,
+        creditLine: media.creditLine,
+        sortOrder: contentVersionMedia.sortOrder,
+      })
+      .from(contentVersionMedia)
+      .innerJoin(media, eq(media.id, contentVersionMedia.mediaId))
+      .where(
+        and(
+          eq(contentVersionMedia.contentVersionId, version.id),
+          eq(contentVersionMedia.role, MEDIA_ROLE.GALLERY),
+        ),
+      )
+      .orderBy(asc(contentVersionMedia.sortOrder)),
+    db
+      .select({
+        provider: editorialVideoAssets.provider,
+        providerVideoId: editorialVideoAssets.providerVideoId,
+        title: editorialVideoAssets.title,
+        assetCaption: editorialVideoAssets.caption,
+        relationCaption: contentVersionVideos.caption,
+        durationSeconds: editorialVideoAssets.durationSeconds,
+        posterStorageKey: posterMedia.storageKey,
+        posterMediaType: posterMedia.mediaType,
+        posterWidth: posterMedia.width,
+        posterHeight: posterMedia.height,
+        posterCreditLine: posterMedia.creditLine,
+      })
+      .from(contentVersionVideos)
+      .innerJoin(
+        editorialVideoAssets,
+        eq(editorialVideoAssets.id, contentVersionVideos.videoAssetId),
+      )
+      .leftJoin(posterMedia, eq(posterMedia.id, editorialVideoAssets.posterMediaId))
+      .where(eq(contentVersionVideos.contentVersionId, version.id))
+      .orderBy(asc(contentVersionVideos.sortOrder)),
   ]);
 
   const publicCategories = [...categoryRows].sort((left, right) => {
@@ -178,6 +237,45 @@ export async function getPublicArticleBySlug(
   const heroUrl = heroRow
     ? resolvePublicMediaUrl(options.mediaPublicBaseUrl, heroRow.storageKey)
     : null;
+  const gallery = galleryRows.flatMap((row) => {
+    const item = toPublicArticleGalleryItem({
+      mediaId: row.mediaId,
+      mediaType: row.mediaType,
+      publicUrl: resolvePublicMediaUrl(options.mediaPublicBaseUrl, row.storageKey),
+      width: row.width,
+      height: row.height,
+      altText: row.altText,
+      caption: row.caption,
+      attachmentCredit: row.credit,
+      creditLine: row.creditLine,
+    });
+    return item ? [item] : [];
+  });
+  const videos = videoRows.flatMap((row) => {
+    const posterUrl =
+      row.posterStorageKey && row.posterMediaType === MEDIA_TYPE.IMAGE
+        ? resolvePublicMediaUrl(options.mediaPublicBaseUrl, row.posterStorageKey)
+        : null;
+    const item = toPublicEditorialVideoProjection({
+      provider: row.provider as VideoProvider,
+      providerVideoId: row.providerVideoId,
+      title: row.title,
+      caption: row.relationCaption ?? row.assetCaption,
+      durationSeconds: row.durationSeconds,
+      editorialPoster:
+        posterUrl !== null
+          ? {
+              publicUrl: posterUrl,
+              width: row.posterWidth,
+              height: row.posterHeight,
+              altText: row.title,
+              attachmentCredit: null,
+              creditLine: row.posterCreditLine,
+            }
+          : null,
+    });
+    return item ? [item] : [];
+  });
 
   return {
     id: item.id,
@@ -195,9 +293,11 @@ export async function getPublicArticleBySlug(
             width: heroRow.width,
             height: heroRow.height,
             altText: heroRow.altText,
-            credit: heroRow.credit,
+            credit: heroRow.credit?.trim() || heroRow.creditLine?.trim() || null,
           }
         : null,
+    gallery,
+    videos,
     categories: publicCategories,
     authors: authorRows.map((row) => ({
       displayName: row.displayName,
