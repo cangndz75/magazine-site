@@ -13,12 +13,15 @@
     "dev:editor": "pnpm --filter editor dev",
     "lint": "pnpm --filter @magazine/config lint && pnpm --filter @magazine/domain lint && pnpm --filter @magazine/db lint && pnpm --filter web lint && pnpm --filter editor lint",
     "typecheck": "pnpm --filter @magazine/config typecheck && pnpm --filter @magazine/domain typecheck && pnpm --filter @magazine/db typecheck && pnpm --filter web typecheck && pnpm --filter editor typecheck",
-    "test": "pnpm --filter @magazine/domain test && pnpm --filter editor test",
+    "test": "pnpm --filter @magazine/domain test && pnpm --filter editor test && pnpm --filter web test",
+    "test:integration": "pnpm --filter @magazine/db test:integration",
     "build": "pnpm --filter web build && pnpm --filter editor build",
     "build:web": "pnpm --filter web build",
     "build:editor": "pnpm --filter editor build",
     "db:generate": "pnpm --filter @magazine/db generate",
     "db:check": "pnpm --filter @magazine/db check",
-    "db:migrate": "pnpm --filter @magazine/db migrate"
+    "db:migrate": "pnpm --filter @magazine/db migrate",
+    "staff:bootstrap": "pnpm --filter editor staff:bootstrap",
+    "staff:password-reset": "pnpm --filter editor staff:password-reset"
   }
 }

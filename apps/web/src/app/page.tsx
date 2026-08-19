@@ -1,19 +1,40 @@
-export default function Home() {
-  return (
-    <main className="flex min-h-screen items-center justify-center">
-      <div className="text-center">
-        <p className="text-sm font-medium uppercase tracking-[0.24em] text-zinc-500">
-          Magazin
-        </p>
+import { HomepageFeatured } from "@/components/homepage-featured";
+import { HomepageLeadGrid } from "@/components/homepage-lead-grid";
+import { getPublicHomepage } from "@/lib/public-homepage";
+/**
+ * Homepage reads are still uncached: there is no homepage invalidation graph.
+ * Next.js 16.3.1 here does not enable Cache Components, so this page would
+ * otherwise statically prerender a PostgreSQL snapshot at build time.
+ * Route-level force-dynamic is the isolated, first-class opt-out for `/`.
+ */
+export const dynamic = "force-dynamic";
 
-        <h1 className="mt-4 text-4xl font-semibold tracking-tight text-zinc-950">
-          Yayın platformu hazırlanıyor.
-        </h1>
+export default async function Home() {
+  const homepage = await getPublicHomepage();
 
-        <p className="mt-4 text-base text-zinc-600">
-          Public site foundation hazır.
-        </p>
+  if (!homepage.lead) {
+    return (
+      <div className="homepage">
+        <div className="homepage__inner">
+          <div className="homepage__empty">
+            <p className="homepage__empty-kicker">Magazin</p>
+            <h1 className="homepage__empty-title">Henüz yayınlanmış içerik bulunmuyor.</h1>
+          </div>
+        </div>
       </div>
-    </main>
+    );
+  }
+
+  return (
+    <div className="homepage">
+      <div className="homepage__inner">
+        <div className="homepage__canvas">
+          <div className="homepage__main">
+            <HomepageLeadGrid homepage={homepage} />
+          </div>
+          <HomepageFeatured stories={homepage.featured} />
+        </div>
+      </div>
+    </div>
   );
 }

@@ -18,6 +18,7 @@ import { entities } from "../schema/entities";
 import { media } from "../schema/media";
 import { categories, tags } from "../schema/taxonomy";
 import type { PublishingTx } from "./db-types";
+import { runAfterVersionRelationsReplaced } from "./test-hooks";
 
 export type ContentRelationInput = {
   categories?: readonly { categoryId: string; isPrimary: boolean }[];
@@ -91,6 +92,31 @@ export async function assertRelatedRecordsExist(
     authors,
     (input.authors ?? []).map((item) => item.authorId),
   );
+}
+
+export async function replaceVersionRelations(
+  tx: PublishingTx,
+  contentVersionId: string,
+  input: ContentRelationInput,
+): Promise<void> {
+  await tx
+    .delete(contentVersionCategories)
+    .where(eq(contentVersionCategories.contentVersionId, contentVersionId));
+  await tx
+    .delete(contentVersionTags)
+    .where(eq(contentVersionTags.contentVersionId, contentVersionId));
+  await tx
+    .delete(contentVersionEntities)
+    .where(eq(contentVersionEntities.contentVersionId, contentVersionId));
+  await tx
+    .delete(contentVersionMedia)
+    .where(eq(contentVersionMedia.contentVersionId, contentVersionId));
+  await tx
+    .delete(contentVersionAuthors)
+    .where(eq(contentVersionAuthors.contentVersionId, contentVersionId));
+
+  await insertVersionRelations(tx, contentVersionId, input);
+  await runAfterVersionRelationsReplaced({ contentVersionId });
 }
 
 export async function insertVersionRelations(

@@ -1,10 +1,15 @@
 import { eq } from "drizzle-orm";
 import {
+  CONTENT_AUDIT_EVENT_TYPE,
   PUBLICATION_STATUS,
   WORKFLOW_STATUS,
   assertDraftRelationInputs,
+  assertSelectedCreatePrimaryCategory,
+  assertCategoriesAssignableInScope,
   canonicalizeContentSlug,
+  getPrimaryCategoryId,
   type Credibility,
+  type EditorStaffScope,
 } from "@magazine/domain";
 import { getDb } from "../client";
 import { contentItems, contentVersions } from "../schema/content";
@@ -14,6 +19,7 @@ import {
   insertVersionRelations,
   type ContentRelationInput,
 } from "./relations";
+import { appendContentAuditEvent, staffAuditActor } from "./audit";
 
 export type CreateContentInput = ContentRelationInput & {
   slug: string;
@@ -32,6 +38,8 @@ export type CreateContentInput = ContentRelationInput & {
   sourceUrl?: string | null;
   syndicated?: boolean;
   isMaterialUpdate?: boolean;
+  scope: EditorStaffScope;
+  actorId: string;
 };
 
 export type CreateContentResult = {
@@ -42,6 +50,7 @@ export type CreateContentResult = {
   workflowStatus: typeof WORKFLOW_STATUS.DRAFT;
   draftVersionId: string;
   scheduleGeneration: 0;
+  updatedAt: Date;
 };
 
 export async function createContent(
@@ -55,6 +64,19 @@ export async function createContent(
 
   try {
     return await db.transaction(async (tx) => {
+      const nextPrimaryCategoryId = getPrimaryCategoryId(input.categories ?? []);
+      unwrapPublishingDecision(
+        assertSelectedCreatePrimaryCategory({
+          ...input.scope,
+          primaryCategoryId: nextPrimaryCategoryId,
+        }),
+      );
+      unwrapPublishingDecision(
+        assertCategoriesAssignableInScope({
+          ...input.scope,
+          categoryIds: (input.categories ?? []).map((item) => item.categoryId),
+        }),
+      );
       await assertRelatedRecordsExist(tx, input);
 
       const [item] = await tx
@@ -115,6 +137,13 @@ export async function createContent(
         })
         .where(eq(contentItems.id, item.id));
 
+      await appendContentAuditEvent(tx, {
+        contentItemId: item.id,
+        versionId: version.id,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_CREATED,
+        actor: staffAuditActor(input.actorId),
+      });
+
       return {
         contentItemId: item.id,
         versionId: version.id,
@@ -123,6 +152,7 @@ export async function createContent(
         workflowStatus: WORKFLOW_STATUS.DRAFT,
         draftVersionId: version.id,
         scheduleGeneration: 0,
+        updatedAt: now,
       };
     });
   } catch (error) {

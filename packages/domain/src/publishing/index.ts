@@ -22,6 +22,7 @@ export {
 } from "./relations";
 export {
   assertCanApproveVersion,
+  assertCanRequestChanges,
   assertCanSubmitForReview,
   assertCurrentDraftVersion,
   assertWorkflowTransition,
@@ -48,3 +49,9 @@ export {
   type UnpublishPlan,
   type UnschedulePlan,
 } from "./invariants";
+export {
+  canonicalizeOptionalReviewNote,
+  canonicalizeRequiredReviewNote,
+  REVIEW_NOTE_MAX_LENGTH,
+  REVIEW_NOTE_MIN_LENGTH,
+} from "./review-note";

@@ -38,5 +38,21 @@ export function rethrowPublishingDbError(error: unknown): never {
     throw new PublishingError(PUBLISHING_ERROR.SLUG_CONFLICT);
   }
 
+  if (
+    isPgError(error) &&
+    error.code === "23505" &&
+    error.constraint === "content_versions_one_in_review"
+  ) {
+    throw new PublishingError(PUBLISHING_ERROR.INVALID_WORKFLOW_TRANSITION);
+  }
+
+  if (
+    isPgError(error) &&
+    error.code === "23514" &&
+    error.constraint === "content_review_events_note_bounds"
+  ) {
+    throw new PublishingError(PUBLISHING_ERROR.INVALID_REVIEW_NOTE);
+  }
+
   throw error;
 }

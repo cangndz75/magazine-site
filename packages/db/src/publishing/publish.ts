@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import {
+  CONTENT_AUDIT_EVENT_TYPE,
   PUBLISHING_ERROR,
   PublishingError,
   PUBLICATION_STATUS,
@@ -8,16 +9,30 @@ import {
   decidePublish,
   decideScheduledPublishExecution,
   decideUnpublish,
+  nextMonotonicUpdatedAt,
+  type EditorStaffScope,
 } from "@magazine/domain";
 import { getDb } from "../client";
+import { enqueuePublicArticleCacheInvalidation } from "../public-cache-outbox";
 import { contentItems, contentVersions } from "../schema/content";
 import type { PublishingTx } from "./db-types";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
+import {
+  authorizeLockedEditorMutation,
+  loadLockedVersionCategories,
+} from "./locked-scope";
 import { loadVersionRelations } from "./relations";
+import {
+  SYSTEM_AUDIT_ACTOR,
+  appendContentAuditEvent,
+  staffAuditActor,
+  type AuditActorInput,
+} from "./audit";
 
 export type PublishResult = {
   contentItemId: string;
+  slug: string;
   publishedVersionId: string;
   publicationStatus: typeof PUBLICATION_STATUS.PUBLISHED;
   publishedAt: Date;
@@ -26,6 +41,19 @@ export type PublishResult = {
   scheduledVersionId: string | null;
   scheduledAt: Date | null;
   scheduleGeneration: number;
+  updatedAt: Date;
+};
+
+export type UnpublishResult = {
+  contentItemId: string;
+  slug: string;
+  publicationStatus: typeof PUBLICATION_STATUS.UNPUBLISHED;
+  publishedVersionId: string | null;
+  publishedAt: Date | null;
+  publicDateModified: Date | null;
+  scheduledVersionId: string | null;
+  scheduledAt: Date | null;
+  updatedAt: Date;
 };
 
 async function loadOwnedVersion(
@@ -66,6 +94,7 @@ async function publishLockedVersion(
   item: Awaited<ReturnType<typeof lockContentItem>>,
   versionId: string,
   now: Date,
+  actor: AuditActorInput,
 ): Promise<PublishResult> {
   const version = await loadOwnedVersion(tx, item.id, versionId);
   const relations = await loadVersionRelations(tx, version.id);
@@ -77,6 +106,8 @@ async function publishLockedVersion(
       now,
     }),
   );
+
+  const nextUpdatedAt = nextMonotonicUpdatedAt(item.updatedAt, now);
 
   await tx
     .update(contentItems)
@@ -92,12 +123,25 @@ async function publishLockedVersion(
           ? plan.scheduledAt
           : new Date(plan.scheduledAt),
       scheduleGeneration: plan.scheduleGeneration,
-      updatedAt: now,
+      updatedAt: nextUpdatedAt,
     })
     .where(eq(contentItems.id, item.id));
 
+  await appendContentAuditEvent(tx, {
+    contentItemId: item.id,
+    versionId: plan.publishedVersionId,
+    eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_PUBLISHED,
+    actor,
+  });
+  await enqueuePublicArticleCacheInvalidation(tx, {
+    contentItemId: item.id,
+    slug: item.slug,
+    now,
+  });
+
   return {
     contentItemId: item.id,
+    slug: item.slug,
     publishedVersionId: plan.publishedVersionId,
     publicationStatus: plan.publicationStatus,
     publishedAt: plan.publishedAt,
@@ -111,12 +155,15 @@ async function publishLockedVersion(
           ? new Date(plan.scheduledAt)
           : null,
     scheduleGeneration: plan.scheduleGeneration,
+    updatedAt: nextUpdatedAt,
   };
 }
 
 export async function publishVersion(
   contentItemId: string,
   versionId: string,
+  scope: EditorStaffScope,
+  actorId: string,
   now: Date = new Date(),
 ): Promise<PublishResult> {
   const db = getDb();
@@ -124,7 +171,17 @@ export async function publishVersion(
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
     unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
-    return publishLockedVersion(tx, item, versionId, now);
+    const target = await loadLockedVersionCategories(tx, versionId);
+    await authorizeLockedEditorMutation(tx, item, scope, {
+      categoryIds: target.categoryIds,
+    });
+    return publishLockedVersion(
+      tx,
+      item,
+      versionId,
+      now,
+      staffAuditActor(actorId),
+    );
   });
 }
 
@@ -132,38 +189,52 @@ export async function publishVersion(
  * UNPUBLISH does not unschedule. A future scheduled version remains scheduled.
  * Historical publishedVersionId / publishedAt / publicDateModified are preserved.
  */
-export async function unpublishContent(contentItemId: string): Promise<{
-  contentItemId: string;
-  publicationStatus: typeof PUBLICATION_STATUS.UNPUBLISHED;
-  publishedVersionId: string | null;
-  publishedAt: Date | null;
-  publicDateModified: Date | null;
-  scheduledVersionId: string | null;
-  scheduledAt: Date | null;
-}> {
+export async function unpublishContent(
+  contentItemId: string,
+  scope: EditorStaffScope,
+  actorId: string,
+): Promise<UnpublishResult> {
   const db = getDb();
-  const now = new Date();
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
+    const published = await loadLockedVersionCategories(tx, item.publishedVersionId);
+    await authorizeLockedEditorMutation(tx, item, scope, {
+      categoryIds: published.categoryIds,
+    });
     unwrapPublishingDecision(decideUnpublish(item));
+
+    const nextUpdatedAt = nextMonotonicUpdatedAt(item.updatedAt);
 
     await tx
       .update(contentItems)
       .set({
         publicationStatus: PUBLICATION_STATUS.UNPUBLISHED,
-        updatedAt: now,
+        updatedAt: nextUpdatedAt,
       })
       .where(eq(contentItems.id, item.id));
 
+    await appendContentAuditEvent(tx, {
+      contentItemId: item.id,
+      versionId: item.publishedVersionId,
+      eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_UNPUBLISHED,
+      actor: staffAuditActor(actorId),
+    });
+    await enqueuePublicArticleCacheInvalidation(tx, {
+      contentItemId: item.id,
+      slug: item.slug,
+    });
+
     return {
       contentItemId: item.id,
+      slug: item.slug,
       publicationStatus: PUBLICATION_STATUS.UNPUBLISHED,
       publishedVersionId: item.publishedVersionId,
       publishedAt: item.publishedAt,
       publicDateModified: item.publicDateModified,
       scheduledVersionId: item.scheduledVersionId,
       scheduledAt: item.scheduledAt,
+      updatedAt: nextUpdatedAt,
     };
   });
 }
@@ -197,7 +268,13 @@ export async function executeScheduledPublish(
       return { outcome: decision.decision };
     }
 
-    const publish = await publishLockedVersion(tx, item, decision.versionId, now);
+    const publish = await publishLockedVersion(
+      tx,
+      item,
+      decision.versionId,
+      now,
+      SYSTEM_AUDIT_ACTOR,
+    );
     return {
       outcome: SCHEDULED_PUBLISH_DECISION.EXECUTE,
       publish,

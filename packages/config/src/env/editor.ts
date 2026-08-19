@@ -9,6 +9,9 @@ import { baseEnvSchema, httpUrlSchema, parseEnv } from "./base";
 export const editorEnvSchema = baseEnvSchema.extend({
   SITE_URL: httpUrlSchema,
   EDITOR_URL: httpUrlSchema,
+  SCHEDULED_PUBLISH_RUNNER_SECRET: z
+    .string()
+    .min(32, "SCHEDULED_PUBLISH_RUNNER_SECRET must be at least 32 characters"),
 });
 
 export type EditorEnv = z.infer<typeof editorEnvSchema>;

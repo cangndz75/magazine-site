@@ -6,6 +6,7 @@ export {
   mediaRoleEnum,
   mediaTypeEnum,
   publicationStatusEnum,
+  reviewEventTypeEnum,
   staffRoleEnum,
   staffScopeModeEnum,
   staffStatusEnum,
@@ -24,6 +25,9 @@ export {
   contentVersionTags,
   contentVersions,
 } from "./content";
+export { contentReviewEvents } from "./review-events";
+export { contentAuditEvents } from "./audit-events";
+export { publicCacheOutbox } from "./outbox";
 export {
   staffPasswordCredentials,
   staffSessions,
@@ -31,3 +35,10 @@ export {
   staffUserRoles,
   staffUsers,
 } from "./staff";
+export { homepageConversationItems } from "./homepage-conversation";
+export {
+  homepages,
+  homepageAuditEvents,
+  homepageSlots,
+  homepageVersions,
+} from "./homepage-builder";

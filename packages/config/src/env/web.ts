@@ -9,6 +9,7 @@ import { baseEnvSchema, httpUrlSchema, parseEnv } from "./base";
 export const webEnvSchema = baseEnvSchema.extend({
   SITE_URL: httpUrlSchema,
   EDITOR_URL: httpUrlSchema,
+  MEDIA_PUBLIC_BASE_URL: httpUrlSchema,
 });
 
 export type WebEnv = z.infer<typeof webEnvSchema>;
