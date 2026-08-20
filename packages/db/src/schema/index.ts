@@ -1,5 +1,8 @@
 export {
   authorRoleEnum,
+  contentLegalActionPolarityEnum,
+  contentLegalActionTypeEnum,
+  contentLegalReasonCategoryEnum,
   credibilityEnum,
   entityKindEnum,
   entityRoleEnum,
@@ -22,6 +25,7 @@ export { media, mediaRenditions } from "./media";
 export { categories, tags } from "./taxonomy";
 export {
   contentItems,
+  contentLegalActions,
   contentVersionAuthors,
   contentVersionCategories,
   contentVersionEntities,

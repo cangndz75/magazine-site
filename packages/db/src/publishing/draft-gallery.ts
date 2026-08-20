@@ -5,7 +5,6 @@ import {
   MEDIA_RENDITION_SURFACE,
   PUBLISHING_ERROR,
   PublishingError,
-  assertContentNotDeleted,
   assertGalleryAssignableMediaType,
   canonicalizeDraftGalleryItems,
   decideLockedDraftSave,
@@ -23,6 +22,7 @@ import { media } from "../schema/media";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
 import { loadLockedDisplayCategories } from "./locked-scope";
+import { assertLockedEditorialMutationAllowed } from "./legal-hold-guard";
 import {
   appendContentAuditEvent,
   buildDraftUpdateChangeSet,
@@ -152,7 +152,7 @@ async function authorizeDraftGalleryMutation(
   },
 ) {
   const item = await lockContentItem(tx, input.contentItemId);
-  unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
+  assertLockedEditorialMutationAllowed(item);
 
   const [version] = await tx
     .select()

@@ -12,6 +12,8 @@ import {
   type AuthorRole,
   type PublicArticleGalleryItem,
   type PublicEditorialVideoProjection,
+  type PublicLegalNotice,
+  type PublicWithdrawnArticleShell,
   type VideoProvider,
 } from "@magazine/domain";
 import { getDb } from "../client";
@@ -31,6 +33,10 @@ import {
   resolvePublicImageDelivery,
 } from "../media/image-delivery";
 import { alias } from "drizzle-orm/pg-core";
+import {
+  loadPublicLegalNotices,
+  loadPublicWithdrawnArticleShellBySlug,
+} from "./load-public-legal";
 
 export type PublicArticleCategory = {
   name: string;
@@ -55,6 +61,12 @@ export type PublicArticleHeroMedia = {
 export type { PublicArticleGalleryItem };
 export type { PublicEditorialVideoProjection };
 
+export type { PublicLegalNotice, PublicWithdrawnArticleShell };
+
+export type PublicArticlePage =
+  | { status: "live"; article: PublicArticle }
+  | { status: "withdrawn"; shell: PublicWithdrawnArticleShell };
+
 export type PublicArticle = {
   id: string;
   slug: string;
@@ -69,6 +81,7 @@ export type PublicArticle = {
   videos: PublicEditorialVideoProjection[];
   categories: PublicArticleCategory[];
   authors: PublicArticleAuthor[];
+  legalNotices: PublicLegalNotice[];
 };
 
 export type PublicArticleReadOptions = {
@@ -99,12 +112,16 @@ export async function getPublicArticleBySlug(
       publishedAt: contentItems.publishedAt,
       publicDateModified: contentItems.publicDateModified,
       deletedAt: contentItems.deletedAt,
+      retractedAt: contentItems.retractedAt,
+      takedownAt: contentItems.takedownAt,
     })
     .from(contentItems)
     .where(
       and(
         eq(contentItems.slug, canonical.value),
         isNull(contentItems.deletedAt),
+        isNull(contentItems.retractedAt),
+        isNull(contentItems.takedownAt),
         eq(contentItems.publicationStatus, PUBLICATION_STATUS.PUBLISHED),
       ),
     )
@@ -318,6 +335,7 @@ export async function getPublicArticleBySlug(
     });
     return item ? [item] : [];
   });
+  const legalNotices = await loadPublicLegalNotices(item.id);
 
   return {
     id: item.id,
@@ -346,5 +364,30 @@ export async function getPublicArticleBySlug(
       slug: row.slug,
       role: row.role,
     })),
+    legalNotices,
   };
+}
+
+export async function getPublicArticlePageBySlug(
+  rawSlug: string,
+  options: PublicArticleReadOptions = {},
+): Promise<PublicArticlePage | null> {
+  const canonical = canonicalizeContentSlug(rawSlug);
+  if (!canonical.ok) {
+    return null;
+  }
+
+  const withdrawnShell = await loadPublicWithdrawnArticleShellBySlug(
+    canonical.value,
+  );
+  if (withdrawnShell) {
+    return { status: "withdrawn", shell: withdrawnShell };
+  }
+
+  const article = await getPublicArticleBySlug(canonical.value, options);
+  if (!article) {
+    return null;
+  }
+
+  return { status: "live", article };
 }

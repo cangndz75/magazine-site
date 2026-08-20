@@ -49,6 +49,9 @@ function input(
     },
     isDirty: false,
     hasConcurrencyToken: true,
+    legalHoldAt: null,
+    retractedAt: null,
+    takedownAt: null,
     ...overrides,
   };
 }

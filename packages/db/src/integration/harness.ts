@@ -578,6 +578,7 @@ export async function countLeftoverFixtures(
   versions: number;
   reviewEvents: number;
   auditEvents: number;
+  legalActions: number;
   outboxEvents: number;
 }> {
   if (itemIds.length === 0) {
@@ -586,6 +587,7 @@ export async function countLeftoverFixtures(
       versions: 0,
       reviewEvents: 0,
       auditEvents: 0,
+      legalActions: 0,
       outboxEvents: 0,
     };
   }
@@ -595,6 +597,7 @@ export async function countLeftoverFixtures(
     versions: string;
     reviewEvents: string;
     auditEvents: string;
+    legalActions: string;
     outboxEvents: string;
   }>(
     `SELECT
@@ -602,6 +605,7 @@ export async function countLeftoverFixtures(
        (SELECT count(*)::text FROM content_versions WHERE content_item_id = ANY($1::uuid[])) AS versions,
        (SELECT count(*)::text FROM content_review_events WHERE content_item_id = ANY($1::uuid[])) AS "reviewEvents",
        (SELECT count(*)::text FROM content_audit_events WHERE content_item_id = ANY($1::uuid[])) AS "auditEvents",
+       (SELECT count(*)::text FROM content_legal_actions WHERE content_item_id = ANY($1::uuid[])) AS "legalActions",
        (SELECT count(*)::text FROM public_cache_outbox WHERE (payload->>'contentItemId')::uuid = ANY($1::uuid[])) AS "outboxEvents"`,
     [itemIds],
   );
@@ -611,6 +615,7 @@ export async function countLeftoverFixtures(
     versions: Number(result.rows[0]?.versions ?? "0"),
     reviewEvents: Number(result.rows[0]?.reviewEvents ?? "0"),
     auditEvents: Number(result.rows[0]?.auditEvents ?? "0"),
+    legalActions: Number(result.rows[0]?.legalActions ?? "0"),
     outboxEvents: Number(result.rows[0]?.outboxEvents ?? "0"),
   };
 }
@@ -635,8 +640,19 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
            published_version_id = NULL,
            draft_version_id = NULL,
            scheduled_version_id = NULL,
-           scheduled_at = NULL
+           scheduled_at = NULL,
+           legal_hold_at = NULL,
+           legal_hold_reason = NULL,
+           legal_hold_action_id = NULL,
+           retracted_at = NULL,
+           retracted_action_id = NULL,
+           takedown_at = NULL,
+           takedown_action_id = NULL
        WHERE id = ANY($1::uuid[])`,
+      [itemIds],
+    );
+    await pool.query(
+      "DELETE FROM content_legal_actions WHERE content_item_id = ANY($1::uuid[])",
       [itemIds],
     );
     await pool.query(
@@ -665,6 +681,10 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
     fixture.ids.staffReviewerA,
     fixture.ids.staffReviewerB,
   ];
+  await pool.query(
+    "DELETE FROM content_legal_actions WHERE actor_staff_user_id = ANY($1::uuid[])",
+    [staffIds],
+  );
   await pool.query(
     "DELETE FROM content_review_events WHERE actor_id = ANY($1::uuid[])",
     [staffIds],
@@ -732,6 +752,10 @@ export async function cleanupStaffAuthTables(): Promise<void> {
   await pool.query("DELETE FROM staff_user_category_scopes");
   await pool.query("DELETE FROM staff_user_roles");
   await pool.query("DELETE FROM staff_password_credentials");
+  await pool.query(
+    `DELETE FROM content_legal_actions
+     WHERE actor_staff_user_id IN (SELECT id FROM staff_users)`,
+  );
   await pool.query(
     `DELETE FROM content_audit_events
      WHERE actor_staff_user_id IN (SELECT id FROM staff_users)`,

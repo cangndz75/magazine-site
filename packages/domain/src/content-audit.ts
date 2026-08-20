@@ -10,6 +10,12 @@ export const CONTENT_AUDIT_EVENT_TYPE = {
   CONTENT_SCHEDULED: "CONTENT_SCHEDULED",
   CONTENT_RESCHEDULED: "CONTENT_RESCHEDULED",
   CONTENT_SCHEDULE_CANCELLED: "CONTENT_SCHEDULE_CANCELLED",
+  CONTENT_CORRECTION_RECORDED: "CONTENT_CORRECTION_RECORDED",
+  CONTENT_CLARIFICATION_RECORDED: "CONTENT_CLARIFICATION_RECORDED",
+  CONTENT_RETRACTED: "CONTENT_RETRACTED",
+  CONTENT_TAKEN_DOWN: "CONTENT_TAKEN_DOWN",
+  CONTENT_LEGAL_HOLD_PLACED: "CONTENT_LEGAL_HOLD_PLACED",
+  CONTENT_LEGAL_HOLD_RELEASED: "CONTENT_LEGAL_HOLD_RELEASED",
 } as const;
 
 export type ContentAuditEventType =
@@ -27,6 +33,12 @@ export const CONTENT_AUDIT_EVENT_TYPES = [
   CONTENT_AUDIT_EVENT_TYPE.CONTENT_SCHEDULED,
   CONTENT_AUDIT_EVENT_TYPE.CONTENT_RESCHEDULED,
   CONTENT_AUDIT_EVENT_TYPE.CONTENT_SCHEDULE_CANCELLED,
+  CONTENT_AUDIT_EVENT_TYPE.CONTENT_CORRECTION_RECORDED,
+  CONTENT_AUDIT_EVENT_TYPE.CONTENT_CLARIFICATION_RECORDED,
+  CONTENT_AUDIT_EVENT_TYPE.CONTENT_RETRACTED,
+  CONTENT_AUDIT_EVENT_TYPE.CONTENT_TAKEN_DOWN,
+  CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_PLACED,
+  CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_RELEASED,
 ] as const;
 
 export const CONTENT_AUDIT_ACTOR_KIND = {
@@ -89,10 +101,19 @@ export type ContentAuditRelationSummary = {
   detailLimited: boolean;
 };
 
+export type ContentAuditLegalActionSummary = {
+  actionId: string;
+  actionType: string;
+  polarity: string;
+  reasonCategory: string;
+  hasPublicNote: boolean;
+};
+
 export type ContentAuditChangeSet = {
   scalarChanges?: ContentAuditScalarChange[];
   bodyChange?: ContentAuditBodySummary;
   relationChanges?: ContentAuditRelationSummary[];
+  legalAction?: ContentAuditLegalActionSummary;
   detailLimited?: boolean;
 };
 
@@ -205,6 +226,20 @@ export function assertContentAuditChangeSet(
       ) {
         throw new Error("Invalid content audit relation change.");
       }
+    }
+  }
+
+  if (candidate.legalAction !== undefined) {
+    const legal = candidate.legalAction;
+    if (
+      typeof legal.actionId !== "string" ||
+      legal.actionId.length === 0 ||
+      typeof legal.actionType !== "string" ||
+      typeof legal.polarity !== "string" ||
+      typeof legal.reasonCategory !== "string" ||
+      typeof legal.hasPublicNote !== "boolean"
+    ) {
+      throw new Error("Invalid content audit legal action summary.");
     }
   }
 

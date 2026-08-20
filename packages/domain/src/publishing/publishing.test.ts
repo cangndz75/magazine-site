@@ -182,6 +182,38 @@ describe("workflow transitions", () => {
 });
 
 describe("publish", () => {
+  it("rejects publish while a legal hold, retraction, or takedown is active", () => {
+    const base = {
+      version: version(),
+      categories: [{ isPrimary: true }],
+      now: NOW,
+    };
+    assert.deepEqual(
+      decidePublish({
+        ...base,
+        item: item({
+          publicationStatus: PUBLICATION_STATUS.UNPUBLISHED,
+          publishedVersionId: "draft-1",
+          publishedAt: EARLIER,
+          legalHoldAt: NOW,
+        }),
+      }),
+      { ok: false, code: PUBLISHING_ERROR.CONTENT_LEGAL_HOLD },
+    );
+    assert.deepEqual(
+      decidePublish({
+        ...base,
+        item: item({
+          publicationStatus: PUBLICATION_STATUS.UNPUBLISHED,
+          publishedVersionId: "draft-1",
+          publishedAt: EARLIER,
+          retractedAt: NOW,
+        }),
+      }),
+      { ok: false, code: PUBLISHING_ERROR.CONTENT_LEGALLY_WITHDRAWN },
+    );
+  });
+
   it("rejects DRAFT, IN_REVIEW, and APPROVED without a primary category", () => {
     assert.equal(
       decidePublish({
@@ -458,6 +490,21 @@ describe("unpublish", () => {
     assert.equal(current.publishedAt, EARLIER);
     assert.equal(current.scheduledVersionId, "v9");
   });
+
+  it("blocks ordinary unpublish while a legal hold is active", () => {
+    const result = decideUnpublish(
+      item({
+        publicationStatus: PUBLICATION_STATUS.PUBLISHED,
+        publishedVersionId: "v7",
+        publishedAt: EARLIER,
+        legalHoldAt: NOW,
+      }),
+    );
+    assert.deepEqual(result, {
+      ok: false,
+      code: PUBLISHING_ERROR.CONTENT_LEGAL_HOLD,
+    });
+  });
 });
 
 describe("schedule", () => {
@@ -660,6 +707,17 @@ describe("schedule", () => {
         now: NOW,
       }),
       { decision: SCHEDULED_PUBLISH_DECISION.EXECUTE, versionId: "v9" },
+    );
+    assert.deepEqual(
+      decideScheduledPublishExecution({
+        jobGeneration: 3,
+        currentGeneration: 3,
+        scheduledVersionId: "v9",
+        scheduledAt: EARLIER,
+        now: NOW,
+        legalHoldAt: NOW,
+      }),
+      { decision: SCHEDULED_PUBLISH_DECISION.NOOP_LEGAL_HOLD },
     );
   });
 

@@ -5,7 +5,6 @@ import {
   PUBLISHING_ERROR,
   PublishingError,
   WORKFLOW_STATUS,
-  assertContentNotDeleted,
   copyVersionOwnedRelations,
   nextMonotonicUpdatedAt,
   nextVersionNumber,
@@ -16,6 +15,7 @@ import { contentItems, contentVersions } from "../schema/content";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
 import { authorizeLockedEditorMutation } from "./locked-scope";
+import { assertLockedEditorialMutationAllowed } from "./legal-hold-guard";
 import {
   insertVersionRelations,
   loadVersionRelations,
@@ -58,7 +58,7 @@ export async function createDraftRevision(
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
-    unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
+    assertLockedEditorialMutationAllowed(item);
     await authorizeLockedEditorMutation(tx, item, scope);
 
     const sourceId = unwrapPublishingDecision(

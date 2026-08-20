@@ -37,6 +37,10 @@ describe("RBAC capabilities", () => {
       hasCapability([STAFF_ROLE.SUPER_ADMIN], CAPABILITY.CATEGORY_MANAGE),
       true,
     );
+    assert.equal(
+      hasCapability([STAFF_ROLE.SUPER_ADMIN], CAPABILITY.CONTENT_LEGAL),
+      true,
+    );
   });
 
   it("does not give EDITOR homepage or staff management", () => {
@@ -51,6 +55,10 @@ describe("RBAC capabilities", () => {
     assert.equal(
       hasCapability([STAFF_ROLE.EDITOR], CAPABILITY.CONTENT_PUBLISH),
       true,
+    );
+    assert.equal(
+      hasCapability([STAFF_ROLE.EDITOR], CAPABILITY.CONTENT_LEGAL),
+      false,
     );
   });
 

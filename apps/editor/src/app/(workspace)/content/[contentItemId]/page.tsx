@@ -100,6 +100,10 @@ export default async function ArticleWorkspacePage({
           publicDateModified:
             model.contentItem.publicDateModified?.toISOString() ?? null,
           updatedAt: model.contentItem.updatedAt.toISOString(),
+          legalHoldAt: model.contentItem.legalHoldAt?.toISOString() ?? null,
+          legalHoldReason: model.contentItem.legalHoldReason,
+          retractedAt: model.contentItem.retractedAt?.toISOString() ?? null,
+          takedownAt: model.contentItem.takedownAt?.toISOString() ?? null,
         },
         displayVersionId: model.displayVersionId,
         editableVersion: model.editableVersion
@@ -145,6 +149,7 @@ export default async function ArticleWorkspacePage({
         canEdit: hasCapability(session.roles, CAPABILITY.CONTENT_EDIT),
         canReview: hasCapability(session.roles, CAPABILITY.CONTENT_REVIEW),
         canPublish: hasCapability(session.roles, CAPABILITY.CONTENT_PUBLISH),
+        canLegal: hasCapability(session.roles, CAPABILITY.CONTENT_LEGAL),
       }}
     />
   );

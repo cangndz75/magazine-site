@@ -81,6 +81,12 @@ const EVENT_LABELS: Record<ContentAuditEventType, string> = {
   [CONTENT_AUDIT_EVENT_TYPE.CONTENT_SCHEDULED]: "Yayın zamanlandı",
   [CONTENT_AUDIT_EVENT_TYPE.CONTENT_RESCHEDULED]: "Yayın zamanı değiştirildi",
   [CONTENT_AUDIT_EVENT_TYPE.CONTENT_SCHEDULE_CANCELLED]: "Zamanlama iptal edildi",
+  [CONTENT_AUDIT_EVENT_TYPE.CONTENT_CORRECTION_RECORDED]: "Düzeltme kaydedildi",
+  [CONTENT_AUDIT_EVENT_TYPE.CONTENT_CLARIFICATION_RECORDED]: "Açıklama kaydedildi",
+  [CONTENT_AUDIT_EVENT_TYPE.CONTENT_RETRACTED]: "Geri çekildi",
+  [CONTENT_AUDIT_EVENT_TYPE.CONTENT_TAKEN_DOWN]: "Yasal kaldırma uygulandı",
+  [CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_PLACED]: "Legal hold konuldu",
+  [CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_RELEASED]: "Legal hold kaldırıldı",
 };
 
 const FIELD_LABELS: Record<ContentAuditScalarField, string> = {

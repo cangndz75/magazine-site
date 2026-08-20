@@ -18,6 +18,7 @@ import { contentItems, contentVersions } from "../schema/content";
 import type { PublishingTx } from "./db-types";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
+import { assertLockedEditorialMutationAllowed } from "./legal-hold-guard";
 import {
   authorizeLockedEditorMutation,
   loadLockedVersionCategories,
@@ -170,7 +171,7 @@ export async function publishVersion(
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
-    unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
+    assertLockedEditorialMutationAllowed(item);
     const target = await loadLockedVersionCategories(tx, versionId);
     await authorizeLockedEditorMutation(tx, item, scope, {
       categoryIds: target.categoryIds,
@@ -198,6 +199,7 @@ export async function unpublishContent(
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
+    assertLockedEditorialMutationAllowed(item);
     const published = await loadLockedVersionCategories(tx, item.publishedVersionId);
     await authorizeLockedEditorMutation(tx, item, scope, {
       categoryIds: published.categoryIds,
@@ -243,6 +245,7 @@ export type ScheduledPublishExecutionResult =
   | { outcome: typeof SCHEDULED_PUBLISH_DECISION.NOOP_STALE }
   | { outcome: typeof SCHEDULED_PUBLISH_DECISION.NOOP_NOT_SCHEDULED }
   | { outcome: typeof SCHEDULED_PUBLISH_DECISION.NOOP_NOT_DUE }
+  | { outcome: typeof SCHEDULED_PUBLISH_DECISION.NOOP_LEGAL_HOLD }
   | { outcome: typeof SCHEDULED_PUBLISH_DECISION.EXECUTE; publish: PublishResult };
 
 export async function executeScheduledPublish(
@@ -262,6 +265,9 @@ export async function executeScheduledPublish(
       scheduledVersionId: item.scheduledVersionId,
       scheduledAt: item.scheduledAt,
       now,
+      legalHoldAt: item.legalHoldAt,
+      retractedAt: item.retractedAt,
+      takedownAt: item.takedownAt,
     });
 
     if (decision.decision !== SCHEDULED_PUBLISH_DECISION.EXECUTE) {

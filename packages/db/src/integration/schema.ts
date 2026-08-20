@@ -24,6 +24,7 @@ const ARTICLE_GALLERY_SQL = "0010_article-gallery-foundation.sql";
 const EDITORIAL_VIDEO_SQL = "0011_editorial-video-foundation.sql";
 const HOMEPAGE_VIDEO_SLOT_SQL = "0012_homepage-video-slot.sql";
 const MEDIA_IMAGE_RENDITIONS_SQL = "0013_media-image-renditions.sql";
+const EDITORIAL_LEGAL_ACTIONS_SQL = "0014_editorial-legal-actions.sql";
 
 async function publicTableExists(
   client: Client,
@@ -178,5 +179,10 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   const hasMediaRenditions = await publicTableExists(client, "media_renditions");
   if (!hasMediaRenditions) {
     await applySqlFile(client, MEDIA_IMAGE_RENDITIONS_SQL);
+  }
+
+  const hasLegalActions = await publicTableExists(client, "content_legal_actions");
+  if (!hasLegalActions) {
+    await applySqlFile(client, EDITORIAL_LEGAL_ACTIONS_SQL);
   }
 }

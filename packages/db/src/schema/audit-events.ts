@@ -74,7 +74,13 @@ export const contentAuditEvents = pgTable(
         'CONTENT_UNPUBLISHED',
         'CONTENT_SCHEDULED',
         'CONTENT_RESCHEDULED',
-        'CONTENT_SCHEDULE_CANCELLED'
+        'CONTENT_SCHEDULE_CANCELLED',
+        'CONTENT_CORRECTION_RECORDED',
+        'CONTENT_CLARIFICATION_RECORDED',
+        'CONTENT_RETRACTED',
+        'CONTENT_TAKEN_DOWN',
+        'CONTENT_LEGAL_HOLD_PLACED',
+        'CONTENT_LEGAL_HOLD_RELEASED'
       )`,
     ),
     check(

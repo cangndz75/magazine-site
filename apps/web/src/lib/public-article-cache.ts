@@ -3,11 +3,13 @@ import {
   publicArticleSlugCacheTag,
   publicContentCacheTag,
 } from "@magazine/domain";
-import type { PublicArticle } from "@magazine/db/public";
+import type { PublicArticlePage } from "@magazine/db/public";
 
 export const PUBLIC_ARTICLE_CACHE_REVALIDATE_SECONDS = false;
 
-export type PublicArticleLoader = (slug: string) => Promise<PublicArticle | null>;
+export type PublicArticlePageLoader = (
+  slug: string,
+) => Promise<PublicArticlePage | null>;
 
 type CacheFactory = typeof unstable_cache;
 
@@ -17,18 +19,24 @@ type PublicArticleSlugIdentity = {
 
 export function cachedPublicArticleLoader(
   slug: string,
-  loadArticle: PublicArticleLoader,
+  loadPage: PublicArticlePageLoader,
   cacheFactory: CacheFactory = unstable_cache,
-): Promise<PublicArticle | null> {
+): Promise<PublicArticlePage | null> {
   const slugTag = publicArticleSlugCacheTag(slug);
   if (!slugTag) {
-    return loadArticle(slug);
+    return loadPage(slug);
   }
 
   const loadIdentity = cacheFactory(
     async (canonicalSlug: string): Promise<PublicArticleSlugIdentity> => {
-      const article = await loadArticle(canonicalSlug);
-      return { contentItemId: article?.id ?? null };
+      const page = await loadPage(canonicalSlug);
+      const contentItemId =
+        page?.status === "live"
+          ? page.article.id
+          : page?.status === "withdrawn"
+            ? page.shell.id
+            : null;
+      return { contentItemId };
     },
     ["public-article-identity", slugTag],
     {
@@ -43,8 +51,8 @@ export function cachedPublicArticleLoader(
     }
 
     const contentTag = publicContentCacheTag(identity.contentItemId);
-    const loadCachedArticle = cacheFactory(
-      async (canonicalSlug: string) => loadArticle(canonicalSlug),
+    const loadCachedPage = cacheFactory(
+      async (canonicalSlug: string) => loadPage(canonicalSlug),
       ["public-article", slugTag, contentTag],
       {
         revalidate: PUBLIC_ARTICLE_CACHE_REVALIDATE_SECONDS,
@@ -52,24 +60,44 @@ export function cachedPublicArticleLoader(
       },
     );
 
-    return loadCachedArticle(slug).then(restorePublicArticleCachePayload);
+    return loadCachedPage(slug).then(restorePublicArticlePageCachePayload);
   });
 }
 
-function restorePublicArticleCachePayload(
-  article: PublicArticle | null,
-): PublicArticle | null {
-  if (!article) {
+function restorePublicArticlePageCachePayload(
+  page: PublicArticlePage | null,
+): PublicArticlePage | null {
+  if (!page) {
     return null;
   }
 
+  if (page.status === "withdrawn") {
+    return {
+      status: "withdrawn",
+      shell: {
+        ...page.shell,
+        publishedAt: new Date(page.shell.publishedAt),
+        effectiveAt: new Date(page.shell.effectiveAt),
+      },
+    };
+  }
+
   return {
-    ...article,
-    gallery: Array.isArray(article.gallery) ? article.gallery : [],
-    videos: Array.isArray(article.videos) ? article.videos : [],
-    publishedAt: new Date(article.publishedAt),
-    publicDateModified: article.publicDateModified
-      ? new Date(article.publicDateModified)
-      : null,
+    status: "live",
+    article: {
+      ...page.article,
+      gallery: Array.isArray(page.article.gallery) ? page.article.gallery : [],
+      videos: Array.isArray(page.article.videos) ? page.article.videos : [],
+      legalNotices: Array.isArray(page.article.legalNotices)
+        ? page.article.legalNotices.map((notice) => ({
+            ...notice,
+            effectiveAt: new Date(notice.effectiveAt),
+          }))
+        : [],
+      publishedAt: new Date(page.article.publishedAt),
+      publicDateModified: page.article.publicDateModified
+        ? new Date(page.article.publicDateModified)
+        : null,
+    },
   };
 }

@@ -46,6 +46,8 @@ export async function getPublicHomepageConversation(
         publicationStatus: contentItems.publicationStatus,
         publishedVersionId: contentItems.publishedVersionId,
         deletedAt: contentItems.deletedAt,
+        retractedAt: contentItems.retractedAt,
+        takedownAt: contentItems.takedownAt,
       })
     .from(homepageConversationItems)
     .leftJoin(
@@ -65,6 +67,8 @@ export async function getPublicHomepageConversation(
       publicationStatus: row.publicationStatus,
       publishedVersionId: row.publishedVersionId,
       deletedAt: row.deletedAt,
+      retractedAt: row.retractedAt,
+      takedownAt: row.takedownAt,
     }),
   );
 

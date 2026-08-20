@@ -4,6 +4,18 @@ export {
   type ArticleEditorRelationSummary,
 } from "./article-editor";
 export {
+  getContentLegalWorkspace,
+  listLegalDashboard,
+  listLegalDashboardActors,
+  clampLegalDashboardLimit,
+  type ContentLegalWorkspace,
+  type ContentLegalWorkspaceAction,
+  type LegalDashboardActiveHold,
+  type LegalDashboardEntry,
+  type LegalDashboardFilters,
+  type LegalDashboardResult,
+} from "./legal-workspace";
+export {
   listContentAuditEvents,
   type EditorContentAuditEvent,
   type ListContentAuditEventsResult,

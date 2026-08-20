@@ -249,6 +249,25 @@ describe("public published version resolution", () => {
       null,
     );
   });
+
+  it("does not resolve retracted or taken-down items as public", () => {
+    assert.equal(
+      publicPublishedVersionId({
+        publicationStatus: PUBLICATION_STATUS.PUBLISHED,
+        publishedVersionId: "v7",
+        retractedAt: "2026-08-20T00:00:00.000Z",
+      }),
+      null,
+    );
+    assert.equal(
+      publicPublishedVersionId({
+        publicationStatus: PUBLICATION_STATUS.PUBLISHED,
+        publishedVersionId: "v7",
+        takedownAt: "2026-08-20T00:00:00.000Z",
+      }),
+      null,
+    );
+  });
 });
 
 describe("public cache tags", () => {

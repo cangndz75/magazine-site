@@ -58,8 +58,14 @@ export function publicPublishedVersionId(state: {
   publicationStatus: PublicationStatus;
   publishedVersionId: string | null;
   deletedAt?: Date | string | null;
+  retractedAt?: Date | string | null;
+  takedownAt?: Date | string | null;
 }): string | null {
   if (state.deletedAt != null) {
+    return null;
+  }
+
+  if (state.retractedAt != null || state.takedownAt != null) {
     return null;
   }
 

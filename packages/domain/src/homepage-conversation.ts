@@ -143,6 +143,8 @@ export function publicConversationArticlePointer(state: {
   publicationStatus: PublicationStatus | null;
   publishedVersionId: string | null;
   deletedAt?: Date | string | null;
+  retractedAt?: Date | string | null;
+  takedownAt?: Date | string | null;
 }): { contentItemId: string; publishedVersionId: string } | null {
   if (state.contentItemId === null || state.publicationStatus === null) {
     return null;
@@ -152,6 +154,8 @@ export function publicConversationArticlePointer(state: {
     publicationStatus: state.publicationStatus,
     publishedVersionId: state.publishedVersionId,
     deletedAt: state.deletedAt,
+    retractedAt: state.retractedAt,
+    takedownAt: state.takedownAt,
   });
   if (!publishedVersionId) {
     return null;

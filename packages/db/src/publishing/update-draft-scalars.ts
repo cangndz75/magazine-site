@@ -5,7 +5,6 @@ import {
   type EditorStaffScope,
   PUBLISHING_ERROR,
   PublishingError,
-  assertContentNotDeleted,
   assertOptionalHttpUrl,
   assertStructuredArticleBody,
   canonicalizeDraftTitle,
@@ -18,6 +17,7 @@ import { contentItems, contentVersions } from "../schema/content";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
 import { authorizeLockedEditorMutation } from "./locked-scope";
+import { assertLockedEditorialMutationAllowed } from "./legal-hold-guard";
 import {
   appendContentAuditEvent,
   buildDraftUpdateChangeSet,
@@ -91,7 +91,7 @@ export async function updateDraftScalarFields(
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, input.contentItemId);
-    unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
+    assertLockedEditorialMutationAllowed(item);
 
     const [version] = await tx
       .select()

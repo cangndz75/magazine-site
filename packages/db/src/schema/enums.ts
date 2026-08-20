@@ -16,6 +16,9 @@ import {
   STAFF_STATUSES,
   VIDEO_PROVIDERS,
   WORKFLOW_STATUSES,
+  CONTENT_LEGAL_ACTION_TYPES,
+  CONTENT_LEGAL_ACTION_POLARITIES,
+  CONTENT_LEGAL_REASON_CATEGORIES,
 } from "@magazine/domain";
 
 export const publicationStatusEnum = pgEnum(
@@ -61,3 +64,18 @@ export const reviewEventTypeEnum = pgEnum(
 );
 
 export const videoProviderEnum = pgEnum("video_provider", VIDEO_PROVIDERS);
+
+export const contentLegalActionTypeEnum = pgEnum(
+  "content_legal_action_type",
+  CONTENT_LEGAL_ACTION_TYPES,
+);
+
+export const contentLegalActionPolarityEnum = pgEnum(
+  "content_legal_action_polarity",
+  CONTENT_LEGAL_ACTION_POLARITIES,
+);
+
+export const contentLegalReasonCategoryEnum = pgEnum(
+  "content_legal_reason_category",
+  CONTENT_LEGAL_REASON_CATEGORIES,
+);

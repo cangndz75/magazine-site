@@ -254,6 +254,14 @@ export function ArticleWorkflowPanel({
         {" · "}
         {presented.focusedVersionLabel}
       </p>
+      {presented.legalHoldNotice ? (
+        <p
+          className="mt-3 rounded border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+          role="alert"
+        >
+          {presented.legalHoldNotice}
+        </p>
+      ) : null}
       <p className="mt-1 text-xs text-zinc-500">
         Yayındaki: {presented.publishedVersionLabel}
         {" · "}

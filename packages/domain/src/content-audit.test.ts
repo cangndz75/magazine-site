@@ -84,6 +84,19 @@ describe("content audit change-set validation", () => {
     assert.deepEqual(assertContentAuditChangeSet(changeSet), changeSet);
   });
 
+  it("accepts a compact legal action pointer", () => {
+    const changeSet = {
+      legalAction: {
+        actionId: "11111111-1111-4111-8111-111111111111",
+        actionType: "CORRECTION",
+        polarity: "APPLY",
+        reasonCategory: "FACTUAL_ERROR",
+        hasPublicNote: true,
+      },
+    };
+    assert.deepEqual(assertContentAuditChangeSet(changeSet), changeSet);
+  });
+
   it("rejects invalid audit payloads", () => {
     assert.throws(() => assertContentAuditChangeSet("bad"));
     assert.throws(() =>

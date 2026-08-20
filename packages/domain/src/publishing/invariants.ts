@@ -1,6 +1,7 @@
 import { type CategoryAssignment, assertPublishablePrimaryCategory } from "../primary-category";
 import { PUBLICATION_STATUS, type PublicationStatus } from "../publication-status";
 import { WORKFLOW_STATUS, type WorkflowStatus } from "../workflow-status";
+import { hasPublicLegalWithdrawal, isContentLegalHoldActive } from "../legal-action";
 import { PUBLISHING_ERROR, type PublishingDecision } from "./errors";
 
 export type ContentLifecycleItem = {
@@ -14,6 +15,9 @@ export type ContentLifecycleItem = {
   scheduleGeneration: number;
   publishedAt: Date | string | null;
   publicDateModified: Date | string | null;
+  legalHoldAt?: Date | string | null;
+  retractedAt?: Date | string | null;
+  takedownAt?: Date | string | null;
 };
 
 export type ContentLifecycleVersion = {
@@ -31,6 +35,39 @@ export function assertContentNotDeleted(
   }
 
   return { ok: true, value: true };
+}
+
+export function assertContentNotOnLegalHold(
+  legalHoldAt: Date | string | null | undefined,
+): PublishingDecision<true> {
+  if (isContentLegalHoldActive(legalHoldAt)) {
+    return { ok: false, code: PUBLISHING_ERROR.CONTENT_LEGAL_HOLD };
+  }
+
+  return { ok: true, value: true };
+}
+
+export function assertContentNotLegallyWithdrawn(state: {
+  retractedAt?: Date | string | null;
+  takedownAt?: Date | string | null;
+}): PublishingDecision<true> {
+  if (hasPublicLegalWithdrawal(state)) {
+    return { ok: false, code: PUBLISHING_ERROR.CONTENT_LEGALLY_WITHDRAWN };
+  }
+
+  return { ok: true, value: true };
+}
+
+export function assertEditorialMutationAllowed(item: {
+  deletedAt: Date | string | null;
+  legalHoldAt?: Date | string | null;
+}): PublishingDecision<true> {
+  const notDeleted = assertContentNotDeleted(item.deletedAt);
+  if (!notDeleted.ok) {
+    return notDeleted;
+  }
+
+  return assertContentNotOnLegalHold(item.legalHoldAt);
 }
 
 export function assertVersionOwnedByItem(
@@ -155,9 +192,14 @@ export function decidePublish(input: {
   categories: readonly CategoryAssignment[];
   now: Date;
 }): PublishingDecision<PublishPlan> {
-  const notDeleted = assertContentNotDeleted(input.item.deletedAt);
-  if (!notDeleted.ok) {
-    return notDeleted;
+  const allowed = assertEditorialMutationAllowed(input.item);
+  if (!allowed.ok) {
+    return allowed;
+  }
+
+  const withdrawn = assertContentNotLegallyWithdrawn(input.item);
+  if (!withdrawn.ok) {
+    return withdrawn;
   }
 
   const owned = assertVersionOwnedByItem(input.item.id, input.version.contentItemId);
@@ -235,9 +277,9 @@ export type UnpublishPlan = {
 export function decideUnpublish(
   item: ContentLifecycleItem,
 ): PublishingDecision<UnpublishPlan> {
-  const notDeleted = assertContentNotDeleted(item.deletedAt);
-  if (!notDeleted.ok) {
-    return notDeleted;
+  const allowed = assertEditorialMutationAllowed(item);
+  if (!allowed.ok) {
+    return allowed;
   }
 
   if (item.publicationStatus !== PUBLICATION_STATUS.PUBLISHED) {
@@ -264,9 +306,9 @@ export function decideSchedule(input: {
   scheduledAt: Date;
   now: Date;
 }): PublishingDecision<SchedulePlan> {
-  const notDeleted = assertContentNotDeleted(input.item.deletedAt);
-  if (!notDeleted.ok) {
-    return notDeleted;
+  const allowed = assertEditorialMutationAllowed(input.item);
+  if (!allowed.ok) {
+    return allowed;
   }
 
   const owned = assertVersionOwnedByItem(input.item.id, input.version.contentItemId);
@@ -318,9 +360,9 @@ export function decideReschedule(input: {
   scheduledAt: Date;
   now: Date;
 }): PublishingDecision<SchedulePlan> {
-  const notDeleted = assertContentNotDeleted(input.item.deletedAt);
-  if (!notDeleted.ok) {
-    return notDeleted;
+  const allowed = assertEditorialMutationAllowed(input.item);
+  if (!allowed.ok) {
+    return allowed;
   }
 
   if (input.item.scheduledVersionId === null || input.item.scheduledAt === null) {
@@ -352,9 +394,9 @@ export type UnschedulePlan = {
 export function decideUnschedule(
   item: ContentLifecycleItem,
 ): PublishingDecision<UnschedulePlan> {
-  const notDeleted = assertContentNotDeleted(item.deletedAt);
-  if (!notDeleted.ok) {
-    return notDeleted;
+  const allowed = assertEditorialMutationAllowed(item);
+  if (!allowed.ok) {
+    return allowed;
   }
 
   if (item.scheduledVersionId === null || item.scheduledAt === null) {

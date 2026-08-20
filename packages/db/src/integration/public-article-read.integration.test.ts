@@ -111,6 +111,9 @@ describe("public article read PostgreSQL", () => {
     assert.equal(serialized.includes("scheduleGeneration"), false);
     assert.equal(serialized.includes("publicationStatus"), false);
     assert.equal(serialized.includes("legalHold"), false);
+    assert.equal(serialized.includes("internalNote"), false);
+    assert.equal(serialized.includes("reasonCategory"), false);
+    assert.equal(serialized.includes("actorStaffUserId"), false);
     assert.equal(serialized.includes("storageKey"), false);
     assert.equal(serialized.includes("mimeType"), false);
     assert.equal(serialized.includes("byteSize"), false);

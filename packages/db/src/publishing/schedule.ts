@@ -3,7 +3,6 @@ import {
   CONTENT_AUDIT_EVENT_TYPE,
   PUBLISHING_ERROR,
   PublishingError,
-  assertContentNotDeleted,
   decideReschedule,
   decideSchedule,
   decideUnschedule,
@@ -14,6 +13,7 @@ import { getDb } from "../client";
 import { contentItems, contentVersions } from "../schema/content";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
+import { assertLockedEditorialMutationAllowed } from "./legal-hold-guard";
 import {
   authorizeLockedEditorMutation,
   loadLockedVersionCategories,
@@ -42,7 +42,7 @@ export async function scheduleVersion(
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
-    unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
+    assertLockedEditorialMutationAllowed(item);
 
     const [version] = await tx
       .select()
@@ -112,6 +112,7 @@ export async function rescheduleVersion(
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
+    assertLockedEditorialMutationAllowed(item);
     const scheduled = await loadLockedVersionCategories(
       tx,
       item.scheduledVersionId,
@@ -168,6 +169,7 @@ export async function unscheduleVersion(
 
   return db.transaction(async (tx) => {
     const item = await lockContentItem(tx, contentItemId);
+    assertLockedEditorialMutationAllowed(item);
     const scheduled = await loadLockedVersionCategories(
       tx,
       item.scheduledVersionId,

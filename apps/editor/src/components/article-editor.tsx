@@ -48,6 +48,9 @@ import {
   type RevisionHistoryItem,
 } from "@/lib/content/revision-presentation";
 import { ArticleWorkflowPanel } from "@/components/article-workflow-panel";
+import { ArticleLegalHoldBanner } from "@/components/article-legal-hold-banner";
+import { ArticleLegalPanel } from "@/components/article-legal-panel";
+import { LEGAL_HOLD_BLOCKED_COPY } from "@/lib/legal/presentation";
 import { formatEditorialDateTime } from "@/lib/content/editorial-timezone";
 import type { WorkflowEligibilityInput } from "@/lib/content/workflow-eligibility";
 
@@ -64,6 +67,10 @@ type ArticleEditorModel = {
     publishedAt: string | null;
     publicDateModified: string | null;
     updatedAt: string;
+    legalHoldAt: string | null;
+    legalHoldReason: string | null;
+    retractedAt: string | null;
+    takedownAt: string | null;
   };
   displayVersionId: string | null;
   editableVersion: {
@@ -155,6 +162,7 @@ type Props = {
     canEdit: boolean;
     canReview: boolean;
     canPublish: boolean;
+    canLegal: boolean;
   };
 };
 
@@ -251,6 +259,8 @@ export function ArticleEditor({
       bodyDocument &&
       baselineBody,
   );
+  const legalHoldActive = model.contentItem.legalHoldAt !== null;
+  const effectiveCanEdit = canEdit && !legalHoldActive;
 
   useEffect(() => {
     if (!isDirty) {
@@ -295,6 +305,9 @@ export function ArticleEditor({
       permissions,
       isDirty,
       hasConcurrencyToken: Boolean(token),
+      legalHoldAt: model.contentItem.legalHoldAt,
+      retractedAt: model.contentItem.retractedAt,
+      takedownAt: model.contentItem.takedownAt,
     }),
     [
       baselineRelations,
@@ -306,6 +319,9 @@ export function ArticleEditor({
       model.contentItem.publishedVersionId,
       model.contentItem.scheduledAt,
       model.contentItem.scheduledVersionId,
+      model.contentItem.legalHoldAt,
+      model.contentItem.retractedAt,
+      model.contentItem.takedownAt,
       model.draftVersion?.versionNumber,
       model.publishedVersion?.versionNumber,
       model.scheduledVersion?.versionNumber,
@@ -639,6 +655,12 @@ export function ArticleEditor({
         </div>
       </header>
 
+      {legalHoldActive ? (
+        <div className="mt-4">
+          <ArticleLegalHoldBanner message={LEGAL_HOLD_BLOCKED_COPY} />
+        </div>
+      ) : null}
+
       <div className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <main className="min-w-0">
           {version && fields ? (
@@ -671,7 +693,7 @@ export function ArticleEditor({
                     id="article-title"
                     rows={2}
                     value={fields.title}
-                    disabled={!canEdit}
+                    disabled={!effectiveCanEdit}
                     aria-invalid={Boolean(validation.errors.title)}
                     aria-describedby={
                       validation.errors.title ? "article-title-error" : undefined
@@ -690,7 +712,7 @@ export function ArticleEditor({
                   id="article-subtitle"
                   label="Alt başlık"
                   value={fields.subtitle}
-                  disabled={!canEdit}
+                  disabled={!effectiveCanEdit}
                   onChange={(value) => patchField("subtitle", value)}
                 />
 
@@ -698,7 +720,7 @@ export function ArticleEditor({
                   id="article-excerpt"
                   label="Spot"
                   value={fields.excerpt}
-                  disabled={!canEdit}
+                  disabled={!effectiveCanEdit}
                   rows={4}
                   onChange={(value) => patchField("excerpt", value)}
                 />
@@ -706,7 +728,7 @@ export function ArticleEditor({
 
               <ArticleMetadataEditor
                 relations={relations}
-                disabled={!canEdit}
+                disabled={!effectiveCanEdit}
                 heroBusy={heroBusy}
                 galleryBusy={galleryBusy}
                 videoBusy={videoBusy}
@@ -743,7 +765,7 @@ export function ArticleEditor({
                     <select
                       id="article-credibility"
                       value={fields.credibility ?? ""}
-                      disabled={!canEdit}
+                      disabled={!effectiveCanEdit}
                       onChange={(event) =>
                         patchField(
                           "credibility",
@@ -764,28 +786,28 @@ export function ArticleEditor({
                     id="article-credibility-source"
                     label="Doğruluk kaynağı"
                     value={fields.credibilitySource}
-                    disabled={!canEdit}
+                    disabled={!effectiveCanEdit}
                     onChange={(value) => patchField("credibilitySource", value)}
                   />
                   <TextField
                     id="article-source"
                     label="Kaynak"
                     value={fields.source}
-                    disabled={!canEdit}
+                    disabled={!effectiveCanEdit}
                     onChange={(value) => patchField("source", value)}
                   />
                   <TextField
                     id="article-source-organization"
                     label="Kaynak kuruluş"
                     value={fields.sourceOrganization}
-                    disabled={!canEdit}
+                    disabled={!effectiveCanEdit}
                     onChange={(value) => patchField("sourceOrganization", value)}
                   />
                   <TextField
                     id="article-source-url"
                     label="Kaynak URL"
                     value={fields.sourceUrl}
-                    disabled={!canEdit}
+                    disabled={!effectiveCanEdit}
                     error={validation.errors.sourceUrl}
                     onChange={(value) => patchField("sourceUrl", value)}
                   />
@@ -794,14 +816,14 @@ export function ArticleEditor({
                       id="article-syndicated"
                       label="Ajans / sendikasyon"
                       checked={fields.syndicated}
-                      disabled={!canEdit}
+                      disabled={!effectiveCanEdit}
                       onChange={(value) => patchField("syndicated", value)}
                     />
                     <CheckboxField
                       id="article-material"
                       label="Materyal güncelleme"
                       checked={fields.isMaterialUpdate}
-                      disabled={!canEdit}
+                      disabled={!effectiveCanEdit}
                       onChange={(value) => patchField("isMaterialUpdate", value)}
                     />
                   </div>
@@ -817,14 +839,14 @@ export function ArticleEditor({
                     id="article-seo-title"
                     label="SEO başlığı"
                     value={fields.seoTitle}
-                    disabled={!canEdit}
+                    disabled={!effectiveCanEdit}
                     onChange={(value) => patchField("seoTitle", value)}
                   />
                   <TextField
                     id="article-canonical"
                     label="Canonical URL"
                     value={fields.canonicalUrl}
-                    disabled={!canEdit}
+                    disabled={!effectiveCanEdit}
                     error={validation.errors.canonicalUrl}
                     onChange={(value) => patchField("canonicalUrl", value)}
                   />
@@ -832,7 +854,7 @@ export function ArticleEditor({
                     id="article-seo-description"
                     label="SEO açıklaması"
                     value={fields.seoDescription}
-                    disabled={!canEdit}
+                    disabled={!effectiveCanEdit}
                     rows={3}
                     onChange={(value) => patchField("seoDescription", value)}
                   />
@@ -840,7 +862,7 @@ export function ArticleEditor({
                     id="article-robots"
                     label="Robots yönergesi"
                     value={fields.robots}
-                    disabled={!canEdit}
+                    disabled={!effectiveCanEdit}
                     rows={3}
                     onChange={(value) => patchField("robots", value)}
                   />
@@ -850,7 +872,7 @@ export function ArticleEditor({
               {bodyDocument ? (
                 <StructuredBodyEditor
                   document={bodyDocument}
-                  disabled={!canEdit}
+                  disabled={!effectiveCanEdit}
                   onChange={(next) => {
                     setBodyDocument(next);
                     setSaveState({ kind: "idle" });
@@ -889,6 +911,16 @@ export function ArticleEditor({
             expectedUpdatedAt={token}
             fromReview={fromReview}
             returnHref={returnHref}
+            onConcurrencyToken={setToken}
+            onHistoryRefresh={() =>
+              setHistoryRefreshKey((current) => current + 1)
+            }
+          />
+
+          <ArticleLegalPanel
+            key={historyRefreshKey}
+            contentItemId={model.contentItem.id}
+            canLegal={permissions.canLegal}
             onConcurrencyToken={setToken}
             onHistoryRefresh={() =>
               setHistoryRefreshKey((current) => current + 1)

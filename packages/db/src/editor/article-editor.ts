@@ -113,6 +113,10 @@ export type ArticleEditorModel = {
     publishedAt: Date | null;
     publicDateModified: Date | null;
     updatedAt: Date;
+    legalHoldAt: Date | null;
+    legalHoldReason: string | null;
+    retractedAt: Date | null;
+    takedownAt: Date | null;
   };
   displayVersionId: string | null;
   editableVersion: {
@@ -137,7 +141,24 @@ export async function getArticleEditorModel(
 ): Promise<ArticleEditorModel | null> {
   const db = getDb();
   const [item] = await db
-    .select()
+    .select({
+      id: contentItems.id,
+      slug: contentItems.slug,
+      publicationStatus: contentItems.publicationStatus,
+      publishedVersionId: contentItems.publishedVersionId,
+      draftVersionId: contentItems.draftVersionId,
+      scheduledVersionId: contentItems.scheduledVersionId,
+      scheduledAt: contentItems.scheduledAt,
+      scheduleGeneration: contentItems.scheduleGeneration,
+      publishedAt: contentItems.publishedAt,
+      publicDateModified: contentItems.publicDateModified,
+      updatedAt: contentItems.updatedAt,
+      legalHoldAt: contentItems.legalHoldAt,
+      legalHoldReason: contentItems.legalHoldReason,
+      retractedAt: contentItems.retractedAt,
+      takedownAt: contentItems.takedownAt,
+      deletedAt: contentItems.deletedAt,
+    })
     .from(contentItems)
     .where(eq(contentItems.id, contentItemId))
     .limit(1);
@@ -197,6 +218,10 @@ export async function getArticleEditorModel(
       publishedAt: item.publishedAt,
       publicDateModified: item.publicDateModified,
       updatedAt: item.updatedAt,
+      legalHoldAt: item.legalHoldAt,
+      legalHoldReason: item.legalHoldReason,
+      retractedAt: item.retractedAt,
+      takedownAt: item.takedownAt,
     },
     displayVersionId: selectEditorDisplayVersionId(item),
     editableVersion,

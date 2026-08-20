@@ -5,10 +5,12 @@ import {
   assertCanSubmitForReview,
   assertPublishReady,
   decideUnpublish,
+  isContentLegalHoldActive,
   resolveDraftRevisionSource,
   type PublicationStatus,
   type WorkflowStatus,
 } from "@magazine/domain";
+import { LEGAL_HOLD_BLOCKED_COPY } from "@/lib/legal/presentation";
 import {
   PUBLICATION_STATUS_LABELS,
   WORKFLOW_STATUS_LABELS,
@@ -49,6 +51,9 @@ export type WorkflowEligibilityInput = {
   permissions: WorkflowActionPermissions;
   isDirty: boolean;
   hasConcurrencyToken: boolean;
+  legalHoldAt: string | null;
+  retractedAt: string | null;
+  takedownAt: string | null;
 };
 
 export type PresentedWorkflowAction = {
@@ -79,6 +84,7 @@ export type PresentedWorkflow = {
   confirmPublish: boolean;
   showReturnToQueue: boolean;
   createRevisionCopy: string | null;
+  legalHoldNotice: string | null;
 };
 
 export function presentWorkflow(input: WorkflowEligibilityInput): PresentedWorkflow {
@@ -92,6 +98,7 @@ export function presentWorkflow(input: WorkflowEligibilityInput): PresentedWorkf
   const createRevision = canCreateDraftRevision(input);
 
   const unpublish = canUnpublish(input);
+  const legalHoldActive = isContentLegalHoldActive(input.legalHoldAt);
 
   const available: PresentedWorkflowAction[] = [];
   if (submit) {
@@ -174,6 +181,7 @@ export function presentWorkflow(input: WorkflowEligibilityInput): PresentedWorkf
             input.publicationStatus === "PUBLISHED"
           ? "Bu içerik yayında. Yeni değişiklik yapmak için yeni bir taslak oluşturun. Yayındaki sürüm değişmez."
           : null,
+    legalHoldNotice: legalHoldActive ? LEGAL_HOLD_BLOCKED_COPY : null,
   };
 }
 
@@ -183,7 +191,8 @@ export function canSubmitForReview(input: WorkflowEligibilityInput): boolean {
     input.isDirty ||
     !input.hasConcurrencyToken ||
     !input.focusedVersionId ||
-    !input.workflowStatus
+    !input.workflowStatus ||
+    isContentLegalHoldActive(input.legalHoldAt)
   ) {
     return false;
   }
@@ -239,7 +248,8 @@ export function canPublishVersion(input: WorkflowEligibilityInput): boolean {
   if (
     !input.permissions.canPublish ||
     !input.focusedVersionId ||
-    !input.workflowStatus
+    !input.workflowStatus ||
+    isContentLegalHoldActive(input.legalHoldAt)
   ) {
     return false;
   }
@@ -267,7 +277,8 @@ export function canScheduleVersion(input: WorkflowEligibilityInput): boolean {
     !input.focusedVersionId ||
     !input.workflowStatus ||
     input.scheduledVersionId !== null ||
-    input.focusedVersionId === input.publishedVersionId
+    input.focusedVersionId === input.publishedVersionId ||
+    isContentLegalHoldActive(input.legalHoldAt)
   ) {
     return false;
   }
@@ -291,7 +302,7 @@ export function canUnschedule(input: WorkflowEligibilityInput): boolean {
 }
 
 export function canUnpublish(input: WorkflowEligibilityInput): boolean {
-  if (!input.permissions.canPublish) {
+  if (!input.permissions.canPublish || isContentLegalHoldActive(input.legalHoldAt)) {
     return false;
   }
 
@@ -319,7 +330,7 @@ export function revisionRequestSource(
 }
 
 export function canCreateDraftRevision(input: WorkflowEligibilityInput): boolean {
-  if (!input.permissions.canEdit) {
+  if (!input.permissions.canEdit || isContentLegalHoldActive(input.legalHoldAt)) {
     return false;
   }
 
@@ -331,6 +342,10 @@ export function canCreateDraftRevision(input: WorkflowEligibilityInput): boolean
 }
 
 function unavailableReason(input: WorkflowEligibilityInput): string | null {
+  if (isContentLegalHoldActive(input.legalHoldAt)) {
+    return LEGAL_HOLD_BLOCKED_COPY;
+  }
+
   if (!input.focusedVersionId || !input.workflowStatus) {
     if (
       input.draftVersionId === null &&

@@ -6,7 +6,6 @@ import {
   PublishingError,
   REVIEW_EVENT_TYPE,
   WORKFLOW_STATUS,
-  assertContentNotDeleted,
   canonicalizeOptionalReviewNote,
   canonicalizeRequiredReviewNote,
   decideApproveForReview,
@@ -24,6 +23,7 @@ import type { PublishingTx } from "./db-types";
 import { rethrowPublishingDbError, unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
 import { authorizeLockedReviewTarget } from "./locked-scope";
+import { assertLockedEditorialMutationAllowed } from "./legal-hold-guard";
 import { appendContentAuditEvent, staffAuditActor } from "./audit";
 
 export type ReviewResult = {
@@ -113,7 +113,7 @@ async function mutateReviewWorkflow(input: {
   try {
     return await db.transaction(async (tx) => {
       const item = await lockContentItem(tx, input.contentItemId);
-      unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
+      assertLockedEditorialMutationAllowed(item);
       const version = await loadOwnedVersion(tx, item.id, input.versionId);
       await authorizeLockedReviewTarget(tx, version.id, input.scope);
       unwrapPublishingDecision(

@@ -6,7 +6,6 @@ import {
   VIDEO_ERROR,
   VIDEO_TEXT_MAX,
   VideoError,
-  assertContentNotDeleted,
   decideLockedDraftSave,
   nextMonotonicUpdatedAt,
   type EditorStaffScope,
@@ -18,6 +17,7 @@ import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
 import { loadLockedDisplayCategories } from "./locked-scope";
+import { assertLockedEditorialMutationAllowed } from "./legal-hold-guard";
 import {
   appendContentAuditEvent,
   buildDraftUpdateChangeSet,
@@ -220,7 +220,7 @@ async function authorizeDraftVideoMutation(
   },
 ) {
   const item = await lockContentItem(tx, input.contentItemId);
-  unwrapPublishingDecision(assertContentNotDeleted(item.deletedAt));
+  assertLockedEditorialMutationAllowed(item);
 
   const [version] = await tx
     .select()

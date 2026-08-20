@@ -233,11 +233,15 @@ export function publicHomepagePlacementPointer(state: {
   publicationStatus: PublicationStatus;
   publishedVersionId: string | null;
   deletedAt?: Date | string | null;
+  retractedAt?: Date | string | null;
+  takedownAt?: Date | string | null;
 }): { contentItemId: string; publishedVersionId: string } | null {
   const publishedVersionId = publicPublishedVersionId({
     publicationStatus: state.publicationStatus,
     publishedVersionId: state.publishedVersionId,
     deletedAt: state.deletedAt,
+    retractedAt: state.retractedAt,
+    takedownAt: state.takedownAt,
   });
   if (!publishedVersionId) {
     return null;

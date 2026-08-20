@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import {
+  ContentLegalError,
+  CONTENT_LEGAL_ERROR,
+  type ContentLegalErrorCode,
   EDITOR_JSON_MAX_BYTES,
   HOMEPAGE_BUILDER_ERROR,
   HomepageBuilderError,
@@ -80,6 +83,8 @@ const PUBLISHING_STATUS: Record<PublishingErrorCode, number> = {
   [PUBLISHING_ERROR.CATEGORY_OUT_OF_SCOPE]: 403,
   [PUBLISHING_ERROR.INVALID_REVIEW_NOTE]: 400,
   [PUBLISHING_ERROR.CONTENT_BODY_CORRUPT]: 422,
+  [PUBLISHING_ERROR.CONTENT_LEGAL_HOLD]: 409,
+  [PUBLISHING_ERROR.CONTENT_LEGALLY_WITHDRAWN]: 409,
 };
 
 const HOMEPAGE_BUILDER_STATUS: Record<HomepageBuilderErrorCode, number> = {
@@ -121,6 +126,20 @@ const VIDEO_STATUS_MAP: Record<VideoErrorCode, number> = {
   [VIDEO_ERROR.INVALID_POSTER]: 400,
   [VIDEO_ERROR.INVALID_METADATA]: 400,
   [VIDEO_ERROR.STALE_WRITE]: 409,
+};
+
+const CONTENT_LEGAL_STATUS: Record<ContentLegalErrorCode, number> = {
+  [CONTENT_LEGAL_ERROR.FORBIDDEN]: 403,
+  [CONTENT_LEGAL_ERROR.CONTENT_NOT_FOUND]: 404,
+  [CONTENT_LEGAL_ERROR.CONTENT_DELETED]: 404,
+  [CONTENT_LEGAL_ERROR.CONTENT_WRITE_CONFLICT]: 409,
+  [CONTENT_LEGAL_ERROR.INVALID_LEGAL_ACTION]: 400,
+  [CONTENT_LEGAL_ERROR.NOT_PUBLISHED]: 409,
+  [CONTENT_LEGAL_ERROR.ALREADY_RETRACTED]: 409,
+  [CONTENT_LEGAL_ERROR.ALREADY_TAKEN_DOWN]: 409,
+  [CONTENT_LEGAL_ERROR.LEGAL_HOLD_ALREADY_ACTIVE]: 409,
+  [CONTENT_LEGAL_ERROR.LEGAL_HOLD_NOT_ACTIVE]: 409,
+  [CONTENT_LEGAL_ERROR.INVALID_NOTE]: 400,
 };
 
 const SAFE_MESSAGES: Record<string, string> = {
@@ -174,6 +193,10 @@ const SAFE_MESSAGES: Record<string, string> = {
   [MEDIA_UPLOAD_ERROR.STORAGE_FAILED]: "Görsel kaydedilemedi.",
   [MEDIA_UPLOAD_ERROR.STORAGE_NOT_CONFIGURED]: "Medya depolama yapılandırılmadı.",
   [MEDIA_UPLOAD_ERROR.INVALID_UPLOAD]: "Yükleme isteği geçersiz.",
+  [PUBLISHING_ERROR.CONTENT_LEGAL_HOLD]:
+    "Legal hold aktif: bu işlem şu anda engellendi.",
+  [PUBLISHING_ERROR.CONTENT_LEGALLY_WITHDRAWN]:
+    "Bu içerik yasal geri çekme veya kaldırma nedeniyle düzenlenemez.",
   [VIDEO_ERROR.NOT_FOUND]: "Video bulunamadı.",
   [VIDEO_ERROR.UNSUPPORTED_PROVIDER]:
     "Şu anda yalnızca YouTube ve Vimeo destekleniyor.",
@@ -184,6 +207,15 @@ const SAFE_MESSAGES: Record<string, string> = {
   [VIDEO_ERROR.INVALID_METADATA]: "Video alanları geçersiz.",
   [VIDEO_ERROR.STALE_WRITE]:
     "Bu video başka bir oturumda güncellendi. Yenileyip tekrar deneyin.",
+  [CONTENT_LEGAL_ERROR.NOT_PUBLISHED]:
+    "Bu işlem yalnızca yayın geçmişi olan içeriklerde uygulanabilir.",
+  [CONTENT_LEGAL_ERROR.ALREADY_RETRACTED]: "Bu haber zaten geri çekilmiş.",
+  [CONTENT_LEGAL_ERROR.ALREADY_TAKEN_DOWN]:
+    "Bu içerik zaten hukuki olarak kaldırılmış.",
+  [CONTENT_LEGAL_ERROR.LEGAL_HOLD_ALREADY_ACTIVE]: "Legal hold zaten aktif.",
+  [CONTENT_LEGAL_ERROR.LEGAL_HOLD_NOT_ACTIVE]: "Aktif bir legal hold yok.",
+  [CONTENT_LEGAL_ERROR.INVALID_NOTE]: "İç not veya kamu notu geçersiz.",
+  [CONTENT_LEGAL_ERROR.INVALID_LEGAL_ACTION]: "Yasal işlem isteği geçersiz.",
 };
 
 export function editorJson(body: unknown, status = 200): NextResponse {
@@ -250,6 +282,14 @@ export function mapEditorError(error: unknown): NextResponse {
   if (error instanceof VideoError) {
     return editorErrorResponse(
       VIDEO_STATUS_MAP[error.code] ?? 400,
+      error.code,
+      SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof ContentLegalError) {
+    return editorErrorResponse(
+      CONTENT_LEGAL_STATUS[error.code] ?? 400,
       error.code,
       SAFE_MESSAGES[error.code],
     );

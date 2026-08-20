@@ -51,4 +51,11 @@ export {
   getContentItem,
   getContentVersion,
 } from "./reads";
+export {
+  recordContentLegalAction,
+  listContentLegalActions,
+  type RecordContentLegalActionInput,
+  type RecordContentLegalActionResult,
+  type ContentLegalActionRecord,
+} from "./legal-actions";
 export { PublishingError, PUBLISHING_ERROR } from "@magazine/domain";

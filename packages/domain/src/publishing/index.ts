@@ -30,6 +30,9 @@ export {
 } from "./transitions";
 export {
   assertContentNotDeleted,
+  assertContentNotOnLegalHold,
+  assertContentNotLegallyWithdrawn,
+  assertEditorialMutationAllowed,
   assertPublishReady,
   assertAllowedPublishTarget,
   assertVersionEditable,

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { Metadata } from "next";
 import {
   articleSeoDescription,
+  buildPublicArticlePageSeo,
   buildPublicArticleSeo,
   serializeJsonLd,
   type ArticleSeoInput,
@@ -207,5 +208,55 @@ describe("public article SEO", () => {
     assert.equal("image" in jsonLd, false);
     assert.equal(jsonLd.datePublished, "2026-03-01T10:00:00.000Z");
     assert.equal(articleSeoDescription({ excerpt: null, subtitle: null }), undefined);
+  });
+
+  it("noindexes withdrawn articles without publishing NewsArticle JSON-LD", () => {
+    const retracted = buildPublicArticlePageSeo(
+      {
+        status: "withdrawn",
+        shell: {
+          id: "item-1",
+          slug: "retracted-piece",
+          title: "Geri çekilen haber",
+          publishedAt: new Date("2026-03-01T10:00:00.000Z"),
+          withdrawalKind: "RETRACTION",
+          publicNote: "Bu yazı geri çekilmiştir.",
+          effectiveAt: new Date("2026-03-05T12:00:00.000Z"),
+        },
+      },
+      SITE_URL,
+    );
+    assert.equal(retracted.metadata.title, "Geri çekilen haber — Geri çekildi");
+    assert.deepEqual(retracted.metadata.robots, { index: false, follow: false });
+    assert.equal(retracted.metadata.alternates?.canonical, "https://www.example.com/retracted-piece");
+    assert.equal(retracted.jsonLd, null);
+
+    const takedown = buildPublicArticlePageSeo(
+      {
+        status: "withdrawn",
+        shell: {
+          id: "item-2",
+          slug: "removed-piece",
+          title: "Kaldırılan içerik",
+          publishedAt: new Date("2026-03-01T10:00:00.000Z"),
+          withdrawalKind: "TAKEDOWN",
+          publicNote: null,
+          effectiveAt: new Date("2026-03-05T12:00:00.000Z"),
+        },
+      },
+      SITE_URL,
+    );
+    assert.equal(takedown.metadata.title, "Kaldırılan içerik — Yayından kaldırıldı");
+    assert.equal(takedown.metadata.description, "Bu içerik yayından kaldırılmıştır.");
+  });
+
+  it("keeps correction and clarification articles on the published SEO path", () => {
+    const seo = buildPublicArticlePageSeo(
+      { status: "live", article: publishedArticle() },
+      SITE_URL,
+    );
+    assert.notEqual(seo.jsonLd, null);
+    assert.equal(seo.metadata.alternates?.canonical, "https://www.example.com/kanonik-haber");
+    assert.equal(seo.metadata.robots, undefined);
   });
 });

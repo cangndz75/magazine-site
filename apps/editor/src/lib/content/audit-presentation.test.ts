@@ -101,6 +101,48 @@ describe("audit timeline presentation", () => {
       }).actionLabel,
       "Zamanlama iptal edildi",
     );
+    assert.equal(
+      presentAuditEvent({
+        ...baseEvent,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_CORRECTION_RECORDED,
+      }).actionLabel,
+      "Düzeltme kaydedildi",
+    );
+    assert.equal(
+      presentAuditEvent({
+        ...baseEvent,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_CLARIFICATION_RECORDED,
+      }).actionLabel,
+      "Açıklama kaydedildi",
+    );
+    assert.equal(
+      presentAuditEvent({
+        ...baseEvent,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_RETRACTED,
+      }).actionLabel,
+      "Geri çekildi",
+    );
+    assert.equal(
+      presentAuditEvent({
+        ...baseEvent,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_TAKEN_DOWN,
+      }).actionLabel,
+      "Yasal kaldırma uygulandı",
+    );
+    assert.equal(
+      presentAuditEvent({
+        ...baseEvent,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_PLACED,
+      }).actionLabel,
+      "Legal hold konuldu",
+    );
+    assert.equal(
+      presentAuditEvent({
+        ...baseEvent,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_RELEASED,
+      }).actionLabel,
+      "Legal hold kaldırıldı",
+    );
   });
 
   it("renders staff and system actors without fake users", () => {

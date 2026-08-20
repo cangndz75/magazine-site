@@ -92,6 +92,13 @@
       "when": 1787220000000,
       "tag": "0013_media-image-renditions",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787240000000,
+      "tag": "0014_editorial-legal-actions",
+      "breakpoints": true
     }
   ]
 }

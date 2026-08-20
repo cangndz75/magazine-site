@@ -13,11 +13,15 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  index,
 } from "drizzle-orm/pg-core";
 import { authors } from "./authors";
 import { entities } from "./entities";
 import {
   authorRoleEnum,
+  contentLegalActionPolarityEnum,
+  contentLegalActionTypeEnum,
+  contentLegalReasonCategoryEnum,
   credibilityEnum,
   entityRoleEnum,
   mediaRoleEnum,
@@ -25,6 +29,7 @@ import {
   workflowStatusEnum,
 } from "./enums";
 import { media } from "./media";
+import { staffUsers } from "./staff";
 import { categories, tags } from "./taxonomy";
 
 export const contentVersions = pgTable(
@@ -74,6 +79,68 @@ export const contentVersions = pgTable(
   ],
 );
 
+/**
+ * Append-only post-publication legal/editorial actions.
+ * Application code must only INSERT. There is no update/delete API.
+ */
+export const contentLegalActions = pgTable(
+  "content_legal_actions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    contentItemId: uuid("content_item_id")
+      .notNull()
+      .references((): AnyPgColumn => contentItems.id, { onDelete: "restrict" }),
+    contentVersionId: uuid("content_version_id"),
+    actionType: contentLegalActionTypeEnum("action_type").notNull(),
+    polarity: contentLegalActionPolarityEnum("polarity").notNull(),
+    reasonCategory: contentLegalReasonCategoryEnum("reason_category").notNull(),
+    internalNote: text("internal_note").notNull(),
+    publicNote: text("public_note"),
+    actorStaffUserId: uuid("actor_staff_user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    effectiveAt: timestamp("effective_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    unique("content_legal_actions_content_item_id_id_key").on(
+      table.contentItemId,
+      table.id,
+    ),
+    foreignKey({
+      name: "content_legal_actions_version_fk",
+      columns: [table.contentItemId, table.contentVersionId],
+      foreignColumns: [contentVersions.contentItemId, contentVersions.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "content_legal_actions_actor_staff_fk",
+      columns: [table.actorStaffUserId],
+      foreignColumns: [staffUsers.id],
+    }).onDelete("restrict"),
+    index("content_legal_actions_item_created_idx").on(
+      table.contentItemId,
+      table.createdAt,
+      table.id,
+    ),
+    check(
+      "content_legal_actions_internal_note_bounds",
+      sql`char_length(${table.internalNote}) BETWEEN 3 AND 4000`,
+    ),
+    check(
+      "content_legal_actions_public_note_bounds",
+      sql`${table.publicNote} IS NULL OR char_length(${table.publicNote}) BETWEEN 1 AND 4000`,
+    ),
+    check(
+      "content_legal_actions_polarity_by_type",
+      sql`(
+        (${table.actionType} = 'LEGAL_HOLD')
+        OR
+        (${table.polarity} = 'APPLY')
+      )`,
+    ),
+  ],
+);
+
 export const contentItems = pgTable(
   "content_items",
   {
@@ -96,6 +163,11 @@ export const contentItems = pgTable(
       .default(false),
     legalHoldAt: timestamp("legal_hold_at", { withTimezone: true }),
     legalHoldReason: text("legal_hold_reason"),
+    legalHoldActionId: uuid("legal_hold_action_id"),
+    retractedAt: timestamp("retracted_at", { withTimezone: true }),
+    retractedActionId: uuid("retracted_action_id"),
+    takedownAt: timestamp("takedown_at", { withTimezone: true }),
+    takedownActionId: uuid("takedown_action_id"),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -149,6 +221,34 @@ export const contentItems = pgTable(
           AND ${table.publishedAt} IS NOT NULL
         )`,
     ),
+    check(
+      "content_items_legal_hold_state_coherent",
+      sql`(
+        (${table.legalHoldAt} IS NULL AND ${table.legalHoldReason} IS NULL AND ${table.legalHoldActionId} IS NULL)
+        OR
+        (${table.legalHoldAt} IS NOT NULL AND ${table.legalHoldReason} IS NOT NULL AND ${table.legalHoldActionId} IS NOT NULL)
+      )`,
+    ),
+    check(
+      "content_items_legal_hold_reason_length",
+      sql`${table.legalHoldReason} IS NULL OR char_length(${table.legalHoldReason}) BETWEEN 1 AND 64`,
+    ),
+    check(
+      "content_items_retracted_state_coherent",
+      sql`(
+        (${table.retractedAt} IS NULL AND ${table.retractedActionId} IS NULL)
+        OR
+        (${table.retractedAt} IS NOT NULL AND ${table.retractedActionId} IS NOT NULL)
+      )`,
+    ),
+    check(
+      "content_items_takedown_state_coherent",
+      sql`(
+        (${table.takedownAt} IS NULL AND ${table.takedownActionId} IS NULL)
+        OR
+        (${table.takedownAt} IS NOT NULL AND ${table.takedownActionId} IS NOT NULL)
+      )`,
+    ),
     foreignKey({
       name: "content_items_published_version_same_item_fk",
       columns: [table.id, table.publishedVersionId],
@@ -163,6 +263,21 @@ export const contentItems = pgTable(
       name: "content_items_scheduled_version_same_item_fk",
       columns: [table.id, table.scheduledVersionId],
       foreignColumns: [contentVersions.contentItemId, contentVersions.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "content_items_legal_hold_action_same_item_fk",
+      columns: [table.id, table.legalHoldActionId],
+      foreignColumns: [contentLegalActions.contentItemId, contentLegalActions.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "content_items_retracted_action_same_item_fk",
+      columns: [table.id, table.retractedActionId],
+      foreignColumns: [contentLegalActions.contentItemId, contentLegalActions.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "content_items_takedown_action_same_item_fk",
+      columns: [table.id, table.takedownActionId],
+      foreignColumns: [contentLegalActions.contentItemId, contentLegalActions.id],
     }).onDelete("restrict"),
   ],
 );

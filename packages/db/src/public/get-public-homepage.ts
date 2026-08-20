@@ -192,6 +192,8 @@ export async function getPublicHomepage(
       publishedVersionId: contentItems.publishedVersionId,
       publishedAt: contentItems.publishedAt,
       deletedAt: contentItems.deletedAt,
+      retractedAt: contentItems.retractedAt,
+      takedownAt: contentItems.takedownAt,
       title: contentVersions.title,
       subtitle: contentVersions.subtitle,
       excerpt: contentVersions.excerpt,
@@ -207,6 +209,8 @@ export async function getPublicHomepage(
     .where(
       and(
         isNull(contentItems.deletedAt),
+        isNull(contentItems.retractedAt),
+        isNull(contentItems.takedownAt),
         eq(contentItems.publicationStatus, PUBLICATION_STATUS.PUBLISHED),
       ),
     )
@@ -260,6 +264,8 @@ export async function getPublicHomepage(
         publishedVersionId: contentItems.publishedVersionId,
         publishedAt: contentItems.publishedAt,
         deletedAt: contentItems.deletedAt,
+        retractedAt: contentItems.retractedAt,
+        takedownAt: contentItems.takedownAt,
         title: contentVersions.title,
         subtitle: contentVersions.subtitle,
         excerpt: contentVersions.excerpt,
@@ -276,6 +282,8 @@ export async function getPublicHomepage(
         and(
           inArray(contentItems.id, missingEditorialIds),
           isNull(contentItems.deletedAt),
+          isNull(contentItems.retractedAt),
+          isNull(contentItems.takedownAt),
           eq(contentItems.publicationStatus, PUBLICATION_STATUS.PUBLISHED),
         ),
       );

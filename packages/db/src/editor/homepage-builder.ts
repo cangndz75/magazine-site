@@ -219,6 +219,8 @@ async function assertPublishSafeAssignments(
       publicationStatus: contentItems.publicationStatus,
       publishedVersionId: contentItems.publishedVersionId,
       deletedAt: contentItems.deletedAt,
+      retractedAt: contentItems.retractedAt,
+      takedownAt: contentItems.takedownAt,
     })
     .from(contentItems)
     .where(inArray(contentItems.id, ids));
@@ -234,6 +236,8 @@ async function assertPublishSafeAssignments(
       publicationStatus: row.publicationStatus,
       publishedVersionId: row.publishedVersionId,
       deletedAt: row.deletedAt,
+      retractedAt: row.retractedAt,
+      takedownAt: row.takedownAt,
     });
     if (!pointer) {
       throw new HomepageBuilderError(HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED);
@@ -821,6 +825,8 @@ export async function loadPublicSafeEditorialContentItemIds(
       publicationStatus: contentItems.publicationStatus,
       publishedVersionId: contentItems.publishedVersionId,
       deletedAt: contentItems.deletedAt,
+      retractedAt: contentItems.retractedAt,
+      takedownAt: contentItems.takedownAt,
     })
     .from(contentItems)
     .where(inArray(contentItems.id, ids));
@@ -833,6 +839,8 @@ export async function loadPublicSafeEditorialContentItemIds(
         publicationStatus: row.publicationStatus,
         publishedVersionId: row.publishedVersionId,
         deletedAt: row.deletedAt,
+        retractedAt: row.retractedAt,
+        takedownAt: row.takedownAt,
       })
     ) {
       publicIds.add(row.id);

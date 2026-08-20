@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { unstable_cache } from "next/cache";
-import type { PublicArticle } from "@magazine/db/public";
+import type { PublicArticle, PublicArticlePage } from "@magazine/db/public";
 import {
   PUBLIC_ARTICLE_CACHE_REVALIDATE_SECONDS,
   cachedPublicArticleLoader,
-  type PublicArticleLoader,
+  type PublicArticlePageLoader,
 } from "./public-article-cache";
 
 type CacheOptions = Parameters<typeof unstable_cache>[2];
 
-function fakeCachedArticle(title: string, id = "content-1") {
+function fakeCachedArticle(title: string, id = "content-1"): PublicArticle {
   return {
     id,
     slug: "haber",
@@ -25,7 +25,12 @@ function fakeCachedArticle(title: string, id = "content-1") {
     videos: [],
     categories: [],
     authors: [],
+    legalNotices: [],
   };
+}
+
+function livePage(article: PublicArticle): PublicArticlePage {
+  return { status: "live", article };
 }
 
 class TaggedCache {
@@ -62,18 +67,26 @@ describe("public article shared cache wrapper", () => {
   it("reuses the cached public article result for repeated unchanged reads", async () => {
     const cache = new TaggedCache();
     let resolverCalls = 0;
-    const load: PublicArticleLoader = async () => {
+    const load: PublicArticlePageLoader = async () => {
       resolverCalls += 1;
-      return fakeCachedArticle("Title 1");
+      return livePage(fakeCachedArticle("Title 1"));
     };
 
     const first = await cachedPublicArticleLoader("haber", load, cache.factory);
     const second = await cachedPublicArticleLoader("haber", load, cache.factory);
 
     assert.equal(resolverCalls, 2);
-    assert.equal(first?.title, "Title 1");
-    assert.equal(second?.title, "Title 1");
-    assert.equal(second?.publishedAt instanceof Date, true);
+    assert.equal(first?.status, "live");
+    if (first?.status !== "live") {
+      throw new Error("expected live page");
+    }
+    assert.equal(first.article.title, "Title 1");
+    assert.equal(second?.status, "live");
+    if (second?.status !== "live") {
+      throw new Error("expected live page");
+    }
+    assert.equal(second.article.title, "Title 1");
+    assert.equal(second.article.publishedAt instanceof Date, true);
     assert.deepEqual(cache.calls[0]?.keyParts, [
       "public-article-identity",
       "article-slug:haber",
@@ -96,8 +109,8 @@ describe("public article shared cache wrapper", () => {
   it("refreshes the next read after slug tag invalidation, including cached null", async () => {
     const cache = new TaggedCache();
     let resolverCalls = 0;
-    let current: ReturnType<typeof fakeCachedArticle> | null = fakeCachedArticle("Old");
-    const load: PublicArticleLoader = async () => {
+    let current: PublicArticlePage | null = livePage(fakeCachedArticle("Old"));
+    const load: PublicArticlePageLoader = async () => {
       resolverCalls += 1;
       return current;
     };
@@ -107,7 +120,11 @@ describe("public article shared cache wrapper", () => {
     cache.invalidateTag("article-slug:haber");
     const second = await cachedPublicArticleLoader("haber", load, cache.factory);
 
-    assert.equal(first?.title, "Old");
+    assert.equal(first?.status, "live");
+    if (first?.status !== "live") {
+      throw new Error("expected live page");
+    }
+    assert.equal(first.article.title, "Old");
     assert.equal(second, null);
     assert.equal(resolverCalls, 3);
   });
@@ -116,9 +133,9 @@ describe("public article shared cache wrapper", () => {
     const cache = new TaggedCache();
     let resolverCalls = 0;
     let current = "Hero A";
-    const load: PublicArticleLoader = async () => {
+    const load: PublicArticlePageLoader = async () => {
       resolverCalls += 1;
-      return fakeCachedArticle(current);
+      return livePage(fakeCachedArticle(current));
     };
 
     const first = await cachedPublicArticleLoader("haber", load, cache.factory);
@@ -126,34 +143,45 @@ describe("public article shared cache wrapper", () => {
     cache.invalidateTag("content:content-1");
     const second = await cachedPublicArticleLoader("haber", load, cache.factory);
 
-    assert.equal(first?.title, "Hero A");
-    assert.equal(second?.title, "Hero B");
+    assert.equal(first?.status, "live");
+    if (first?.status !== "live") {
+      throw new Error("expected live page");
+    }
+    assert.equal(first.article.title, "Hero A");
+    assert.equal(second?.status, "live");
+    if (second?.status !== "live") {
+      throw new Error("expected live page");
+    }
+    assert.equal(second.article.title, "Hero B");
     assert.equal(resolverCalls, 3);
   });
 
   it("defaults missing gallery and videos on restored cache payloads", async () => {
     const cache = new TaggedCache();
-    const load: PublicArticleLoader = async () => {
-      const stale = { ...fakeCachedArticle("Old shape") } as Record<
-        string,
-        unknown
-      >;
+    const load: PublicArticlePageLoader = async () => {
+      const stale = { ...fakeCachedArticle("Old shape") } as Record<string, unknown>;
       delete stale.gallery;
       delete stale.videos;
-      return stale as unknown as PublicArticle;
+      delete stale.legalNotices;
+      return livePage(stale as unknown as PublicArticle);
     };
 
     const result = await cachedPublicArticleLoader("haber", load, cache.factory);
 
-    assert.equal(result?.title, "Old shape");
-    assert.deepEqual(result?.gallery, []);
-    assert.deepEqual(result?.videos, []);
+    assert.equal(result?.status, "live");
+    if (result?.status !== "live") {
+      throw new Error("expected live page");
+    }
+    assert.equal(result.article.title, "Old shape");
+    assert.deepEqual(result.article.gallery, []);
+    assert.deepEqual(result.article.videos, []);
+    assert.deepEqual(result.article.legalNotices, []);
   });
 
   it("does not cache malformed slugs", async () => {
     const cache = new TaggedCache();
     let resolverCalls = 0;
-    const load: PublicArticleLoader = async () => {
+    const load: PublicArticlePageLoader = async () => {
       resolverCalls += 1;
       return null;
     };

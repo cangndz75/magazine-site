@@ -1,13 +1,19 @@
 export {
   getPublicArticleBySlug,
+  getPublicArticlePageBySlug,
   type PublicArticle,
   type PublicArticleAuthor,
   type PublicArticleCategory,
   type PublicArticleGalleryItem,
   type PublicArticleHeroMedia,
+  type PublicArticlePage,
   type PublicArticleReadOptions,
   type PublicEditorialVideoProjection,
 } from "./get-public-article";
+export {
+  loadPublicLegalNotices,
+  loadPublicWithdrawnArticleShellBySlug,
+} from "./load-public-legal";
 export {
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
   PUBLIC_HOMEPAGE_LEAD_SLICE_SIZE,

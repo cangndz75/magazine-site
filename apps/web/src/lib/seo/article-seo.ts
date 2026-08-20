@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+import {
+  PUBLIC_ARTICLE_WITHDRAWAL_KIND,
+  type PublicWithdrawnArticleShell,
+} from "@magazine/domain";
 import { publicArticleCanonicalUrl } from "./public-site-url";
 
 export type ArticleSeoInput = {
@@ -30,6 +34,10 @@ export type PublicArticleSeo = {
   jsonLd: Record<string, unknown> | null;
   jsonLdScript: string | null;
 };
+
+export type PublicArticlePageSeoInput =
+  | { status: "live"; article: ArticleSeoInput }
+  | { status: "withdrawn"; shell: PublicWithdrawnArticleShell };
 
 const NOT_FOUND_TITLE = "Yazı bulunamadı";
 const NOT_FOUND_DESCRIPTION =
@@ -202,6 +210,33 @@ export function buildPublishedArticleMetadata(
   return metadata;
 }
 
+export function buildWithdrawnArticleMetadata(
+  shell: PublicWithdrawnArticleShell,
+  siteUrl: string,
+): Metadata {
+  const canonicalUrl = publicArticleCanonicalUrl(siteUrl, shell.slug);
+  const isTakedown =
+    shell.withdrawalKind === PUBLIC_ARTICLE_WITHDRAWAL_KIND.TAKEDOWN;
+  const titleSuffix = isTakedown ? "Yayından kaldırıldı" : "Geri çekildi";
+  const description =
+    shell.publicNote?.trim() ||
+    (isTakedown
+      ? "Bu içerik yayından kaldırılmıştır."
+      : "Bu yazı geri çekilmiştir.");
+
+  return {
+    title: `${shell.title} — ${titleSuffix}`,
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    robots: {
+      index: false,
+      follow: false,
+    },
+  };
+}
+
 /**
  * SEO for the public article route. A missing/non-public article yields
  * generic not-found metadata only — never article canonical/OG/JSON-LD.
@@ -224,4 +259,27 @@ export function buildPublicArticleSeo(
     jsonLd,
     jsonLdScript: serializeJsonLd(jsonLd),
   };
+}
+
+export function buildPublicArticlePageSeo(
+  page: PublicArticlePageSeoInput | null,
+  siteUrl: string,
+): PublicArticleSeo {
+  if (!page) {
+    return {
+      metadata: buildNotFoundArticleMetadata(),
+      jsonLd: null,
+      jsonLdScript: null,
+    };
+  }
+
+  if (page.status === "withdrawn") {
+    return {
+      metadata: buildWithdrawnArticleMetadata(page.shell, siteUrl),
+      jsonLd: null,
+      jsonLdScript: null,
+    };
+  }
+
+  return buildPublicArticleSeo(page.article, siteUrl);
 }

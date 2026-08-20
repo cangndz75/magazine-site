@@ -5,11 +5,13 @@ import { ArticleShare } from "@/components/article-share";
 import { JsonLdScript } from "@/components/json-ld-script";
 import { PublicArticleBody } from "@/components/public-article-body";
 import { PublicArticleGallery } from "@/components/public-article-gallery";
+import { PublicArticleLegalNotices } from "@/components/public-article-legal-notices";
 import { PublicArticleVideos } from "@/components/public-article-videos";
+import { PublicWithdrawnArticleShellView } from "@/components/public-withdrawn-article-shell";
 import { env } from "@/lib/env";
-import { getPublicArticleBySlug } from "@/lib/public-article";
+import { getPublicArticlePageBySlug } from "@/lib/public-article";
 import { publicArticleCanonicalUrl } from "@/lib/seo/public-site-url";
-import { buildPublicArticleSeo } from "@/lib/seo/article-seo";
+import { buildPublicArticlePageSeo } from "@/lib/seo/article-seo";
 
 export async function generateMetadata({
   params,
@@ -17,8 +19,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const article = await getPublicArticleBySlug(slug);
-  return buildPublicArticleSeo(article, env.SITE_URL).metadata;
+  const page = await getPublicArticlePageBySlug(slug);
+  return buildPublicArticlePageSeo(page, env.SITE_URL).metadata;
 }
 
 export default async function PublicArticlePage({
@@ -27,12 +29,17 @@ export default async function PublicArticlePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const article = await getPublicArticleBySlug(slug);
-  if (!article) {
+  const page = await getPublicArticlePageBySlug(slug);
+  if (!page) {
     notFound();
   }
 
-  const { jsonLdScript } = buildPublicArticleSeo(article, env.SITE_URL);
+  if (page.status === "withdrawn") {
+    return <PublicWithdrawnArticleShellView shell={page.shell} />;
+  }
+
+  const article = page.article;
+  const { jsonLdScript } = buildPublicArticlePageSeo(page, env.SITE_URL);
   const canonicalUrl = publicArticleCanonicalUrl(env.SITE_URL, article.slug);
 
   return (
@@ -49,6 +56,7 @@ export default async function PublicArticlePage({
           authors={article.authors}
         />
         <ArticleShare title={article.title} url={canonicalUrl} />
+        <PublicArticleLegalNotices notices={article.legalNotices} />
       </div>
 
       {article.hero ? (

@@ -67,6 +67,7 @@ const STAFF_ATTRIBUTED_MUTATION_ROUTES = [
   ["content", "[contentItemId]", "unschedule", "route.ts"],
   ["content", "[contentItemId]", "hero", "route.ts"],
   ["content", "[contentItemId]", "gallery", "route.ts"],
+  ["content", "[contentItemId]", "legal", "route.ts"],
 ];
 
 describe("editor content route contracts", () => {
@@ -288,5 +289,35 @@ describe("editor content route contracts", () => {
     assert.equal(panel.includes("publicationStatus"), false);
     assert.equal(panel.includes("staffUserId"), false);
     assert.equal(panel.includes("scopedCategoryIds"), false);
+  });
+
+  it("gates legal routes and workspace behind CONTENT_LEGAL", () => {
+    const legalRoute = readFileSync(
+      path.join(apiRoot, "legal", "route.ts"),
+      "utf8",
+    );
+    const contentLegalRoute = readFileSync(
+      path.join(apiRoot, "content", "[contentItemId]", "legal", "route.ts"),
+      "utf8",
+    );
+    const legalPage = readFileSync(
+      path.join(
+        fileURLToPath(new URL("../../app/(workspace)/legal/page.tsx", import.meta.url)),
+      ),
+      "utf8",
+    );
+    const legalPanel = readFileSync(
+      path.join(
+        fileURLToPath(new URL("../../components/article-legal-panel.tsx", import.meta.url)),
+      ),
+      "utf8",
+    );
+
+    assert.equal(legalRoute.includes("CAPABILITY.CONTENT_LEGAL"), true);
+    assert.equal(contentLegalRoute.includes("CAPABILITY.CONTENT_LEGAL"), true);
+    assert.equal(contentLegalRoute.includes("recordContentLegalAction"), true);
+    assert.equal(legalPage.includes("requireCapability(CAPABILITY.CONTENT_LEGAL)"), true);
+    assert.equal(legalPanel.includes("internalNote"), true);
+    assert.equal(legalPanel.includes("canLegal"), true);
   });
 });
