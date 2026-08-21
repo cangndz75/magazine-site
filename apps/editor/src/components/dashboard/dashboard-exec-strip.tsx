@@ -48,7 +48,7 @@ export function DashboardExecStrip({ dashboard }: { dashboard: SuperAdminDashboa
       label: "Dikkat Gerektiren",
       value:
         dashboard.attention.status === "AVAILABLE"
-          ? formatDashboardCount(dashboard.attention.data.items.length)
+          ? formatDashboardCount(dashboard.attention.data.total)
           : null,
       delta: null,
       unavailable: dashboard.attention.status !== "AVAILABLE",

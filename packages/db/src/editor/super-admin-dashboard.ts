@@ -189,6 +189,7 @@ export type SuperAdminDashboardDto = {
   editorial: DashboardSection<SuperAdminEditorialSummary>;
   attention: DashboardSection<{
     limit: typeof DASHBOARD_LIMITS.ATTENTION;
+    total: number;
     items: SuperAdminAttentionItem[];
   }>;
   upcomingPublishing: DashboardSection<{
@@ -272,6 +273,16 @@ function iso(value: Date | string | null | undefined): string | null {
 
 function contentHref(contentItemId: string): string {
   return `/content/${encodeURIComponent(contentItemId)}`;
+}
+
+function changesRequestedOnDraftSql() {
+  return sql`exists (
+    select 1
+    from ${contentReviewEvents} change_events
+    where change_events.content_item_id = ${contentItems.id}
+      and change_events.content_version_id = ${contentItems.draftVersionId}
+      and change_events.event_type = ${REVIEW_EVENT_TYPE.CHANGES_REQUESTED}
+  )`;
 }
 
 function reviewHref(contentItemId: string, versionId: string): string {
@@ -371,15 +382,7 @@ async function loadEditorialSummary(): Promise<SuperAdminEditorialSummary> {
       count(*) filter (where display_version.workflow_status = ${WORKFLOW_STATUS.DRAFT})::int as "draft",
       count(*) filter (where display_version.workflow_status = ${WORKFLOW_STATUS.IN_REVIEW})::int as "inReview",
       count(*) filter (where display_version.workflow_status = ${WORKFLOW_STATUS.APPROVED})::int as "approved",
-      count(*) filter (
-        where exists (
-          select 1
-          from content_review_events change_events
-          where change_events.content_item_id = ${contentItems.id}
-            and change_events.content_version_id = ${contentItems.draftVersionId}
-            and change_events.event_type = ${REVIEW_EVENT_TYPE.CHANGES_REQUESTED}
-        )
-      )::int as "changesRequested",
+      count(*) filter (where ${changesRequestedOnDraftSql()})::int as "changesRequested",
       count(*) filter (where ${contentItems.scheduledVersionId} is not null)::int as "scheduled",
       count(*) filter (where ${contentItems.publicationStatus} = ${PUBLICATION_STATUS.PUBLISHED})::int as "published"
     from ${contentItems}
@@ -405,6 +408,7 @@ async function loadEditorialSummary(): Promise<SuperAdminEditorialSummary> {
 
 async function loadAttentionItems(): Promise<{
   limit: typeof DASHBOARD_LIMITS.ATTENTION;
+  total: number;
   items: SuperAdminAttentionItem[];
 }> {
   const db = getDb();
@@ -414,6 +418,7 @@ async function loadAttentionItems(): Promise<{
     title: string;
     signal: SuperAdminAttentionItem["signal"];
     eventAt: Date;
+    total: number;
   };
   const result = await db.execute(sql<AttentionRow>`
     select
@@ -424,13 +429,7 @@ async function loadAttentionItems(): Promise<{
         when ${contentItems.legalHoldAt} is not null then 'LEGAL_HOLD'
         when ${contentItems.takedownAt} is not null then 'TAKEDOWN'
         when ${contentItems.retractedAt} is not null then 'RETRACTION'
-        when exists (
-          select 1
-          from content_review_events change_events
-          where change_events.content_item_id = ${contentItems.id}
-            and change_events.content_version_id = ${contentItems.draftVersionId}
-            and change_events.event_type = ${REVIEW_EVENT_TYPE.CHANGES_REQUESTED}
-        ) then 'CHANGES_REQUESTED'
+        when ${changesRequestedOnDraftSql()} then 'CHANGES_REQUESTED'
         else 'READINESS_BLOCKED'
       end as "signal",
       coalesce(
@@ -438,7 +437,8 @@ async function loadAttentionItems(): Promise<{
         ${contentItems.takedownAt},
         ${contentItems.retractedAt},
         ${contentItems.updatedAt}
-      ) as "eventAt"
+      ) as "eventAt",
+      count(*) over()::int as "total"
     from ${contentItems}
     inner join ${contentVersions} display_version
       on display_version.id = coalesce(
@@ -458,13 +458,7 @@ async function loadAttentionItems(): Promise<{
           display_version.workflow_status = ${WORKFLOW_STATUS.APPROVED}
           and display_primary.category_id is null
         )
-        or exists (
-          select 1
-          from content_review_events change_events
-          where change_events.content_item_id = ${contentItems.id}
-            and change_events.content_version_id = ${contentItems.draftVersionId}
-            and change_events.event_type = ${REVIEW_EVENT_TYPE.CHANGES_REQUESTED}
-        )
+        or ${changesRequestedOnDraftSql()}
       )
     order by "eventAt" desc, ${contentItems.id} desc
     limit ${DASHBOARD_LIMITS.ATTENTION}
@@ -473,6 +467,7 @@ async function loadAttentionItems(): Promise<{
 
   return {
     limit: DASHBOARD_LIMITS.ATTENTION,
+    total: rows.length > 0 ? Number(rows[0]?.total ?? rows.length) : 0,
     items: rows.map((row) => ({
       contentItemId: row.contentItemId,
       versionId: row.versionId,
@@ -540,20 +535,17 @@ async function loadReviewSummary(): Promise<SuperAdminReviewSummary> {
   const [countRow] = await db
     .select({
       count: sql<number>`count(*)::int`,
-      changesRequested: sql<number>`count(*) filter (
-        where exists (
-          select 1
-          from ${contentReviewEvents} change_events
-          where change_events.content_item_id = ${contentItems.id}
-            and change_events.content_version_id = ${contentItems.draftVersionId}
-            and change_events.event_type = ${REVIEW_EVENT_TYPE.CHANGES_REQUESTED}
-        )
-      )::int`,
     })
     .from(contentVersions)
     .innerJoin(contentItems, sql`${contentItems.id} = ${contentVersions.contentItemId}`)
     .where(sql`${contentItems.deletedAt} is null
       and ${contentVersions.workflowStatus} = ${WORKFLOW_STATUS.IN_REVIEW}`);
+  const [changesRow] = await db
+    .select({
+      changesRequested: sql<number>`count(*)::int`,
+    })
+    .from(contentItems)
+    .where(sql`${contentItems.deletedAt} is null and ${changesRequestedOnDraftSql()}`);
 
   const queue = await listReviewQueue(
     { scopedCategoryIds: null },
@@ -562,7 +554,7 @@ async function loadReviewSummary(): Promise<SuperAdminReviewSummary> {
 
   return {
     count: Number(countRow?.count ?? 0),
-    changesRequested: Number(countRow?.changesRequested ?? 0),
+    changesRequested: Number(changesRow?.changesRequested ?? 0),
     items: queue.items.map((item) => ({
       contentItemId: item.contentItemId,
       versionId: item.versionId,
@@ -752,6 +744,8 @@ async function loadSystemSignals(): Promise<SuperAdminSystemSignals> {
       processing: outbox.PROCESSING,
       completed: outbox.COMPLETED,
       dead: outbox.DEAD,
+      // Public cache outbox has no FAILED status. Transient failures return to
+      // PENDING; terminal failures are DEAD. `failed` is the presentation alias.
       failed: outbox.DEAD,
     },
     analyticsFreshness,

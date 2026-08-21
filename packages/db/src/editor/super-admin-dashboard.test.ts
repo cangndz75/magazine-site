@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   assertSafeSuperAdminDashboardDto,
@@ -21,7 +22,7 @@ function sampleDashboard(): SuperAdminDashboardDto {
         published: 6,
       },
     },
-    attention: { status: "AVAILABLE", data: { limit: 10, items: [] } },
+    attention: { status: "AVAILABLE", data: { limit: 10, total: 0, items: [] } },
     upcomingPublishing: { status: "AVAILABLE", data: { limit: 8, items: [] } },
     review: {
       status: "AVAILABLE",
@@ -149,5 +150,23 @@ describe("Super Admin dashboard read model contracts", () => {
       () => assertSafeSuperAdminDashboardDto(dashboard),
       /forbidden key/i,
     );
+  });
+
+  it("counts review changesRequested independently of the IN_REVIEW queue", () => {
+    const source = readFileSync(new URL("./super-admin-dashboard.ts", import.meta.url), "utf8");
+    const fn = source.slice(
+      source.indexOf("async function loadReviewSummary"),
+      source.indexOf("async function loadAnalyticsSummary"),
+    );
+    assert.match(fn, /changesRequestedOnDraftSql/);
+    assert.ok(fn.indexOf("changesRequestedOnDraftSql") > fn.indexOf("WORKFLOW_STATUS.IN_REVIEW"));
+  });
+
+  it("aliases outbox failed to DEAD because the outbox model has no FAILED status", () => {
+    const source = readFileSync(new URL("./super-admin-dashboard.ts", import.meta.url), "utf8");
+    const fn = source.slice(source.indexOf("async function loadSystemSignals"));
+    assert.match(fn, /dead: outbox\.DEAD/);
+    assert.match(fn, /failed: outbox\.DEAD/);
+    assert.equal(fn.includes("outbox.FAILED"), false);
   });
 });

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NEWSROOM_VIEW, WORKFLOW_STATUS } from "@magazine/domain";
 import type { SuperAdminEditorialSummary } from "@magazine/db/editor";
 import { DashboardSectionShell } from "./dashboard-section-shell";
 import { formatDashboardCount } from "@/lib/dashboard/dashboard-presentation";
@@ -12,17 +13,22 @@ type Row = {
 };
 
 const ROWS: Row[] = [
-  { key: "draft", label: "Taslaklar", href: "/?view=DRAFTS", tone: "neutral" },
-  { key: "inReview", label: "İncelemede", href: "/?view=IN_REVIEW", tone: "neutral" },
-  { key: "approved", label: "Onaylandı", href: "/?workflowStatus=APPROVED", tone: "neutral" },
+  { key: "draft", label: "Taslaklar", href: `/?view=${NEWSROOM_VIEW.DRAFTS}`, tone: "neutral" },
+  { key: "inReview", label: "İncelemede", href: `/?view=${NEWSROOM_VIEW.IN_REVIEW}`, tone: "neutral" },
+  {
+    key: "approved",
+    label: "Onaylandı",
+    href: `/?workflowStatus=${WORKFLOW_STATUS.APPROVED}`,
+    tone: "neutral",
+  },
   {
     key: "changesRequested",
     label: "Değişiklik İstendi",
-    href: "/?view=ATTENTION",
+    href: `/?view=${NEWSROOM_VIEW.ATTENTION}`,
     tone: "warning",
   },
-  { key: "scheduled", label: "Zamanlandı", href: "/?view=SCHEDULED", tone: "neutral" },
-  { key: "published", label: "Yayında", href: "/?view=PUBLISHED", tone: "neutral" },
+  { key: "scheduled", label: "Zamanlandı", href: `/?view=${NEWSROOM_VIEW.SCHEDULED}`, tone: "neutral" },
+  { key: "published", label: "Yayında", href: `/?view=${NEWSROOM_VIEW.PUBLISHED}`, tone: "neutral" },
 ];
 
 export function DashboardEditorialOperations({

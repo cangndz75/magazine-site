@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NEWSROOM_VIEW } from "@magazine/domain";
 import type { DashboardSection, SuperAdminAttentionItem } from "@magazine/db/editor";
 import { DashboardSectionShell } from "./dashboard-section-shell";
 import { StatusBadge } from "@/components/status-badge";
@@ -19,13 +20,13 @@ const TONE_TO_VARIANT = {
 export function DashboardAttention({
   section,
 }: {
-  section: DashboardSection<{ limit: number; items: SuperAdminAttentionItem[] }>;
+  section: DashboardSection<{ limit: number; total?: number; items: SuperAdminAttentionItem[] }>;
 }) {
   return (
     <DashboardSectionShell
       title="Dikkat Gerektirenler"
       section={section}
-      action={{ href: "/?view=ATTENTION", label: "Tümü" }}
+      action={{ href: `/?view=${NEWSROOM_VIEW.ATTENTION}`, label: "Tümü" }}
       emptyWhen={(data) => data.items.length === 0}
       empty={
         <p className="py-2 text-sm text-zinc-500">

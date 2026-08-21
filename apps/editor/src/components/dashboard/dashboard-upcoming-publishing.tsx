@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NEWSROOM_VIEW } from "@magazine/domain";
 import type { DashboardSection, SuperAdminUpcomingPublishingItem } from "@magazine/db/editor";
 import { DashboardSectionShell } from "./dashboard-section-shell";
 import { formatDashboardDay, formatDashboardTime } from "@/lib/dashboard/dashboard-presentation";
@@ -12,7 +13,7 @@ export function DashboardUpcomingPublishing({
     <DashboardSectionShell
       title="Yaklaşan Yayınlar"
       section={section}
-      action={{ href: "/?view=SCHEDULED", label: "Tümü" }}
+      action={{ href: `/?view=${NEWSROOM_VIEW.SCHEDULED}`, label: "Tümü" }}
       emptyWhen={(data) => data.items.length === 0}
       empty={
         <p className="py-2 text-sm text-zinc-500">
