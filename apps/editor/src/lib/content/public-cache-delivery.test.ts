@@ -106,7 +106,7 @@ describe("public web cache delivery", () => {
       { limit: 5 },
       {
         claim: async () => [event()],
-        deliver,
+        deliverArticle: deliver,
         markCompleted: async (claimed) => {
           completed.push(claimed.id);
           return true;
@@ -117,7 +117,7 @@ describe("public web cache delivery", () => {
       { limit: 5 },
       {
         claim: async () => [event()],
-        deliver,
+        deliverArticle: deliver,
         markCompleted: async (claimed) => {
           completed.push(claimed.id);
           return true;
@@ -186,7 +186,7 @@ describe("public web cache delivery", () => {
         { limit: 5 },
         {
           claim: async () => [event()],
-          deliver,
+          deliverArticle: deliver,
           markCompleted: async () => {
             throw new Error("must not complete");
           },
@@ -234,7 +234,7 @@ describe("public web cache delivery", () => {
       { limit: 5 },
       {
         claim: async () => [event()],
-        deliver: async () => {
+        deliverArticle: async () => {
           throw new Error("Public web cache invalidation timed out.");
         },
         markFailed: async () => PUBLIC_CACHE_OUTBOX_STATUS.PENDING,
@@ -244,7 +244,7 @@ describe("public web cache delivery", () => {
       { limit: 5 },
       {
         claim: async () => [event({ attemptCount: 2 })],
-        deliver: async () => {
+        deliverArticle: async () => {
           await deliverPublicArticleCacheInvalidation(TARGET, {
             baseUrl: BASE_URL,
             secret: SECRET,

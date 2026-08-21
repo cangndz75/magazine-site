@@ -34,6 +34,8 @@ const ANALYTICS_AGGREGATES_SQL = "0020_analytics-aggregates.sql";
 const ANALYTICS_RECENCY_FALLBACK_PLACEMENT_SQL =
   "0021_analytics-recency-fallback-placement.sql";
 const ENTITY_PLATFORM_SQL = "0022_entity-platform-foundation.sql";
+const PUBLIC_CACHE_OUTBOX_ENTITY_EVENTS_SQL =
+  "0023_public-cache-outbox-entity-events.sql";
 
 async function publicColumnExists(
   client: Client,
@@ -292,5 +294,17 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   );
   if (!hasEntityStatus || !hasEntitySlugHistory) {
     await applySqlFile(client, ENTITY_PLATFORM_SQL);
+  }
+
+  const entityCacheEventsAllowed = await client.query<{ matches: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM pg_constraint
+       WHERE conname = 'public_cache_outbox_event_type_check'
+         AND pg_get_constraintdef(oid) LIKE '%PUBLIC_ENTITY_CACHE_INVALIDATE%'
+     ) AS matches`,
+  );
+  if (entityCacheEventsAllowed.rows[0]?.matches !== true) {
+    await applySqlFile(client, PUBLIC_CACHE_OUTBOX_ENTITY_EVENTS_SQL);
   }
 }

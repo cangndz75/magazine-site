@@ -712,6 +712,10 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
       [itemIds],
     );
     await pool.query(
+      "DELETE FROM public_cache_outbox WHERE (payload->>'entityId')::uuid = $1::uuid",
+      [fixture.ids.entity],
+    );
+    await pool.query(
       "DELETE FROM content_versions WHERE content_item_id = ANY($1::uuid[])",
       [itemIds],
     );

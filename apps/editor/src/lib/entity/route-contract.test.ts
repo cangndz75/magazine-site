@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import path from "node:path";
 
-const root = path.join(import.meta.dirname, "..", "..");
+const root = path.join(import.meta.dirname, "..", "..", "..");
 
 describe("entity route contracts", () => {
   it("requires entity write capability on manager routes", () => {

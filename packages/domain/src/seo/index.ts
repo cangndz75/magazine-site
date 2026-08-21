@@ -72,6 +72,11 @@ export {
   type NewsArticleStructuredDataInspection,
 } from "./json-ld";
 export {
+  buildEntityProfileJsonLd,
+  serializeEntityProfileJsonLd,
+  type EntityProfileJsonLd,
+} from "./entity-json-ld";
+export {
   inspectStructuredArticleBody,
   type SeoBodyInspection,
 } from "./body-inspection";

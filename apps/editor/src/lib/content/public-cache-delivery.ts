@@ -1,5 +1,6 @@
 import {
-  PUBLIC_ARTICLE_CACHE_INVALIDATE_SCHEMA_VERSION,
+  PUBLIC_CACHE_OUTBOX_EVENT_TYPE,
+  PUBLIC_ENTITY_CACHE_INVALIDATE_SCHEMA_VERSION,
   PUBLIC_CACHE_INVALIDATION_PATH,
 } from "@magazine/domain";
 
@@ -9,6 +10,14 @@ export const PUBLIC_CACHE_INVALIDATION_ERROR_MAX_LENGTH = 200;
 export type PublicArticleCacheDeliveryTarget = {
   contentItemId: string;
   slug: string;
+};
+
+export type PublicEntityCacheDeliveryTarget = {
+  entityId: string;
+  slug: string;
+  eventType:
+    | typeof PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ENTITY_CACHE_INVALIDATE
+    | typeof PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ENTITY_RELATED_CACHE_INVALIDATE;
 };
 
 export type PublicArticleCacheDeliveryConfig = {
@@ -46,6 +55,37 @@ export async function deliverPublicArticleCacheInvalidation(
   target: PublicArticleCacheDeliveryTarget,
   config: PublicArticleCacheDeliveryConfig,
 ): Promise<void> {
+  await postPublicCacheInvalidation(
+    {
+      schemaVersion: 1,
+      contentItemId: target.contentItemId,
+      slug: target.slug,
+    },
+    config,
+  );
+}
+
+export async function deliverPublicEntityCacheInvalidation(
+  target: PublicEntityCacheDeliveryTarget,
+  config: PublicArticleCacheDeliveryConfig,
+): Promise<void> {
+  await postPublicCacheInvalidation(
+    {
+      eventType: target.eventType,
+      payload: {
+        schemaVersion: PUBLIC_ENTITY_CACHE_INVALIDATE_SCHEMA_VERSION,
+        entityId: target.entityId,
+        slug: target.slug,
+      },
+    },
+    config,
+  );
+}
+
+async function postPublicCacheInvalidation(
+  body: unknown,
+  config: PublicArticleCacheDeliveryConfig,
+): Promise<void> {
   const url = joinPublicWebInternalUrl(config.baseUrl);
   const timeoutMs = config.timeoutMs ?? PUBLIC_CACHE_INVALIDATION_TIMEOUT_MS;
   const fetchImpl = config.fetchImpl ?? fetch;
@@ -61,11 +101,7 @@ export async function deliverPublicArticleCacheInvalidation(
         accept: "application/json",
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        schemaVersion: PUBLIC_ARTICLE_CACHE_INVALIDATE_SCHEMA_VERSION,
-        contentItemId: target.contentItemId,
-        slug: target.slug,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
       cache: "no-store",
     });

@@ -25,7 +25,10 @@ export {
 } from "./reads";
 export {
   getPublicEntityBySlug,
+  getPublicEntityPageBySlug,
   listPublicContentForEntity,
   type PublicEntityLookupResult,
+  type PublicEntityPage,
+  type PublicEntityRelatedStoryCard,
   type PublicEntityRelatedStoryRead,
 } from "./public";

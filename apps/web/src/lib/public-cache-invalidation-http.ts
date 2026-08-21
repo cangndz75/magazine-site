@@ -1,23 +1,22 @@
+import { revalidateTag } from "next/cache";
 import {
   PUBLIC_CACHE_INVALIDATION_ERROR,
   PublicCacheInvalidationError,
   assertPublicCacheInvalidationAuthorized,
 } from "./public-cache-invalidation-auth";
-import {
-  invalidatePublicArticleCacheFromEvent,
-  readPublicArticleCacheInvalidateEvent,
-} from "./public-cache-invalidation";
+import { handlePublicCacheInvalidationBody } from "./public-cache-invalidation";
+
+type RevalidateTag = typeof revalidateTag;
 
 export async function handlePublicCacheInvalidationPost(
   request: Request,
   secret: string,
-  invalidate: typeof invalidatePublicArticleCacheFromEvent = invalidatePublicArticleCacheFromEvent,
+  revalidate: RevalidateTag = revalidateTag,
 ): Promise<Response> {
   try {
     assertPublicCacheInvalidationAuthorized(request, secret);
     const body = await readJsonObject(request);
-    const event = readPublicArticleCacheInvalidateEvent(body);
-    await invalidate(event);
+    await handlePublicCacheInvalidationBody(body, revalidate);
     return jsonResponse({ ok: true }, 200);
   } catch (error) {
     if (error instanceof SyntaxError) {

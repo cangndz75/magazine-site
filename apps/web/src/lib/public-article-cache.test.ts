@@ -30,6 +30,7 @@ function fakeCachedArticle(title: string, id = "content-1"): PublicArticle {
     videos: [],
     categories: [],
     authors: [],
+    entities: [],
     legalNotices: [],
   };
 }
@@ -168,6 +169,7 @@ describe("public article shared cache wrapper", () => {
       delete stale.gallery;
       delete stale.videos;
       delete stale.legalNotices;
+      delete stale.entities;
       return livePage(stale as unknown as PublicArticle);
     };
 
@@ -181,6 +183,7 @@ describe("public article shared cache wrapper", () => {
     assert.deepEqual(result.article.gallery, []);
     assert.deepEqual(result.article.videos, []);
     assert.deepEqual(result.article.legalNotices, []);
+    assert.deepEqual(result.article.entities, []);
   });
 
   it("does not cache malformed slugs", async () => {

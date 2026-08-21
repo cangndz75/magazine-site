@@ -29,6 +29,7 @@ function livePage(): PublicArticlePage {
     videos: [],
     categories: [],
     authors: [],
+    entities: [],
     legalNotices: [],
   };
   return { status: "live", article };

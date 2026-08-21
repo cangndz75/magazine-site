@@ -41,6 +41,7 @@ import {
   loadPublicLegalNotices,
   loadPublicWithdrawnArticleShellBySlug,
 } from "./load-public-legal";
+import { loadPublicArticleEntityLinks } from "./load-public-article-entities";
 
 export type PublicArticleCategory = {
   name: string;
@@ -52,6 +53,14 @@ export type PublicArticleAuthor = {
   displayName: string;
   slug: string;
   role: AuthorRole;
+};
+
+export type PublicArticleEntityLink = {
+  entityId: string;
+  canonicalName: string;
+  slug: string;
+  kind: string;
+  publicHref: string | null;
 };
 
 export type PublicArticleHeroMedia = {
@@ -91,6 +100,7 @@ export type PublicArticle = {
   videos: PublicEditorialVideoProjection[];
   categories: PublicArticleCategory[];
   authors: PublicArticleAuthor[];
+  entities: PublicArticleEntityLink[];
   legalNotices: PublicLegalNotice[];
   analyticsContext?: string;
 };
@@ -354,6 +364,10 @@ export async function getPublicArticleBySlug(
     return item ? [{ ...item, videoAssetId: row.videoAssetId }] : [];
   });
   const legalNotices = await loadPublicLegalNotices(item.id);
+  const entities = await loadPublicArticleEntityLinks({
+    contentItemId: item.id,
+    publishedVersionId,
+  });
 
   return {
     id: item.id,
@@ -387,6 +401,7 @@ export async function getPublicArticleBySlug(
       slug: row.slug,
       role: row.role,
     })),
+    entities,
     legalNotices,
     ...(options.analyticsContextSigningKey
       ? {

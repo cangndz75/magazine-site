@@ -14,6 +14,7 @@ import {
 } from "@magazine/domain";
 import { getDb } from "../client";
 import { enqueuePublicArticleCacheInvalidation } from "../public-cache-outbox";
+import { enqueuePublicEntityRelatedInvalidationForVersion } from "../entities/cache-invalidation";
 import { contentItems, contentVersions } from "../schema/content";
 import type { PublishingTx } from "./db-types";
 import { unwrapPublishingDecision } from "./errors";
@@ -139,6 +140,7 @@ async function publishLockedVersion(
     slug: item.slug,
     now,
   });
+  await enqueuePublicEntityRelatedInvalidationForVersion(tx, plan.publishedVersionId, now);
 
   return {
     contentItemId: item.id,
@@ -226,6 +228,12 @@ export async function unpublishContent(
       contentItemId: item.id,
       slug: item.slug,
     });
+    if (item.publishedVersionId) {
+      await enqueuePublicEntityRelatedInvalidationForVersion(
+        tx,
+        item.publishedVersionId,
+      );
+    }
 
     return {
       contentItemId: item.id,

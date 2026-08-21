@@ -6,6 +6,7 @@ import { ArticleHero } from "@/components/article-hero";
 import { ArticleShare } from "@/components/article-share";
 import { JsonLdScript } from "@/components/json-ld-script";
 import { PublicArticleBody } from "@/components/public-article-body";
+import { PublicArticleEntities } from "@/components/public-article-entities";
 import { PublicArticleGallery } from "@/components/public-article-gallery";
 import { PublicArticleLegalNotices } from "@/components/public-article-legal-notices";
 import { PublicArticleVideos } from "@/components/public-article-videos";
@@ -84,6 +85,9 @@ export default async function PublicArticlePage({
         />
         <ArticleShare title={article.title} url={canonicalUrl} />
         <PublicArticleLegalNotices notices={article.legalNotices} />
+        {article.entities.length > 0 ? (
+          <PublicArticleEntities entities={article.entities} />
+        ) : null}
       </div>
 
       {article.hero ? (

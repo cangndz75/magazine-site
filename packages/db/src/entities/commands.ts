@@ -32,6 +32,7 @@ import type { PublishingTx } from "../publishing/db-types";
 import { rethrowEntityDbError, unwrapEntityDecision } from "./errors";
 import { loadEditorEntityProjection } from "./reads";
 import type { EditorEntityDetail } from "./reads";
+import { enqueuePublicEntityProfileInvalidation } from "./cache-invalidation";
 
 export type EntityStaffActor = {
   staffUserId: string;
@@ -337,6 +338,14 @@ export async function updateEntity(input: {
         });
       }
 
+      if (plan.status === ENTITY_STATUS.ACTIVE) {
+        await enqueuePublicEntityProfileInvalidation(tx, {
+          entityId: current.id,
+          slug: plan.slug,
+          now: nextUpdatedAt,
+        });
+      }
+
       return loadEditorEntityProjection(tx, current.id);
     });
   } catch (error) {
@@ -401,6 +410,12 @@ export async function updateEntitySlug(input: {
         },
       });
 
+      await enqueuePublicEntityProfileInvalidation(tx, {
+        entityId: current.id,
+        slug: plan.nextSlug,
+        now: nextUpdatedAt,
+      });
+
       return {
         entityId: current.id,
         previousSlug: plan.previousSlug,
@@ -455,6 +470,12 @@ export async function activateEntity(input: {
         },
       });
 
+      await enqueuePublicEntityProfileInvalidation(tx, {
+        entityId: current.id,
+        slug: current.slug,
+        now: nextUpdatedAt,
+      });
+
       return loadEditorEntityProjection(tx, current.id);
     });
   } catch (error) {
@@ -505,6 +526,12 @@ export async function archiveEntity(input: {
           },
         });
       }
+
+      await enqueuePublicEntityProfileInvalidation(tx, {
+        entityId: current.id,
+        slug: current.slug,
+        now: nextUpdatedAt,
+      });
 
       return loadEditorEntityProjection(tx, current.id);
     });
@@ -557,6 +584,12 @@ export async function reactivateEntity(input: {
           },
         });
       }
+
+      await enqueuePublicEntityProfileInvalidation(tx, {
+        entityId: current.id,
+        slug: current.slug,
+        now: nextUpdatedAt,
+      });
 
       return loadEditorEntityProjection(tx, current.id);
     });
