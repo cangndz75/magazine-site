@@ -131,6 +131,16 @@ describe("public cache outbox PostgreSQL", () => {
     return result.rows;
   }
 
+  function articleOutboxContentItemId(
+    payload: PublicCacheOutboxEvent["payload"],
+  ): string {
+    assert.equal("contentItemId" in payload, true);
+    if (!("contentItemId" in payload)) {
+      throw new Error("expected article cache payload");
+    }
+    return payload.contentItemId;
+  }
+
   async function claimArticleOutboxEvent(): Promise<PublicCacheOutboxEvent> {
     let articleEvent: PublicCacheOutboxEvent | null = null;
     for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -289,7 +299,7 @@ describe("public cache outbox PostgreSQL", () => {
   it("claims, completes, retries, and dead-letters events durably", async () => {
     const created = await publishApproved("Worker lifecycle");
     const firstClaim = await claimArticleOutboxEvent();
-    assert.equal(firstClaim.payload.contentItemId, created.contentItemId);
+    assert.equal(articleOutboxContentItemId(firstClaim.payload), created.contentItemId);
 
     const now = new Date();
     const retryStatus = await markPublicCacheOutboxEventFailed(
@@ -415,7 +425,10 @@ describe("public cache outbox PostgreSQL", () => {
 
     const finalAttemptCreated = await publishApproved("Final stale processing");
     const finalAttempt = await claimArticleOutboxEvent();
-    assert.equal(finalAttempt.payload.contentItemId, finalAttemptCreated.contentItemId);
+    assert.equal(
+      articleOutboxContentItemId(finalAttempt.payload),
+      finalAttemptCreated.contentItemId,
+    );
 
     await getRacerPool().query(
       `UPDATE public_cache_outbox

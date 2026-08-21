@@ -32,3 +32,7 @@ export {
   type PublicEntityRelatedStoryCard,
   type PublicEntityRelatedStoryRead,
 } from "./public";
+export {
+  suggestEntityLinksForArticle,
+  type EntityLinkSuggestionResult,
+} from "./suggestions";

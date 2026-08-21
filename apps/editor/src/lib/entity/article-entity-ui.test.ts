@@ -22,6 +22,16 @@ describe("article entity relations UI boundary", () => {
     assert.match(source, /Bahsedilen/);
     assert.match(source, /Bu varlık arşivlenmiş/);
   });
+
+  it("wires the linking assistant without auto-inserting body links", () => {
+    const source = readFileSync(
+      path.join(componentsRoot, "article-metadata-editor.tsx"),
+      "utf8",
+    );
+    assert.match(source, /ArticleEntityLinkAssistant/);
+    assert.match(source, /ENTITY_ROLE.MENTIONED/);
+    assert.doesNotMatch(source, /editorDocumentToBody/);
+  });
 });
 
 describe("article entity relation state", () => {

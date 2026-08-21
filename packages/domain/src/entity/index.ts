@@ -106,6 +106,30 @@ export {
   type PublicEntityLookupKind,
 } from "./public-authority";
 export {
+  toPublicEntityDiscoveryDocument,
+  type PublicEntityDiscoveryDocument,
+} from "./discovery";
+export {
+  ENTITY_LINK_AMBIGUITY_MESSAGE,
+  ENTITY_LINK_ASSISTANT_BOUNDS,
+  ENTITY_LINK_MATCHED_BY,
+  ENTITY_LINK_SUGGESTION_KIND,
+  clampEntityLinkCatalogue,
+  collectStaleEntitySlugWarnings,
+  inspectArticleTextForEntityLinks,
+  matchEntityLinkSuggestions,
+  parsePublicEntityProfileSlug,
+  tokenizeEntityLinkText,
+  type EntityLinkAmbiguousSuggestion,
+  type EntityLinkCatalogueEntry,
+  type EntityLinkCatalogueLabel,
+  type EntityLinkMatchSuggestion,
+  type EntityLinkMatchedBy,
+  type EntityLinkSuggestion,
+  type EntityLinkSuggestionCandidate,
+  type EntityStaleSlugWarning,
+} from "./linking";
+export {
   PUBLIC_ENTITY_PROJECTION_KEYS,
   entityJsonLdType,
   toEditorEntityProjection,

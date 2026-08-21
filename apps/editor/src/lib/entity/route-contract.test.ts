@@ -27,6 +27,20 @@ describe("entity route contracts", () => {
     assert.match(source, /storageKey/);
     assert.doesNotMatch(source, /storageKey:/);
   });
+
+  it("authorizes article entity suggestions with editor write access", () => {
+    const source = readFileSync(
+      path.join(
+        root,
+        "src/app/api/content/[contentItemId]/entity-link-suggestions/route.ts",
+      ),
+      "utf8",
+    );
+    assert.match(source, /withEditorWrite/);
+    assert.match(source, /CONTENT_EDIT/);
+    assert.match(source, /loadAccessibleContent/);
+    assert.doesNotMatch(source, /storageKey/);
+  });
 });
 
 describe("entity workspace authorization", () => {

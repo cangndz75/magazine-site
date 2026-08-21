@@ -1,6 +1,5 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
-  CREDIBILITY,
   CREDIBILITY_VALUES,
   ENTITY_RELATED_STORIES_DEFAULT_LIMIT,
   ENTITY_RELATED_STORIES_MAX_LIMIT,
@@ -29,7 +28,6 @@ import {
   loadMediaRenditionsByMediaIds,
   resolvePublicImageDelivery,
 } from "../media/image-delivery";
-import { resolvePublicMediaUrl } from "../public/resolve-public-media-url";
 import {
   contentItems,
   contentLegalActions,
@@ -417,7 +415,6 @@ async function loadRelatedStoryCards(input: {
     if (!row.publishedVersionId || !row.publishedAt) {
       continue;
     }
-    const legalKinds = legalByItem.get(row.contentItemId) ?? [];
     stories.push({
       contentItemId: row.contentItemId,
       slug: row.slug,

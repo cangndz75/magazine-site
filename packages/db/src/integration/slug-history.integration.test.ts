@@ -207,7 +207,7 @@ describe("content slug history and public metadata authority", () => {
       .select({ payload: publicCacheOutbox.payload })
       .from(publicCacheOutbox);
     const slugs = outbox
-      .filter((event) => event.payload.contentItemId === created.contentItemId)
+      .filter((event) => "contentItemId" in event.payload && event.payload.contentItemId === created.contentItemId)
       .map((event) => event.payload.slug);
     assert.equal(slugs.includes(slugA), true);
     assert.equal(slugs.includes(slugB), true);

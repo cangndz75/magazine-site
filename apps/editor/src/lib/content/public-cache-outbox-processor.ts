@@ -20,8 +20,14 @@ export type PublicCacheOutboxProcessSummary = {
 
 export type PublicCacheOutboxProcessorDeps = {
   claim?: typeof claimPublicCacheOutboxEvents;
-  deliverArticle?: typeof deliverPublicArticleCacheInvalidation;
-  deliverEntity?: typeof deliverPublicEntityCacheInvalidation;
+  deliverArticle?: (target: { contentItemId: string; slug: string }) => Promise<void>;
+  deliverEntity?: (target: {
+    entityId: string;
+    slug: string;
+    eventType:
+      | typeof PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ENTITY_CACHE_INVALIDATE
+      | typeof PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ENTITY_RELATED_CACHE_INVALIDATE;
+  }) => Promise<void>;
   markCompleted?: typeof markPublicCacheOutboxEventCompleted;
   markFailed?: typeof markPublicCacheOutboxEventFailed;
 };
@@ -93,8 +99,8 @@ async function deliverEntityToPublicWeb(target: {
 
 async function deliverEvent(
   event: PublicCacheOutboxEvent,
-  deliverArticle: typeof deliverPublicArticleCacheInvalidation,
-  deliverEntity: typeof deliverPublicEntityCacheInvalidation,
+  deliverArticle: NonNullable<PublicCacheOutboxProcessorDeps["deliverArticle"]>,
+  deliverEntity: NonNullable<PublicCacheOutboxProcessorDeps["deliverEntity"]>,
 ): Promise<void> {
   if (
     event.eventType === PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ARTICLE_CACHE_INVALIDATE

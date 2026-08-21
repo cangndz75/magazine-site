@@ -26,10 +26,15 @@ import {
   listEntities,
   listPublicContentForEntity,
   reactivateEntity,
+  suggestEntityLinksForArticle,
   updateEntity,
   updateEntitySlug,
   type EntityStaffActor,
 } from "../entities";
+import {
+  countPublicSitemapEntities,
+  listPublicSitemapEntities,
+} from "../seo/entity-sitemap";
 import { lookupEditorEntities } from "../editor/lookups";
 import {
   createDraftRevision,
@@ -649,5 +654,82 @@ describe("entity platform persistence", () => {
     if (rejected[0]?.status === "rejected") {
       assertEntityCode(rejected[0].reason, ENTITY_ERROR.SLUG_CONFLICT);
     }
+  });
+
+  it("includes only ACTIVE current slugs in the public entity sitemap", async () => {
+    const site = "https://www.example.com";
+    const draft = await createNamedEntity({
+      name: "Sitemap Draft",
+      slug: uniqueSlug("sm-draft"),
+    });
+    const active = await createNamedEntity({
+      name: "Sitemap Active",
+      slug: uniqueSlug("sm-active"),
+    });
+    const activated = await activateEntity({
+      actor: editorActor(fixture),
+      entityId: active.entityId,
+      expectedUpdatedAt: active.updatedAt,
+    });
+    const archived = await createNamedEntity({
+      name: "Sitemap Archived",
+      slug: uniqueSlug("sm-arch"),
+    });
+    const archivedActive = await activateEntity({
+      actor: editorActor(fixture),
+      entityId: archived.entityId,
+      expectedUpdatedAt: archived.updatedAt,
+    });
+    await archiveEntity({
+      actor: editorActor(fixture),
+      entityId: archived.entityId,
+      expectedUpdatedAt: archivedActive.updatedAt,
+    });
+
+    const renamed = await updateEntitySlug({
+      actor: editorActor(fixture),
+      entityId: activated.entityId,
+      slug: uniqueSlug("sm-new"),
+      expectedUpdatedAt: activated.updatedAt,
+    });
+
+    const sitemap = await listPublicSitemapEntities({
+      trustedSiteUrl: site,
+      limit: 100,
+    });
+    const locs = sitemap.entries.map((entry) => entry.loc);
+    assert.equal(locs.includes(`${site}/kimdir/${draft.slug}`), false);
+    assert.equal(locs.includes(`${site}/kimdir/${active.slug}`), false);
+    assert.equal(locs.includes(`${site}/kimdir/${archived.slug}`), false);
+    assert.equal(locs.includes(`${site}/kimdir/${renamed.slug}`), true);
+    assert.equal((await countPublicSitemapEntities()) >= 1, true);
+
+    const suggestions = await suggestEntityLinksForArticle({
+      body: {
+        blocks: [{ type: "paragraph", text: "Sitemap Active yeni proje." }],
+      },
+      relatedEntityIds: [],
+    });
+    assert.equal(
+      suggestions.suggestions.some(
+        (item) =>
+          item.kind === "MATCH" && item.entity.entityId === activated.entityId,
+      ),
+      true,
+    );
+    assert.equal(
+      suggestions.suggestions.some(
+        (item) => item.kind === "MATCH" && item.entity.entityId === archived.entityId,
+      ),
+      false,
+    );
+    assert.equal(
+      JSON.stringify(suggestions).includes("storageKey"),
+      false,
+    );
+    assert.equal(
+      JSON.stringify(suggestions).includes("biography"),
+      false,
+    );
   });
 });

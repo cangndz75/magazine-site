@@ -1,8 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import {
-  PUBLIC_CACHE_OUTBOX_EVENT_TYPE,
-  PUBLIC_ENTITY_CACHE_INVALIDATE_SCHEMA_VERSION,
-} from "@magazine/domain";
+import { PUBLIC_CACHE_OUTBOX_EVENT_TYPE } from "@magazine/domain";
 import { getDb } from "./client";
 import {
   publicCacheOutbox,

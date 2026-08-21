@@ -130,7 +130,7 @@ export function EntityDetailWorkspace({ mode, initial }: Props) {
     } catch {
       setDuplicates([]);
     }
-  }, [form.aliases, form.canonicalName, initial?.entityId]);
+  }, [form.aliases, form.canonicalName, initial]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
