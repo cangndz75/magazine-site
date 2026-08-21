@@ -1,5 +1,6 @@
 "use client";
 
+import type { EntityLinkSuggestion } from "@magazine/domain";
 import {
   AuthorRelationPicker,
   PrimaryCategoryPicker,
@@ -60,6 +61,7 @@ type Props = {
     pendingCount: number;
     ambiguousCount: number;
   }) => void;
+  onSuggestionSnapshot?: (suggestions: readonly EntityLinkSuggestion[]) => void;
 };
 
 export function ArticleMetadataEditor({
@@ -78,6 +80,7 @@ export function ArticleMetadataEditor({
   onPersistGallery,
   onPersistVideos,
   onSuggestionStats,
+  onSuggestionSnapshot,
 }: Props) {
   const primary = getPrimaryCategory(relations);
   const secondary = getSecondaryCategories(relations);
@@ -172,6 +175,7 @@ export function ArticleMetadataEditor({
           relatedEntityIds={relations.entities.map((item) => item.id)}
           disabled={disabled}
           onSuggestionStats={onSuggestionStats}
+          onSuggestionSnapshot={onSuggestionSnapshot}
           onAdd={(entity) =>
             onChange(addEntity(relations, { ...entity, role: ENTITY_ROLE.MENTIONED }))
           }

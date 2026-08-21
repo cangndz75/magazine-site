@@ -13,6 +13,8 @@ describe("parsePageSearchParams", () => {
     assert.equal(result.categoryId, undefined);
     assert.equal(result.authorId, undefined);
     assert.equal(result.scheduledOnly, false);
+    assert.equal(result.view, "all");
+    assert.equal(result.sort, "updated_desc");
   });
 
   it("parses valid search", () => {
@@ -97,5 +99,25 @@ describe("parsePageSearchParams", () => {
       q: ["first", "second"] as unknown as string,
     });
     assert.equal(result.search, null);
+  });
+
+  it("parses valid newsroom view", () => {
+    const result = parsePageSearchParams({ view: "in_review" });
+    assert.equal(result.view, "in_review");
+  });
+
+  it("ignores invalid newsroom view", () => {
+    const result = parsePageSearchParams({ view: "bogus" });
+    assert.equal(result.view, "all");
+  });
+
+  it("parses valid newsroom sort", () => {
+    const result = parsePageSearchParams({ sort: "schedule_asc" });
+    assert.equal(result.sort, "schedule_asc");
+  });
+
+  it("ignores invalid newsroom sort", () => {
+    const result = parsePageSearchParams({ sort: "bogus" });
+    assert.equal(result.sort, "updated_desc");
   });
 });

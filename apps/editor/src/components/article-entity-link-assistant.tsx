@@ -32,6 +32,7 @@ type Props = {
     pendingCount: number;
     ambiguousCount: number;
   }) => void;
+  onSuggestionSnapshot?: (suggestions: readonly EntityLinkSuggestion[]) => void;
 };
 
 type SuggestionResponse = {
@@ -43,6 +44,29 @@ type SuggestionResponse = {
   };
 };
 
+export function computeEntityLinkSuggestionStats(
+  suggestions: readonly EntityLinkSuggestion[],
+  relatedEntityIds: readonly string[],
+): { pendingCount: number; ambiguousCount: number } {
+  const relatedSet = new Set(relatedEntityIds);
+  const ambiguousCount = suggestions.filter(
+    (item) => item.kind === ENTITY_LINK_SUGGESTION_KIND.AMBIGUOUS,
+  ).length;
+  const pendingCount = suggestions.filter((item) => {
+    if (item.kind === ENTITY_LINK_SUGGESTION_KIND.AMBIGUOUS) {
+      return false;
+    }
+
+    if (item.alreadyRelated || relatedSet.has(item.entity.entityId)) {
+      return false;
+    }
+
+    return true;
+  }).length;
+
+  return { pendingCount, ambiguousCount };
+}
+
 export function ArticleEntityLinkAssistant({
   contentItemId,
   trustedSiteUrl,
@@ -52,6 +76,7 @@ export function ArticleEntityLinkAssistant({
   disabled,
   onAdd,
   onSuggestionStats,
+  onSuggestionSnapshot,
 }: Props) {
   const [, startTransition] = useTransition();
   const [state, setState] = useState<
@@ -134,21 +159,17 @@ export function ArticleEntityLinkAssistant({
     if (!onSuggestionStats) {
       return;
     }
-    if (state.kind !== "ready") {
-      onSuggestionStats({ pendingCount: 0, ambiguousCount: 0 });
+    if (state.kind === "ready") {
+      onSuggestionSnapshot?.(state.suggestions);
+      onSuggestionStats(
+        computeEntityLinkSuggestionStats(state.suggestions, relatedEntityIds),
+      );
       return;
     }
-
-    const ambiguousCount = state.suggestions.filter(
-      (item) => item.kind === ENTITY_LINK_SUGGESTION_KIND.AMBIGUOUS,
-    ).length;
-    const pendingCount = state.suggestions.filter(
-      (item) =>
-        item.kind !== ENTITY_LINK_SUGGESTION_KIND.AMBIGUOUS && !item.alreadyRelated,
-    ).length;
-
-    onSuggestionStats({ pendingCount, ambiguousCount });
-  }, [onSuggestionStats, state]);
+    if (state.kind === "idle" || state.kind === "error") {
+      onSuggestionStats({ pendingCount: 0, ambiguousCount: 0 });
+    }
+  }, [onSuggestionSnapshot, onSuggestionStats, relatedKey, relatedEntityIds, state]);
 
   return (
     <section className="space-y-2" aria-labelledby="entity-link-assistant-heading">

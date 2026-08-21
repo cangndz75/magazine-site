@@ -1,8 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { AuthorRole, Credibility, EntityKind, EntityRole, MediaRole } from "@magazine/domain";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type {
+  AuthorRole,
+  Credibility,
+  EntityKind,
+  EntityLinkSuggestion,
+  EntityRole,
+  MediaRole,
+} from "@magazine/domain";
 import { evaluateArticleReadiness } from "@magazine/domain";
 import { deriveContentStatus } from "@/lib/content/status";
 import { ArticleAuditHistory } from "@/components/article-audit-history";
@@ -10,6 +17,9 @@ import { ArticleEditorHeader } from "@/components/article-editor-header";
 import { ArticleEditorSectionNav } from "@/components/article-editor-section-nav";
 import { ArticleEditorWorkflowBar } from "@/components/article-editor-workflow-bar";
 import { ArticleMetadataEditor } from "@/components/article-metadata-editor";
+import {
+  computeEntityLinkSuggestionStats,
+} from "@/components/article-entity-link-assistant";
 import { ArticleRevisionPanel } from "@/components/article-revision-panel";
 import { ArticleReviewPanel, type ReviewHistoryItem } from "@/components/article-review-panel";
 import { PublicationReadinessRail } from "@/components/publication-readiness-rail";
@@ -237,6 +247,7 @@ export function ArticleEditor({
     pendingCount: 0,
     ambiguousCount: 0,
   });
+  const entitySuggestionSnapshotRef = useRef<EntityLinkSuggestion[]>([]);
   const [mobileReadinessOpen, setMobileReadinessOpen] = useState(false);
 
   const handleSuggestionStats = useCallback((stats: LinkSuggestionStats) => {
@@ -895,8 +906,27 @@ export function ArticleEditor({
                 title={fields.title}
                 bodyDocument={bodyDocument}
                 onChange={(next) => {
+                  const prevEntityIds = relations.entities
+                    .map((entity) => entity.id)
+                    .sort()
+                    .join(",");
+                  const nextEntityIds = next.entities
+                    .map((entity) => entity.id)
+                    .sort()
+                    .join(",");
                   setRelations(next);
                   setSaveState({ kind: "idle" });
+                  if (
+                    prevEntityIds !== nextEntityIds &&
+                    entitySuggestionSnapshotRef.current.length > 0
+                  ) {
+                    handleSuggestionStats(
+                      computeEntityLinkSuggestionStats(
+                        entitySuggestionSnapshotRef.current,
+                        next.entities.map((entity) => entity.id),
+                      ),
+                    );
+                  }
                 }}
                 onPersistHero={(media) => {
                   void persistHeroMutation(media);
@@ -911,6 +941,9 @@ export function ArticleEditor({
                   void persistVideosMutation(videos);
                 }}
                 onSuggestionStats={handleSuggestionStats}
+                onSuggestionSnapshot={(suggestions) => {
+                  entitySuggestionSnapshotRef.current = [...suggestions];
+                }}
               />
 
               <section

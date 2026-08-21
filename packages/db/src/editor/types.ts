@@ -5,6 +5,8 @@ import type {
   EntityRole,
   MediaRole,
   MediaType,
+  NewsroomSort,
+  NewsroomView,
   PublicationStatus,
   ReviewEventType,
   WorkflowStatus,
@@ -23,6 +25,8 @@ export type EditorContentListFilters = {
   categoryId?: string;
   authorId?: string;
   scheduledOnly?: boolean;
+  view?: NewsroomView;
+  sort?: NewsroomSort;
 };
 
 export type EditorRevisionHistoryFilters = {
@@ -72,6 +76,11 @@ export type EditorContentListRow = {
   authors: EditorListAuthorSummary[];
   updatedAt: Date;
   heroThumbnail: EditorSafeHeroThumbnail | null;
+  legalHoldAt: Date | null;
+  retractedAt: Date | null;
+  takedownAt: Date | null;
+  changesRequestedNote: string | null;
+  entityCount: number;
 };
 
 export type EditorRevisionHistoryRow = {
