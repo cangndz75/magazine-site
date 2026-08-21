@@ -34,11 +34,14 @@ export function MfaTotpInput({
   }
 
   return (
-    <label htmlFor={inputId} className="block text-sm text-zinc-700">
+    <label
+      htmlFor={inputId}
+      className="block text-xs font-semibold uppercase tracking-wide text-zinc-700"
+    >
       Authenticator kodu
       <input
         id={inputId}
-        className="mt-2 block w-full border border-zinc-300 bg-white px-3 py-2 text-center text-lg tracking-[0.35em] text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+        className="mt-2 block h-[50px] w-full rounded-md border border-zinc-200 bg-white px-3 text-center text-lg tracking-[0.35em] text-zinc-950 focus:border-brand-magenta focus:outline-none focus:ring-2 focus:ring-brand-magenta/20"
         type="text"
         inputMode="numeric"
         autoComplete="one-time-code"

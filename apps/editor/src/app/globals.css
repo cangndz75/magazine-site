@@ -3,12 +3,17 @@
 :root {
   --background: #fafafa;
   --foreground: #18181b;
+  --brand-magenta: #a9355e;
+  --brand-magenta-hover: #962f53;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-magenta: var(--brand-magenta);
+  --color-brand-magenta-hover: var(--brand-magenta-hover);
   --font-sans: var(--font-geist);
+  --font-serif: var(--font-playfair), Georgia, "Times New Roman", serif;
 }
 
 * {
