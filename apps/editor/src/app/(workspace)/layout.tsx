@@ -27,6 +27,14 @@ export default async function WorkspaceLayout({
               Magazin
             </span>
             <nav className="flex min-w-0 flex-wrap items-center gap-1 sm:flex-nowrap">
+            {canManageStaff && (
+              <Link
+                href="/dashboard"
+                className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+              >
+                Kontrol Merkezi
+              </Link>
+            )}
             <Link
               href="/"
               className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"

@@ -30,6 +30,25 @@ export {
 } from "./list";
 export { getNewsroomViewCounts } from "./newsroom-counts";
 export {
+  assertSafeSuperAdminDashboardDto,
+  buildUnavailableSection,
+  defaultDashboardAnalyticsPeriod,
+  getSuperAdminDashboard,
+  type DashboardSection,
+  type SuperAdminAnalyticsSummary,
+  type SuperAdminAttentionItem,
+  type SuperAdminDashboardDto,
+  type SuperAdminDashboardInput,
+  type SuperAdminEditorialSummary,
+  type SuperAdminHomepageStatus,
+  type SuperAdminLegalSummary,
+  type SuperAdminReviewSummary,
+  type SuperAdminSeoSummary,
+  type SuperAdminStaffSecuritySummary,
+  type SuperAdminSystemSignals,
+  type SuperAdminUpcomingPublishingItem,
+} from "./super-admin-dashboard";
+export {
   loadEditorHeroThumbnailsByVersionIds,
   heroThumbnailForEditorItem,
 } from "./hero-thumbnails";
