@@ -6,6 +6,7 @@ export {
   credibilityEnum,
   entityKindEnum,
   entityRoleEnum,
+  entityStatusEnum,
   mediaLicenseTypeEnum,
   mediaRoleEnum,
   mediaSourceKindEnum,
@@ -22,7 +23,7 @@ export {
   workflowStatusEnum,
 } from "./enums";
 export { authors } from "./authors";
-export { entities, entityAliases } from "./entities";
+export { entities, entityAliases, entityAuditEvents, entitySlugHistory } from "./entities";
 export { media, mediaRenditions } from "./media";
 export { categories, tags } from "./taxonomy";
 export {

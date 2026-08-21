@@ -1,6 +1,6 @@
 {
-  "id": "ec9ab30f-7b5d-4c7f-a739-5bad3cee963b",
-  "prevId": "e3f614b7-d86e-4d53-90df-a16c48ee5634",
+  "id": "0ee73a7c-9709-4dc2-b4ce-3aa0178478b6",
+  "prevId": "ec9ab30f-7b5d-4c7f-a739-5bad3cee963b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -2620,7 +2620,23 @@
           "default": 0
         }
       },
-      "indexes": {},
+      "indexes": {
+        "content_version_entities_entity_idx": {
+          "name": "content_version_entities_entity_idx",
+          "columns": [
+            {
+              "expression": "entity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "content_version_entities_version_fk": {
           "name": "content_version_entities_version_fk",
@@ -3356,6 +3372,14 @@
           "primaryKey": false,
           "notNull": true
         },
+        "status": {
+          "name": "status",
+          "type": "entity_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'ACTIVE'"
+        },
         "canonical_name": {
           "name": "canonical_name",
           "type": "text",
@@ -3371,6 +3395,48 @@
         "description": {
           "name": "description",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "biography": {
+          "name": "biography",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "portrait_media_id": {
+          "name": "portrait_media_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "birth_date": {
+          "name": "birth_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occupation": {
+          "name": "occupation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "official_website_url": {
+          "name": "official_website_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "merged_into_entity_id": {
+          "name": "merged_into_entity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -3396,8 +3462,84 @@
           "default": "now()"
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "entities_status_kind_idx": {
+          "name": "entities_status_kind_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "entities_status_updated_idx": {
+          "name": "entities_status_updated_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "entities_portrait_media_fk": {
+          "name": "entities_portrait_media_fk",
+          "tableFrom": "entities",
+          "tableTo": "media",
+          "columnsFrom": [
+            "portrait_media_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "entities_merged_into_entity_fk": {
+          "name": "entities_merged_into_entity_fk",
+          "tableFrom": "entities",
+          "tableTo": "entities",
+          "columnsFrom": [
+            "merged_into_entity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "entities_slug_key": {
@@ -3413,6 +3555,34 @@
         "entities_slug_format": {
           "name": "entities_slug_format",
           "value": "\"entities\".\"slug\" ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(\"entities\".\"slug\") BETWEEN 1 AND 200"
+        },
+        "entities_canonical_name_length": {
+          "name": "entities_canonical_name_length",
+          "value": "char_length(\"entities\".\"canonical_name\") BETWEEN 1 AND 200"
+        },
+        "entities_summary_length": {
+          "name": "entities_summary_length",
+          "value": "\"entities\".\"description\" IS NULL OR char_length(\"entities\".\"description\") BETWEEN 1 AND 500"
+        },
+        "entities_biography_length": {
+          "name": "entities_biography_length",
+          "value": "\"entities\".\"biography\" IS NULL OR char_length(\"entities\".\"biography\") BETWEEN 1 AND 4000"
+        },
+        "entities_occupation_length": {
+          "name": "entities_occupation_length",
+          "value": "\"entities\".\"occupation\" IS NULL OR char_length(\"entities\".\"occupation\") BETWEEN 1 AND 200"
+        },
+        "entities_person_only_profile_fields": {
+          "name": "entities_person_only_profile_fields",
+          "value": "\"entities\".\"kind\" = 'PERSON' OR (\"entities\".\"birth_date\" IS NULL AND \"entities\".\"occupation\" IS NULL)"
+        },
+        "entities_merged_into_not_self": {
+          "name": "entities_merged_into_not_self",
+          "value": "\"entities\".\"merged_into_entity_id\" IS NULL OR \"entities\".\"merged_into_entity_id\" <> \"entities\".\"id\""
+        },
+        "entities_status_matches_is_active": {
+          "name": "entities_status_matches_is_active",
+          "value": "(\"entities\".\"is_active\" AND \"entities\".\"status\" = 'ACTIVE') OR (NOT \"entities\".\"is_active\" AND \"entities\".\"status\" <> 'ACTIVE')"
         }
       },
       "isRLSEnabled": false
@@ -3454,7 +3624,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "entity_aliases_normalized_alias_idx": {
+          "name": "entity_aliases_normalized_alias_idx",
+          "columns": [
+            {
+              "expression": "normalized_alias",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "entity_aliases_entity_id_fk": {
           "name": "entity_aliases_entity_id_fk",
@@ -3483,9 +3669,259 @@
       },
       "policies": {},
       "checkConstraints": {
+        "entity_aliases_alias_length": {
+          "name": "entity_aliases_alias_length",
+          "value": "char_length(\"entity_aliases\".\"alias\") BETWEEN 1 AND 200"
+        },
         "entity_aliases_normalized_alias_format": {
           "name": "entity_aliases_normalized_alias_format",
           "value": "\"entity_aliases\".\"normalized_alias\" = lower(\"entity_aliases\".\"normalized_alias\") AND char_length(\"entity_aliases\".\"normalized_alias\") BETWEEN 1 AND 200"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.entity_audit_events": {
+      "name": "entity_audit_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_kind": {
+          "name": "actor_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_staff_user_id": {
+          "name": "actor_staff_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "change_set": {
+          "name": "change_set",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "entity_audit_events_entity_occurred_idx": {
+          "name": "entity_audit_events_entity_occurred_idx",
+          "columns": [
+            {
+              "expression": "entity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "entity_audit_events_entity_fk": {
+          "name": "entity_audit_events_entity_fk",
+          "tableFrom": "entity_audit_events",
+          "tableTo": "entities",
+          "columnsFrom": [
+            "entity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "entity_audit_events_actor_staff_fk": {
+          "name": "entity_audit_events_actor_staff_fk",
+          "tableFrom": "entity_audit_events",
+          "tableTo": "staff_users",
+          "columnsFrom": [
+            "actor_staff_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "entity_audit_events_type_check": {
+          "name": "entity_audit_events_type_check",
+          "value": "\"entity_audit_events\".\"event_type\" IN (\n        'ENTITY_CREATED',\n        'ENTITY_UPDATED',\n        'ENTITY_SLUG_CHANGED',\n        'ENTITY_ARCHIVED',\n        'ENTITY_REACTIVATED'\n      )"
+        },
+        "entity_audit_events_actor_kind_check": {
+          "name": "entity_audit_events_actor_kind_check",
+          "value": "\"entity_audit_events\".\"actor_kind\" IN ('STAFF', 'SYSTEM')"
+        },
+        "entity_audit_events_actor_staff_required": {
+          "name": "entity_audit_events_actor_staff_required",
+          "value": "(\n        (\"entity_audit_events\".\"actor_kind\" = 'STAFF' AND \"entity_audit_events\".\"actor_staff_user_id\" IS NOT NULL)\n        OR\n        (\"entity_audit_events\".\"actor_kind\" = 'SYSTEM' AND \"entity_audit_events\".\"actor_staff_user_id\" IS NULL)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.entity_slug_history": {
+      "name": "entity_slug_history",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "old_slug": {
+          "name": "old_slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_staff_user_id": {
+          "name": "actor_staff_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "entity_slug_history_entity_created_idx": {
+          "name": "entity_slug_history_entity_created_idx",
+          "columns": [
+            {
+              "expression": "entity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "entity_slug_history_entity_fk": {
+          "name": "entity_slug_history_entity_fk",
+          "tableFrom": "entity_slug_history",
+          "tableTo": "entities",
+          "columnsFrom": [
+            "entity_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "entity_slug_history_actor_staff_fk": {
+          "name": "entity_slug_history_actor_staff_fk",
+          "tableFrom": "entity_slug_history",
+          "tableTo": "staff_users",
+          "columnsFrom": [
+            "actor_staff_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "entity_slug_history_old_slug_key": {
+          "name": "entity_slug_history_old_slug_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "old_slug"
+          ]
+        },
+        "entity_slug_history_entity_old_slug_key": {
+          "name": "entity_slug_history_entity_old_slug_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "entity_id",
+            "old_slug"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "entity_slug_history_old_slug_format": {
+          "name": "entity_slug_history_old_slug_format",
+          "value": "\"entity_slug_history\".\"old_slug\" ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND char_length(\"entity_slug_history\".\"old_slug\") BETWEEN 1 AND 200"
         }
       },
       "isRLSEnabled": false
@@ -5579,6 +6015,15 @@
         "MENTIONED"
       ]
     },
+    "public.entity_status": {
+      "name": "entity_status",
+      "schema": "public",
+      "values": [
+        "DRAFT",
+        "ACTIVE",
+        "ARCHIVED"
+      ]
+    },
     "public.media_license_type": {
       "name": "media_license_type",
       "schema": "public",
@@ -5713,10 +6158,8 @@
   "policies": {},
   "views": {},
   "_meta": {
+    "columns": {},
     "schemas": {},
-    "tables": {},
-    "columns": {}
-  },
-  "id": "ec9ab30f-7b5d-4c7f-a739-5bad3cee963b",
-  "prevId": "e3f614b7-d86e-4d53-90df-a16c48ee5634"
+    "tables": {}
+  }
 }

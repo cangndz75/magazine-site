@@ -1,7 +1,9 @@
 import { ENTITY_ROLE, type EntityRole } from "../entity-role";
 import {
   ENTITY_ERROR,
+  ENTITY_STATUS,
   type EntityDecision,
+  type EntityStatus,
   type EntityVersionRelation,
 } from "./types";
 
@@ -119,4 +121,22 @@ export function draftEntityRelationLeaksIntoPublic(input: {
  */
 export function entityRelationEndorsesArticleClaims(): boolean {
   return false;
+}
+
+export function entityMayBeAssignedToVersion(input: {
+  status: EntityStatus;
+  deletedAt?: Date | string | null;
+  mergedIntoEntityId?: string | null;
+  alreadyLinked: boolean;
+}): EntityDecision<true> {
+  if (input.deletedAt != null || input.mergedIntoEntityId != null) {
+    return { ok: false, code: ENTITY_ERROR.INVALID_RELATION };
+  }
+  if (input.status === ENTITY_STATUS.ACTIVE) {
+    return { ok: true, value: true };
+  }
+  if (input.status === ENTITY_STATUS.ARCHIVED && input.alreadyLinked) {
+    return { ok: true, value: true };
+  }
+  return { ok: false, code: ENTITY_ERROR.INVALID_RELATION };
 }

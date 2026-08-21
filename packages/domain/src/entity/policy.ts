@@ -39,6 +39,14 @@ export const ENTITY_AUDIT_EVENT_TYPES = [
   ENTITY_AUDIT_EVENT_TYPE.ENTITY_MERGED,
 ] as const;
 
+export const ENTITY_PERSISTED_AUDIT_EVENT_TYPES = [
+  ENTITY_AUDIT_EVENT_TYPE.ENTITY_CREATED,
+  ENTITY_AUDIT_EVENT_TYPE.ENTITY_UPDATED,
+  ENTITY_AUDIT_EVENT_TYPE.ENTITY_SLUG_CHANGED,
+  ENTITY_AUDIT_EVENT_TYPE.ENTITY_ARCHIVED,
+  ENTITY_AUDIT_EVENT_TYPE.ENTITY_REACTIVATED,
+] as const;
+
 export const ENTITY_AUDIT_SCALAR_FIELD = {
   KIND: "kind",
   STATUS: "status",
@@ -374,6 +382,54 @@ export function decideEntityUpdate(input: {
       ...canonical.value,
       previousSlug: currentSlug.value,
       slugChanged: currentSlug.value !== canonical.value.slug,
+    },
+  };
+}
+
+export type EntitySlugChangePlan = {
+  previousSlug: string;
+  nextSlug: string;
+  unchanged: boolean;
+};
+
+export function decideEntitySlugChange(input: {
+  requestedSlug: string;
+  currentSlug: string;
+  currentUpdatedAt: Date | string;
+  expectedUpdatedAt: Date | string;
+  deletedAt: Date | string | null;
+  mergedIntoEntityId: string | null;
+}): EntityDecision<EntitySlugChangePlan> {
+  if (input.deletedAt != null) {
+    return { ok: false, code: ENTITY_ERROR.ENTITY_DELETED };
+  }
+  if (input.mergedIntoEntityId != null) {
+    return { ok: false, code: ENTITY_ERROR.INVALID_MERGE };
+  }
+
+  const concurrency = assertEntityExpectedUpdatedAt({
+    currentUpdatedAt: input.currentUpdatedAt,
+    expectedUpdatedAt: input.expectedUpdatedAt,
+  });
+  if (!concurrency.ok) {
+    return concurrency;
+  }
+
+  const nextSlug = canonicalizeEntitySlug(input.requestedSlug);
+  if (!nextSlug.ok) {
+    return nextSlug;
+  }
+  const currentSlug = canonicalizeEntitySlug(input.currentSlug);
+  if (!currentSlug.ok) {
+    return currentSlug;
+  }
+
+  return {
+    ok: true,
+    value: {
+      previousSlug: currentSlug.value,
+      nextSlug: nextSlug.value,
+      unchanged: currentSlug.value === nextSlug.value,
     },
   };
 }

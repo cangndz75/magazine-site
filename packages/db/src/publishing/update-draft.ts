@@ -143,7 +143,11 @@ export async function updateDraftContent(
       afterRelations: input,
     });
 
-    await assertRelatedRecordsExist(tx, input);
+    await assertRelatedRecordsExist(tx, input, {
+      currentlyLinkedEntityIds: (beforeRelations.entities ?? []).map(
+        (item) => item.entityId,
+      ),
+    });
     await assertHeroMediaAssignable(tx, input);
     await assertGalleryMediaAssignable(tx, input);
     await replaceVersionRelations(tx, version.id, input);

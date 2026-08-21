@@ -46,8 +46,11 @@ import {
   publicEntityCanonicalUrl,
   publicEntityIdsForVersion,
   publicEntityRelationVersionId,
+  PUBLIC_ENTITY_LOOKUP,
   relatedStoryLegalMarker,
+  resolvePublicEntitySlugLookup,
   selectPublicEntityRelatedStories,
+  entityMayBeAssignedToVersion,
   summarizeEntityAuditScalars,
   toPublicEntityProjection,
   toPublicEntitySeoInput,
@@ -648,6 +651,66 @@ describe("rbac, concurrency, and audit summaries", () => {
     );
     assert.equal(
       JSON.stringify(summary).includes("x".repeat(50)),
+      false,
+    );
+  });
+});
+
+describe("public slug lookup and assignment", () => {
+  it("redirects historical slugs only when the current profile is public", () => {
+    const archived = resolvePublicEntitySlugLookup({
+      requestedSlug: "hande",
+      current: null,
+      historicalOwner: {
+        entityId: PERSON_ID,
+        slug: "hande-ercel",
+        status: ENTITY_STATUS.ARCHIVED,
+      },
+    });
+    assert.equal(archived.kind, PUBLIC_ENTITY_LOOKUP.NOT_FOUND);
+
+    const redirect = resolvePublicEntitySlugLookup({
+      requestedSlug: "hande",
+      current: null,
+      historicalOwner: {
+        entityId: PERSON_ID,
+        slug: "hande-ercel",
+        status: ENTITY_STATUS.ACTIVE,
+      },
+    });
+    assert.equal(redirect.kind, PUBLIC_ENTITY_LOOKUP.REDIRECT);
+    if (redirect.kind === PUBLIC_ENTITY_LOOKUP.REDIRECT) {
+      assert.equal(redirect.slug, "hande-ercel");
+    }
+  });
+
+  it("keeps archived relations on a version but rejects new archived links", () => {
+    assert.equal(
+      entityMayBeAssignedToVersion({
+        status: ENTITY_STATUS.ACTIVE,
+        alreadyLinked: false,
+      }).ok,
+      true,
+    );
+    assert.equal(
+      entityMayBeAssignedToVersion({
+        status: ENTITY_STATUS.ARCHIVED,
+        alreadyLinked: true,
+      }).ok,
+      true,
+    );
+    assert.equal(
+      entityMayBeAssignedToVersion({
+        status: ENTITY_STATUS.ARCHIVED,
+        alreadyLinked: false,
+      }).ok,
+      false,
+    );
+    assert.equal(
+      entityMayBeAssignedToVersion({
+        status: ENTITY_STATUS.DRAFT,
+        alreadyLinked: false,
+      }).ok,
       false,
     );
   });

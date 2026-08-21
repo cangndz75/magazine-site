@@ -144,3 +144,65 @@ export const ENTITY_PUBLIC_RELATED_CONTENT_POLICY = {
     "deleted items",
   ],
 } as const;
+
+export const PUBLIC_ENTITY_LOOKUP = {
+  FOUND: "FOUND",
+  REDIRECT: "REDIRECT",
+  NOT_FOUND: "NOT_FOUND",
+} as const;
+
+export type PublicEntityLookupKind =
+  (typeof PUBLIC_ENTITY_LOOKUP)[keyof typeof PUBLIC_ENTITY_LOOKUP];
+
+export type PublicEntitySlugResolution =
+  | { kind: typeof PUBLIC_ENTITY_LOOKUP.FOUND; slug: string; entityId: string }
+  | { kind: typeof PUBLIC_ENTITY_LOOKUP.REDIRECT; slug: string; entityId: string }
+  | { kind: typeof PUBLIC_ENTITY_LOOKUP.NOT_FOUND };
+
+export function resolvePublicEntitySlugLookup(input: {
+  requestedSlug: string;
+  current:
+    | {
+        entityId: string;
+        slug: string;
+        status: EntityStatus;
+        deletedAt?: Date | string | null;
+        mergedIntoEntityId?: string | null;
+      }
+    | null;
+  historicalOwner:
+    | {
+        entityId: string;
+        slug: string;
+        status: EntityStatus;
+        deletedAt?: Date | string | null;
+        mergedIntoEntityId?: string | null;
+      }
+    | null;
+}): PublicEntitySlugResolution {
+  const requested = canonicalizeEntitySlug(input.requestedSlug);
+  if (!requested.ok) {
+    return { kind: PUBLIC_ENTITY_LOOKUP.NOT_FOUND };
+  }
+
+  if (input.current && isPublicEntityProfileEligible(input.current)) {
+    return {
+      kind: PUBLIC_ENTITY_LOOKUP.FOUND,
+      slug: input.current.slug,
+      entityId: input.current.entityId,
+    };
+  }
+
+  if (
+    input.historicalOwner &&
+    isPublicEntityProfileEligible(input.historicalOwner)
+  ) {
+    return {
+      kind: PUBLIC_ENTITY_LOOKUP.REDIRECT,
+      slug: input.historicalOwner.slug,
+      entityId: input.historicalOwner.entityId,
+    };
+  }
+
+  return { kind: PUBLIC_ENTITY_LOOKUP.NOT_FOUND };
+}

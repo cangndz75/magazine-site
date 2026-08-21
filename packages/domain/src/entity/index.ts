@@ -53,6 +53,7 @@ export {
   ENTITY_AUDIT_EVENT_TYPE,
   ENTITY_AUDIT_EVENT_TYPES,
   ENTITY_AUDIT_SCALAR_FIELD,
+  ENTITY_PERSISTED_AUDIT_EVENT_TYPES,
   ENTITY_CAPABILITY_RECOMMENDATION,
   ENTITY_DELETION_POLICY,
   ENTITY_MERGE_PRESERVE,
@@ -65,6 +66,7 @@ export {
   decideEntityArchive,
   decideEntityMerge,
   decideEntityReactivate,
+  decideEntitySlugChange,
   decideEntityUpdate,
   entityStatusFromLegacyIsActive,
   legacyIsActiveFromEntityStatus,
@@ -72,11 +74,13 @@ export {
   type EntityAuditEventType,
   type EntityAuditScalarSummary,
   type EntityMergePlan,
+  type EntitySlugChangePlan,
   type EntityUpdatePlan,
 } from "./policy";
 export {
   assertEntityVersionRelations,
   draftEntityRelationLeaksIntoPublic,
+  entityMayBeAssignedToVersion,
   entityRelationEndorsesArticleClaims,
   entityRoleRank,
   featuredEntityIds,
@@ -84,17 +88,21 @@ export {
 } from "./relationships";
 export {
   ENTITY_PUBLIC_RELATED_CONTENT_POLICY,
+  PUBLIC_ENTITY_LOOKUP,
   articleLegalHoldFreezesRelatedEntity,
   comparePublicEntityRelatedStories,
   isPublicEntityProfileEligible,
   isPublicEntityRedirect,
   publicEntityRelationVersionId,
   relatedStoryLegalMarker,
+  resolvePublicEntitySlugLookup,
   selectPublicEntityRelatedStories,
   toEntityTimelineEntries,
   type EntityTimelinePublicEntry,
   type PublicEntityAuthorityInput,
   type PublicEntityRelatedStory,
+  type PublicEntitySlugResolution,
+  type PublicEntityLookupKind,
 } from "./public-authority";
 export {
   PUBLIC_ENTITY_PROJECTION_KEYS,
