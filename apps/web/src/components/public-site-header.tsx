@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PublicSiteMobileMenu } from "@/components/public-site-mobile-menu";
-import { PUBLIC_NAV_ITEMS } from "@/lib/public-nav";
+import { isPublicNavPlaceholder, PUBLIC_NAV_ITEMS } from "@/lib/public-nav";
 
 export function PublicSiteHeader() {
   return (
@@ -14,9 +14,18 @@ export function PublicSiteHeader() {
           <ul className="public-site-header__nav-list">
             {PUBLIC_NAV_ITEMS.map((item) => (
               <li key={item.label}>
-                <Link href={item.href} className="public-site-header__nav-link">
-                  {item.label}
-                </Link>
+                {isPublicNavPlaceholder(item) ? (
+                  <span
+                    className="public-site-header__nav-link public-site-header__nav-link--placeholder"
+                    aria-disabled="true"
+                  >
+                    {item.label}
+                  </span>
+                ) : (
+                  <Link href={item.href} className="public-site-header__nav-link">
+                    {item.label}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

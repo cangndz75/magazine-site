@@ -194,6 +194,16 @@ summary:focus-visible {
   border-bottom-color: var(--brand);
 }
 
+.public-site-header__nav-link--placeholder {
+  cursor: default;
+  color: var(--ink-secondary);
+}
+
+.public-site-header__nav-link--placeholder:hover {
+  color: var(--ink-secondary);
+  border-bottom-color: transparent;
+}
+
 .public-site-header__search {
   flex-shrink: 0;
   margin: 0;
@@ -295,6 +305,15 @@ summary:focus-visible {
 
 .public-site-header__menu-link:hover {
   color: var(--brand);
+}
+
+.public-site-header__menu-link--placeholder {
+  cursor: default;
+  color: var(--ink-secondary);
+}
+
+.public-site-header__menu-link--placeholder:hover {
+  color: var(--ink-secondary);
 }
 
 .public-site-header__menu-list li:last-child .public-site-header__menu-link {
@@ -1719,7 +1738,14 @@ summary:focus-visible {
   border: 1px solid var(--line);
   border-radius: var(--radius-image);
   background: var(--surface-soft);
-  padding: var(--space-4);
+  padding: var(--space-3);
+}
+
+@media (min-width: 1280px) {
+  .homepage-lead--text {
+    padding: var(--space-3) var(--space-4);
+    max-width: 52rem;
+  }
 }
 
 .homepage-lead__title--text {
@@ -2058,6 +2084,15 @@ summary:focus-visible {
 
   .homepage-lead-grid__conversation {
     min-width: 0;
+    order: 3;
+  }
+
+  .homepage-lead-grid__lead {
+    order: 1;
+  }
+
+  .homepage-lead-grid__supports {
+    order: 2;
   }
 
   .homepage-conversation-rail {
