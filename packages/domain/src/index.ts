@@ -57,6 +57,7 @@ export {
   collectAmbiguousAliases,
   comparePublicEntityRelatedStories,
   decideEntityArchive,
+  decideEntityActivate,
   decideEntityMerge,
   decideEntityReactivate,
   decideEntitySlugChange,

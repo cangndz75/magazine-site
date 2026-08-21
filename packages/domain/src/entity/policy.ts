@@ -447,6 +447,45 @@ export function decideEntityArchive(input: {
   return { ok: true, value: ENTITY_STATUS.ARCHIVED };
 }
 
+export function decideEntityActivate(input: {
+  status: EntityStatus;
+  deletedAt: Date | string | null;
+  mergedIntoEntityId: string | null;
+  slug: string;
+  canonicalName: string;
+  expectedUpdatedAt: Date | string;
+  currentUpdatedAt: Date | string;
+}): EntityDecision<typeof ENTITY_STATUS.ACTIVE> {
+  if (input.deletedAt != null) {
+    return { ok: false, code: ENTITY_ERROR.ENTITY_DELETED };
+  }
+  if (input.mergedIntoEntityId !== null) {
+    return { ok: false, code: ENTITY_ERROR.INVALID_MERGE };
+  }
+  if (input.status !== ENTITY_STATUS.DRAFT) {
+    return { ok: false, code: ENTITY_ERROR.INVALID_STATUS };
+  }
+
+  const concurrency = assertEntityExpectedUpdatedAt({
+    currentUpdatedAt: input.currentUpdatedAt,
+    expectedUpdatedAt: input.expectedUpdatedAt,
+  });
+  if (!concurrency.ok) {
+    return concurrency;
+  }
+
+  const slug = canonicalizeEntitySlug(input.slug);
+  if (!slug.ok) {
+    return slug;
+  }
+  const name = canonicalizeEntityCanonicalName(input.canonicalName);
+  if (!name.ok) {
+    return name;
+  }
+
+  return { ok: true, value: ENTITY_STATUS.ACTIVE };
+}
+
 export function decideEntityReactivate(input: {
   status: EntityStatus;
   deletedAt: Date | string | null;
@@ -458,8 +497,8 @@ export function decideEntityReactivate(input: {
   if (input.mergedIntoEntityId !== null) {
     return { ok: false, code: ENTITY_ERROR.INVALID_MERGE };
   }
-  if (input.status === ENTITY_STATUS.DRAFT) {
-    return { ok: true, value: ENTITY_STATUS.ACTIVE };
+  if (input.status !== ENTITY_STATUS.ARCHIVED) {
+    return { ok: false, code: ENTITY_ERROR.INVALID_STATUS };
   }
   return { ok: true, value: ENTITY_STATUS.ACTIVE };
 }

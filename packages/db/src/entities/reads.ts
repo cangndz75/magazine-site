@@ -24,13 +24,12 @@ import {
   sanitizeEditorSearch,
   toEditorEntityProjection,
   type EditorEntityProjection,
-  type EntityDuplicateSignal,
   type EntityKind,
   type EntityStatus,
   type StaffRole,
 } from "@magazine/domain";
 import { getDb } from "../client";
-import { entities, entityAliases } from "../schema/entities";
+import { entities, entityAliases, entityAuditEvents, entitySlugHistory } from "../schema/entities";
 import type { PublishingTx } from "../publishing/db-types";
 import { unwrapEntityDecision } from "./errors";
 
@@ -266,12 +265,20 @@ export async function listEditorEntityPicker(input: {
   }));
 }
 
+export type EditorEntityDuplicateItem = {
+  entityId: string;
+  canonicalName: string;
+  kind: EntityKind;
+  status: EntityStatus;
+  matchedOn: "CANONICAL_NAME" | "ALIAS";
+};
+
 export async function findPotentialEntityDuplicates(input: {
   actorRoles: readonly StaffRole[];
   canonicalName: string;
   aliases?: readonly string[];
   excludeEntityId?: string;
-}): Promise<EntityDuplicateSignal[]> {
+}): Promise<EditorEntityDuplicateItem[]> {
   unwrapEntityDecision(authorizeEntityRead({ roles: input.actorRoles }));
   const searchKey = normalizeEntitySearchKey(input.canonicalName);
   if (!searchKey) {
@@ -285,6 +292,7 @@ export async function findPotentialEntityDuplicates(input: {
       entityId: entities.id,
       canonicalName: entities.canonicalName,
       kind: entities.kind,
+      status: entities.status,
       alias: entityAliases.alias,
     })
     .from(entities)
@@ -303,7 +311,13 @@ export async function findPotentialEntityDuplicates(input: {
 
   const byId = new Map<
     string,
-    { entityId: string; canonicalName: string; aliases: string[] }
+    {
+      entityId: string;
+      canonicalName: string;
+      kind: EntityKind;
+      status: EntityStatus;
+      aliases: string[];
+    }
   >();
   for (const row of rows) {
     if (input.excludeEntityId && row.entityId === input.excludeEntityId) {
@@ -312,6 +326,8 @@ export async function findPotentialEntityDuplicates(input: {
     const current = byId.get(row.entityId) ?? {
       entityId: row.entityId,
       canonicalName: row.canonicalName,
+      kind: toKind(row.kind),
+      status: toStatus(row.status),
       aliases: [],
     };
     if (row.alias) {
@@ -320,10 +336,100 @@ export async function findPotentialEntityDuplicates(input: {
     byId.set(row.entityId, current);
   }
 
-  return collectAdvisoryDuplicateSignals({
+  const signals = collectAdvisoryDuplicateSignals({
     candidateEntityId: input.excludeEntityId,
     canonicalName: input.canonicalName,
     aliases: input.aliases ?? [],
     existing: [...byId.values()],
   });
+
+  return signals.flatMap((signal) => {
+    const match = byId.get(signal.entityId);
+    if (!match) {
+      return [];
+    }
+    return [
+      {
+        entityId: match.entityId,
+        canonicalName: match.canonicalName,
+        kind: match.kind,
+        status: match.status,
+        matchedOn: signal.kind,
+      },
+    ];
+  });
+}
+
+export type EditorEntitySlugHistoryItem = {
+  oldSlug: string;
+  changedAt: Date;
+};
+
+export type EditorEntityAuditItem = {
+  eventType: string;
+  occurredAt: Date;
+  actorStaffUserId: string | null;
+  changeSummary: string | null;
+};
+
+export async function listEntitySlugHistory(input: {
+  actorRoles: readonly StaffRole[];
+  entityId: string;
+  limit?: number;
+}): Promise<EditorEntitySlugHistoryItem[]> {
+  unwrapEntityDecision(authorizeEntityRead({ roles: input.actorRoles }));
+  const db = getDb();
+  const boundedLimit = Math.min(Math.max(input.limit ?? 20, 1), 50);
+  const rows = await db
+    .select({
+      oldSlug: entitySlugHistory.oldSlug,
+      changedAt: entitySlugHistory.createdAt,
+    })
+    .from(entitySlugHistory)
+    .where(eq(entitySlugHistory.entityId, input.entityId))
+    .orderBy(desc(entitySlugHistory.createdAt))
+    .limit(boundedLimit);
+  return rows;
+}
+
+export async function listEntityAuditEvents(input: {
+  actorRoles: readonly StaffRole[];
+  entityId: string;
+  limit?: number;
+}): Promise<EditorEntityAuditItem[]> {
+  unwrapEntityDecision(authorizeEntityRead({ roles: input.actorRoles }));
+  const db = getDb();
+  const boundedLimit = Math.min(Math.max(input.limit ?? 30, 1), 100);
+  const rows = await db
+    .select({
+      eventType: entityAuditEvents.eventType,
+      occurredAt: entityAuditEvents.occurredAt,
+      actorStaffUserId: entityAuditEvents.actorStaffUserId,
+      changeSet: entityAuditEvents.changeSet,
+    })
+    .from(entityAuditEvents)
+    .where(eq(entityAuditEvents.entityId, input.entityId))
+    .orderBy(desc(entityAuditEvents.occurredAt))
+    .limit(boundedLimit);
+
+  return rows.map((row) => ({
+    eventType: row.eventType,
+    occurredAt: row.occurredAt,
+    actorStaffUserId: row.actorStaffUserId,
+    changeSummary: summarizeAuditChangeSet(row.changeSet),
+  }));
+}
+
+function summarizeAuditChangeSet(changeSet: unknown): string | null {
+  if (!changeSet || typeof changeSet !== "object") {
+    return null;
+  }
+  const record = changeSet as Record<string, { before?: unknown; after?: unknown }>;
+  const parts: string[] = [];
+  for (const [field, change] of Object.entries(record)) {
+    if (change && typeof change === "object" && "before" in change && "after" in change) {
+      parts.push(`${field}: ${String(change.before ?? "—")} → ${String(change.after ?? "—")}`);
+    }
+  }
+  return parts.length > 0 ? parts.join("; ") : null;
 }

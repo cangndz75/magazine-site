@@ -10,6 +10,7 @@ import {
   authorizeEntityWrite,
   canonicalizeEntityProfileWrite,
   decideEntityArchive,
+  decideEntityActivate,
   decideEntityReactivate,
   decideEntitySlugChange,
   decideEntityUpdate,
@@ -407,6 +408,54 @@ export async function updateEntitySlug(input: {
         updatedAt: nextUpdatedAt,
         unchanged: false,
       };
+    });
+  } catch (error) {
+    rethrowEntityDbError(error);
+  }
+}
+
+export async function activateEntity(input: {
+  actor: EntityStaffActor;
+  entityId: string;
+  expectedUpdatedAt: Date | string;
+}): Promise<EditorEntityDetail> {
+  unwrapWriteAuth(input.actor.roles);
+  const db = getDb();
+  try {
+    return await db.transaction(async (tx) => {
+      const current = await lockEntity(tx, input.entityId);
+      unwrapEntityDecision(
+        decideEntityActivate({
+          status: current.status,
+          deletedAt: current.deletedAt,
+          mergedIntoEntityId: current.mergedIntoEntityId,
+          slug: current.slug,
+          canonicalName: current.canonicalName,
+          expectedUpdatedAt: input.expectedUpdatedAt,
+          currentUpdatedAt: current.updatedAt,
+        }),
+      );
+
+      const nextUpdatedAt = nextMonotonicUpdatedAt(current.updatedAt);
+      await tx
+        .update(entities)
+        .set({
+          status: ENTITY_STATUS.ACTIVE,
+          isActive: true,
+          updatedAt: nextUpdatedAt,
+        })
+        .where(eq(entities.id, current.id));
+
+      await appendEntityAudit(tx, {
+        entityId: current.id,
+        eventType: ENTITY_AUDIT_EVENT_TYPE.ENTITY_UPDATED,
+        actorStaffUserId: input.actor.staffUserId,
+        changeSet: {
+          status: { before: current.status, after: ENTITY_STATUS.ACTIVE },
+        },
+      });
+
+      return loadEditorEntityProjection(tx, current.id);
     });
   } catch (error) {
     rethrowEntityDbError(error);

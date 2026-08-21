@@ -17,6 +17,7 @@ import {
 } from "@magazine/domain";
 import { getDb } from "../client";
 import {
+  activateEntity,
   archiveEntity,
   createEntity,
   findPotentialEntityDuplicates,
@@ -150,6 +151,13 @@ describe("entity platform persistence", () => {
     assert.equal(created.status, ENTITY_STATUS.DRAFT);
     assert.equal(created.canonicalName, "Hande Erçel");
     assert.equal(created.aliases.length, 1);
+
+    const activated = await activateEntity({
+      actor: editorActor(fixture),
+      entityId: created.entityId,
+      expectedUpdatedAt: created.updatedAt,
+    });
+    assert.equal(activated.status, ENTITY_STATUS.ACTIVE);
 
     await assert.rejects(
       () =>

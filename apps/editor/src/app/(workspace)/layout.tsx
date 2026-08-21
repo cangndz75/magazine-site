@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CAPABILITY, hasCapability } from "@magazine/domain";
+import { CAPABILITY, authorizeEntityWrite, hasCapability } from "@magazine/domain";
 import { requireStaffSession } from "@/lib/auth/authorization";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +15,7 @@ export default async function WorkspaceLayout({
   const canManageHomepage = hasCapability(session.roles, CAPABILITY.HOMEPAGE_MANAGE);
   const canLegal = hasCapability(session.roles, CAPABILITY.CONTENT_LEGAL);
   const canManageStaff = hasCapability(session.roles, CAPABILITY.STAFF_MANAGE);
+  const canManageEntities = authorizeEntityWrite({ roles: session.roles }).ok;
   const canReadAnalytics = hasCapability(session.roles, CAPABILITY.ANALYTICS_READ);
 
   return (
@@ -86,6 +87,14 @@ export default async function WorkspaceLayout({
                 className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
               >
                 Yasal
+              </Link>
+            )}
+            {canManageEntities && (
+              <Link
+                href="/entities"
+                className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+              >
+                Varlıklar
               </Link>
             )}
             {canManageStaff && (

@@ -170,6 +170,7 @@ describe("article relation form state", () => {
           id: ENTITY_A,
           name: "Hande Erçel",
           kind: "PERSON",
+          status: "ACTIVE",
         }),
         baseline,
       ),
@@ -207,11 +208,13 @@ describe("article relation form state", () => {
       id: ENTITY_A,
       name: "Hande Erçel",
       kind: "PERSON",
+      status: "ACTIVE",
     });
     const twice = addEntity(once, {
       id: ENTITY_A,
       name: "Hande Erçel",
       kind: "PERSON",
+      status: "ACTIVE",
     });
     assert.equal(twice.entities.length, 1);
     assert.equal(twice.entities[0]?.role, ENTITY_ROLE.SUBJECT);

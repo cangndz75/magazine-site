@@ -64,6 +64,7 @@ export {
   authorizeEntityWrite,
   canonicalizeEntityProfileWrite,
   decideEntityArchive,
+  decideEntityActivate,
   decideEntityMerge,
   decideEntityReactivate,
   decideEntitySlugChange,

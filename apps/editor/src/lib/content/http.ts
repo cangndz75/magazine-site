@@ -18,6 +18,9 @@ import {
   STAFF_MFA_ERROR,
   StaffAdminError,
   StaffMfaError,
+  ENTITY_ERROR,
+  EntityError,
+  type EntityErrorCode,
   VIDEO_ERROR,
   VideoError,
   type HomepageBuilderErrorCode,
@@ -211,6 +214,26 @@ const STAFF_MFA_STATUS: Record<StaffMfaErrorCode, number> = {
   [STAFF_MFA_ERROR.STEP_UP_REQUIRED]: 401,
 };
 
+const ENTITY_STATUS_MAP: Record<EntityErrorCode, number> = {
+  [ENTITY_ERROR.FORBIDDEN]: 403,
+  [ENTITY_ERROR.ENTITY_NOT_FOUND]: 404,
+  [ENTITY_ERROR.ENTITY_WRITE_CONFLICT]: 409,
+  [ENTITY_ERROR.ENTITY_DELETED]: 404,
+  [ENTITY_ERROR.INVALID_NAME]: 400,
+  [ENTITY_ERROR.INVALID_SLUG]: 400,
+  [ENTITY_ERROR.SLUG_CONFLICT]: 409,
+  [ENTITY_ERROR.INVALID_ALIAS]: 400,
+  [ENTITY_ERROR.DUPLICATE_ALIAS]: 400,
+  [ENTITY_ERROR.ALIAS_LIMIT]: 400,
+  [ENTITY_ERROR.INVALID_STATUS]: 409,
+  [ENTITY_ERROR.INVALID_KIND]: 400,
+  [ENTITY_ERROR.INVALID_PROFILE]: 400,
+  [ENTITY_ERROR.INVALID_URL]: 400,
+  [ENTITY_ERROR.INVALID_MEDIA]: 400,
+  [ENTITY_ERROR.INVALID_RELATION]: 400,
+  [ENTITY_ERROR.INVALID_MERGE]: 400,
+};
+
 const SAFE_MESSAGES: Record<string, string> = {
   [EDITOR_API_ERROR.UNAUTHENTICATED]: "Authentication required.",
   [EDITOR_API_ERROR.FORBIDDEN]: "You are not allowed to perform this action.",
@@ -299,6 +322,15 @@ const SAFE_MESSAGES: Record<string, string> = {
   [STAFF_ADMIN_HTTP_ERROR.SESSION_NOT_FOUND]: "Staff session was not found.",
   [STAFF_ADMIN_HTTP_ERROR.MFA_NOT_ENROLLED]:
     "This staff account has no MFA factor to disable.",
+  [ENTITY_ERROR.ENTITY_NOT_FOUND]: "Varlık kaydı bulunamadı.",
+  [ENTITY_ERROR.ENTITY_WRITE_CONFLICT]:
+    "Bu kayıt başka bir kullanıcı tarafından güncellendi. Son sürümü yükleyip değişikliklerinizi yeniden kontrol edin.",
+  [ENTITY_ERROR.INVALID_NAME]: "Ad geçersiz.",
+  [ENTITY_ERROR.INVALID_ALIAS]: "Takma ad geçersiz.",
+  [ENTITY_ERROR.DUPLICATE_ALIAS]: "Aynı takma ad bu varlıkta zaten var.",
+  [ENTITY_ERROR.INVALID_MEDIA]: "Seçilen portre geçerli bir görsel olmalıdır.",
+  [ENTITY_ERROR.INVALID_STATUS]: "Bu durum geçişi şu an için uygun değil.",
+  [ENTITY_ERROR.INVALID_PROFILE]: "Profil bilgileri geçersiz.",
 };
 
 export function editorJson(body: unknown, status = 200): NextResponse {
@@ -404,6 +436,14 @@ export function mapEditorError(error: unknown): NextResponse {
       STAFF_MFA_STATUS[error.code] ?? 400,
       error.code,
       "The MFA request could not be completed.",
+    );
+  }
+
+  if (error instanceof EntityError) {
+    return editorErrorResponse(
+      ENTITY_STATUS_MAP[error.code] ?? 400,
+      error.code,
+      SAFE_MESSAGES[error.code],
     );
   }
 

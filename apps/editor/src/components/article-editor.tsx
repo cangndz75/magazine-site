@@ -105,6 +105,7 @@ type ArticleEditorModel = {
         id: string;
         name: string;
         kind: EntityKind;
+        status: string;
         role: EntityRole;
         sortOrder: number;
       }[];

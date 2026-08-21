@@ -2,7 +2,6 @@
 
 import {
   AuthorRelationPicker,
-  EntityRelationPicker,
   PrimaryCategoryPicker,
   SecondaryCategoryPicker,
   TagRelationPicker,
@@ -22,6 +21,8 @@ import {
   removeAuthor,
   removeEntity,
   removeTag,
+  reorderEntity,
+  setEntityRole,
   setGalleryMedia,
   setHeroMedia,
   setPrimaryCategory,
@@ -30,6 +31,7 @@ import {
   type ArticleEditorRelations,
   type ArticleEditorVideo,
 } from "@/lib/content/article-relation-state";
+import { ArticleEntityRelationsSection } from "./article-entity-relations-section";
 import type {
   AuthorLookupOption,
   CategoryLookupOption,
@@ -125,11 +127,17 @@ export function ArticleMetadataEditor({
         />
       </div>
 
-      <EntityRelationPicker
-        selected={relations.entities.map(toEntityOption)}
+      <ArticleEntityRelationsSection
+        entities={relations.entities}
         disabled={disabled}
         onAdd={(entity) => onChange(addEntity(relations, entity))}
         onRemove={(id) => onChange(removeEntity(relations, id))}
+        onRoleChange={(entityId, role) =>
+          onChange(setEntityRole(relations, entityId, role))
+        }
+        onMove={(entityId, direction) =>
+          onChange(reorderEntity(relations, entityId, direction))
+        }
       />
 
       <div className="grid gap-5 md:grid-cols-2">
@@ -213,6 +221,7 @@ function toEntityOption(entity: {
   id: string;
   name: string;
   kind: string;
+  status?: string;
 }): EntityLookupOption {
   return {
     id: entity.id,
