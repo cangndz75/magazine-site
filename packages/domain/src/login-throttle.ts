@@ -54,7 +54,15 @@ export function resetLoginFailures(): LoginThrottleState {
 }
 
 export type PasswordCredentialDecision =
-  | { mutate: false; code: "UNKNOWN_USER" | "DISABLED" | "LOCKED" | "WRONG_PASSWORD" }
+  | {
+      mutate: false;
+      code:
+        | "UNKNOWN_USER"
+        | "DISABLED"
+        | "LOCKED"
+        | "WRONG_PASSWORD"
+        | "PASSWORD_RESET_REQUIRED";
+    }
   | { mutate: "record-failure"; code: "WRONG_PASSWORD"; next: LoginThrottleState }
   | { mutate: "reset"; code: "SUCCESS"; next: LoginThrottleState };
 
@@ -69,6 +77,7 @@ export function decidePasswordCredentialTransition(input: {
   throttle: LoginThrottleState;
   passwordMatches: boolean;
   now: Date;
+  passwordResetRequiredAt?: Date | string | null;
 }): PasswordCredentialDecision {
   if (!input.credentialFound || input.staffStatus === null) {
     return { mutate: false, code: "UNKNOWN_USER" };
@@ -88,6 +97,10 @@ export function decidePasswordCredentialTransition(input: {
       code: "WRONG_PASSWORD",
       next: nextFailedLoginState(input.throttle, input.now),
     };
+  }
+
+  if (input.passwordResetRequiredAt) {
+    return { mutate: false, code: "PASSWORD_RESET_REQUIRED" };
   }
 
   return {

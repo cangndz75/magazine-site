@@ -33,7 +33,9 @@ export function rethrowPublishingDbError(error: unknown): never {
   if (
     isPgError(error) &&
     error.code === "23505" &&
-    error.constraint === "content_items_slug_key"
+    (error.constraint === "content_items_slug_key" ||
+      error.constraint === "content_slug_history_old_slug_key" ||
+      error.constraint === "content_slug_history_item_old_slug_key")
   ) {
     throw new PublishingError(PUBLISHING_ERROR.SLUG_CONFLICT);
   }

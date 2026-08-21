@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  CONTENT_LEGAL_ACTION_TYPE,
-  CONTENT_LEGAL_REASON_CATEGORY,
-} from "./legal-action";
+import { CONTENT_LEGAL_ACTION_TYPE } from "./legal-action";
 import {
   legalActionInvalidatesPublicCache,
   PUBLIC_ARTICLE_WITHDRAWAL_KIND,

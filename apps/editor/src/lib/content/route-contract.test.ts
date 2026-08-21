@@ -53,6 +53,7 @@ const WRITE_SERVICES = [
   "removeDraftVersionHero",
   "setDraftVersionGallery",
   "setDraftVersionVideos",
+  "updateContentSlug",
 ];
 
 const STAFF_ATTRIBUTED_MUTATION_ROUTES = [
@@ -68,6 +69,7 @@ const STAFF_ATTRIBUTED_MUTATION_ROUTES = [
   ["content", "[contentItemId]", "hero", "route.ts"],
   ["content", "[contentItemId]", "gallery", "route.ts"],
   ["content", "[contentItemId]", "legal", "route.ts"],
+  ["content", "[contentItemId]", "slug", "route.ts"],
 ];
 
 describe("editor content route contracts", () => {

@@ -31,4 +31,26 @@ describe("editor content capability mapping", () => {
     assert.equal(hasCapability([STAFF_ROLE.AUTHOR], CAPABILITY.CONTENT_REVIEW), false);
     assert.equal(hasCapability([STAFF_ROLE.EDITOR], CAPABILITY.CONTENT_PUBLISH), true);
   });
+
+  it("gives STAFF_MANAGE only to Super Admin", () => {
+    assert.equal(
+      hasCapability([STAFF_ROLE.SUPER_ADMIN], CAPABILITY.STAFF_MANAGE),
+      true,
+    );
+    assert.equal(hasCapability([STAFF_ROLE.EDITOR], CAPABILITY.STAFF_MANAGE), false);
+    assert.equal(hasCapability([STAFF_ROLE.AUTHOR], CAPABILITY.STAFF_MANAGE), false);
+    try {
+      requireEditorCapability(
+        { roles: [STAFF_ROLE.EDITOR] },
+        CAPABILITY.STAFF_MANAGE,
+      );
+      assert.fail("expected throw");
+    } catch (error) {
+      assert.equal(error instanceof EditorHttpError, true);
+      if (error instanceof EditorHttpError) {
+        assert.equal(error.status, 403);
+        assert.equal(error.code, EDITOR_API_ERROR.FORBIDDEN);
+      }
+    }
+  });
 });

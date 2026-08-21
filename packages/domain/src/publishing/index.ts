@@ -10,6 +10,11 @@ export {
   canonicalizeContentSlug,
 } from "./slug";
 export {
+  decideChangeContentSlug,
+  slugAdvisoryLockKeys,
+  type ChangeContentSlugPlan,
+} from "./slug-change";
+export {
   assertDraftRelationInputs,
   copyVersionOwnedRelations,
   type AuthorRelationInput,

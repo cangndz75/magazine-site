@@ -1,13 +1,29 @@
+import { CAPABILITIES, type Capability } from "./capability";
 import { ROLE_CAPABILITIES } from "./role-capabilities";
 import { STAFF_ROLE, type StaffRole } from "./staff-role";
 import { STAFF_SCOPE_MODE, type StaffScopeMode } from "./staff-scope-mode";
-import type { Capability } from "./capability";
 
 export function hasCapability(
   roles: readonly StaffRole[],
   capability: Capability,
 ): boolean {
   return roles.some((role) => ROLE_CAPABILITIES[role].includes(capability));
+}
+
+/**
+ * Effective capabilities are derived only from assigned roles.
+ * Callers must never accept client-supplied capability lists as authority.
+ */
+export function effectiveCapabilities(
+  roles: readonly StaffRole[],
+): Capability[] {
+  const granted = new Set<Capability>();
+  for (const role of roles) {
+    for (const capability of ROLE_CAPABILITIES[role] ?? []) {
+      granted.add(capability);
+    }
+  }
+  return CAPABILITIES.filter((capability) => granted.has(capability));
 }
 
 export function hasGlobalCategoryScope(roles: readonly StaffRole[]): boolean {

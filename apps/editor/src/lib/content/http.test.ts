@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { EDITOR_JSON_MAX_BYTES, MEDIA_RIGHTS_ERROR, MEDIA_UPLOAD_ERROR, MediaRightsError, MediaUploadError, PUBLISHING_ERROR, PublishingError } from "@magazine/domain";
+import {
+  EDITOR_JSON_MAX_BYTES,
+  MEDIA_RIGHTS_ERROR,
+  MEDIA_UPLOAD_ERROR,
+  MediaRightsError,
+  MediaUploadError,
+  PUBLISHING_ERROR,
+  PublishingError,
+  SEO_INSPECTION_ERROR,
+  SeoInspectionError,
+  STAFF_ADMIN_ERROR,
+  StaffAdminError,
+} from "@magazine/domain";
 import {
   EDITOR_API_ERROR,
   mapEditorError,
@@ -47,6 +59,19 @@ describe("editor content error mapper", () => {
       new PublishingError(PUBLISHING_ERROR.CONTENT_WRITE_CONFLICT),
     );
     assert.equal(response.status, 409);
+  });
+
+  it("maps SEO inspection not-found without leaking internals", async () => {
+    const response = mapEditorError(
+      new SeoInspectionError(
+        SEO_INSPECTION_ERROR.CONTENT_NOT_FOUND,
+        "relation content_items",
+      ),
+    );
+    assert.equal(response.status, 404);
+    const body = await response.json();
+    assert.equal(body.error.code, "CONTENT_NOT_FOUND");
+    assert.equal(JSON.stringify(body).includes("content_items"), false);
   });
 
   it("maps invalid hero media type without leaking internals", async () => {
@@ -103,6 +128,42 @@ describe("editor content error mapper", () => {
     const body = await response.json();
     assert.equal(body.error.code, "INVALID_IMAGE");
     assert.equal(JSON.stringify(body).includes("VipsJpeg"), false);
+  });
+
+  it("maps StaffAdminError to controlled HTTP codes without leaking internals", async () => {
+    const conflict = mapEditorError(
+      new StaffAdminError(
+        STAFF_ADMIN_ERROR.STAFF_WRITE_CONFLICT,
+        "SQL STATE 40001 staff_users",
+      ),
+    );
+    assert.equal(conflict.status, 409);
+    const conflictBody = await conflict.json();
+    assert.equal(conflictBody.error.code, "STAFF_WRITE_CONFLICT");
+    assert.equal(JSON.stringify(conflictBody).includes("SQL"), false);
+
+    const role = mapEditorError(new StaffAdminError(STAFF_ADMIN_ERROR.INVALID_ROLE));
+    assert.equal(role.status, 400);
+    assert.equal((await role.json()).error.code, "INVALID_STAFF_ROLE");
+
+    const scope = mapEditorError(new StaffAdminError(STAFF_ADMIN_ERROR.INVALID_SCOPE));
+    assert.equal((await scope.json()).error.code, "INVALID_STAFF_SCOPE");
+
+    const status = mapEditorError(
+      new StaffAdminError(STAFF_ADMIN_ERROR.INVALID_STATUS),
+    );
+    assert.equal((await status.json()).error.code, "INVALID_ACCOUNT_TRANSITION");
+
+    const last = mapEditorError(
+      new StaffAdminError(STAFF_ADMIN_ERROR.LAST_SUPER_ADMIN),
+    );
+    assert.equal(last.status, 409);
+    assert.equal((await last.json()).error.code, "LAST_SUPER_ADMIN");
+
+    const forbidden = mapEditorError(
+      new StaffAdminError(STAFF_ADMIN_ERROR.FORBIDDEN),
+    );
+    assert.equal(forbidden.status, 403);
   });
 });
 

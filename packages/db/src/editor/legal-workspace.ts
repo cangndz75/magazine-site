@@ -1,7 +1,6 @@
-import { and, desc, eq, gte, ilike, isNotNull, isNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, isNotNull, isNull, lt, lte, or, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
-  CONTENT_LEGAL_ACTION_TYPE,
   encodeEditorListCursor,
   type ContentLegalActionPolarity,
   type ContentLegalActionType,

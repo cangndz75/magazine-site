@@ -25,6 +25,8 @@ const SAVE_ERROR_MESSAGES: Record<string, string> = {
   STALE_WRITE:
     "Bu video başka bir oturumda güncellendi. Yenileyip tekrar deneyin.",
   DUPLICATE_VIDEO: "Bu video zaten kayıtlı.",
+  INVALID_SLUG: "URL geçersiz.",
+  SLUG_CONFLICT: "Bu URL kullanımda.",
   INVALID_POSTER: "Video posteri yalnızca görsel medya olabilir.",
 };
 

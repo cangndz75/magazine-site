@@ -12,7 +12,10 @@
     "./editor": "./src/editor/index.ts",
     "./storage": "./src/storage/index.ts",
     "./staff-provisioning": "./src/staff-provisioning.ts",
-    "./staff-password-reset": "./src/staff-password-reset.ts"
+    "./staff-password-reset": "./src/staff-password-reset.ts",
+    "./staff-administration": "./src/staff-administration.ts",
+    "./staff-mfa": "./src/staff-mfa.ts",
+    "./seo": "./src/seo/index.ts"
   },
   "scripts": {
     "lint": "eslint .",

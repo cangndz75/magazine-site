@@ -87,6 +87,7 @@ const EVENT_LABELS: Record<ContentAuditEventType, string> = {
   [CONTENT_AUDIT_EVENT_TYPE.CONTENT_TAKEN_DOWN]: "Yasal kaldırma uygulandı",
   [CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_PLACED]: "Legal hold konuldu",
   [CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_RELEASED]: "Legal hold kaldırıldı",
+  [CONTENT_AUDIT_EVENT_TYPE.CONTENT_SLUG_CHANGED]: "Slug değiştirildi",
 };
 
 const FIELD_LABELS: Record<ContentAuditScalarField, string> = {
@@ -124,7 +125,20 @@ export function presentAuditEvent(event: EditorAuditEvent): PresentedAuditEvent 
       event.actor.kind === CONTENT_AUDIT_ACTOR_KIND.SYSTEM ? "Sistem" : "Personel",
     actionLabel: EVENT_LABELS[event.eventType],
     occurredAt: event.occurredAt,
-    scalarChanges: (changeSet?.scalarChanges ?? []).map(presentScalarChange),
+    scalarChanges: [
+      ...(changeSet?.slugChange
+        ? [
+            {
+              fieldLabel: "Slug",
+              summary: "Slug değiştirildi",
+              before: changeSet.slugChange.before,
+              after: changeSet.slugChange.after,
+              multiline: false,
+            },
+          ]
+        : []),
+      ...(changeSet?.scalarChanges ?? []).map(presentScalarChange),
+    ],
     bodyChange: changeSet?.bodyChange
       ? presentBodyChange(changeSet.bodyChange)
       : null,

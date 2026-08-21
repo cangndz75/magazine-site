@@ -19,6 +19,8 @@ import {
   CONTENT_LEGAL_ACTION_TYPES,
   CONTENT_LEGAL_ACTION_POLARITIES,
   CONTENT_LEGAL_REASON_CATEGORIES,
+  STAFF_MFA_FACTOR_KINDS,
+  STAFF_MFA_FACTOR_STATUSES,
 } from "@magazine/domain";
 
 export const publicationStatusEnum = pgEnum(
@@ -78,4 +80,14 @@ export const contentLegalActionPolarityEnum = pgEnum(
 export const contentLegalReasonCategoryEnum = pgEnum(
   "content_legal_reason_category",
   CONTENT_LEGAL_REASON_CATEGORIES,
+);
+
+export const staffMfaFactorKindEnum = pgEnum(
+  "staff_mfa_factor_kind",
+  STAFF_MFA_FACTOR_KINDS,
+);
+
+export const staffMfaFactorStatusEnum = pgEnum(
+  "staff_mfa_factor_status",
+  STAFF_MFA_FACTOR_STATUSES,
 );

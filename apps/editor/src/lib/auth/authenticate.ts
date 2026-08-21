@@ -7,6 +7,10 @@ import {
   staffUsers,
 } from "@magazine/db/schema";
 import {
+  createLoginChallenge,
+  staffHasActiveMfa,
+} from "@magazine/db/staff-mfa";
+import {
   decidePasswordCredentialTransition,
   assertPasswordPolicy,
   normalizeStaffEmail,
@@ -23,33 +27,17 @@ export const LOGIN_FAILURE_CODE = {
   DISABLED: "DISABLED",
   LOCKED: "LOCKED",
   INVALID_INPUT: "INVALID_INPUT",
+  PASSWORD_RESET_REQUIRED: "PASSWORD_RESET_REQUIRED",
 } as const;
 
 export type LoginFailureCode =
   (typeof LOGIN_FAILURE_CODE)[keyof typeof LOGIN_FAILURE_CODE];
 
 export type LoginResult =
-  | { ok: true; token: string }
+  | { ok: true; kind: "session"; token: string }
+  | { ok: true; kind: "mfa_required"; challengeToken: string; staffUserId: string }
   | { ok: false; code: LoginFailureCode };
 
-/**
- * Password KDF runs *before* the credential row lock so Argon2 does not
- * hold PostgreSQL row locks.
- *
- * Failed-attempt and successful-reset mutations then:
- *   BEGIN
- *   SELECT credential FOR UPDATE  -- serializes this staff credential row
- *   re-read user status
- *   decide transition from the locked current row
- *   UPDATE credential
- *   COMMIT
- *
- * Concurrent wrong passwords cannot lose increments: each mutation sees
- * the latest locked failedLoginCount. A success/fail race is ordered by
- * who acquires the row lock; success resets, failure increments from
- * whatever the locked row currently holds. Unknown emails have no row to
- * lock and never persist a counter.
- */
 export async function authenticateStaffPassword(
   emailInput: string,
   password: string,
@@ -102,7 +90,10 @@ export async function authenticateStaffPassword(
       .for("update");
 
     const [freshUser] = await tx
-      .select({ status: staffUsers.status })
+      .select({
+        status: staffUsers.status,
+        passwordResetRequiredAt: staffUsers.passwordResetRequiredAt,
+      })
       .from(staffUsers)
       .where(eq(staffUsers.id, user.id))
       .limit(1);
@@ -131,6 +122,7 @@ export async function authenticateStaffPassword(
       },
       passwordMatches,
       now: new Date(),
+      passwordResetRequiredAt: freshUser?.passwordResetRequiredAt ?? null,
     });
 
     if (decision.mutate === false) {
@@ -147,7 +139,7 @@ export async function authenticateStaffPassword(
       .where(eq(staffPasswordCredentials.staffUserId, user.id));
 
     if (decision.mutate === "reset") {
-      return { ok: true as const };
+      return { ok: true as const, staffUserId: user.id };
     }
 
     return { ok: false as const, code: decision.code };
@@ -157,6 +149,42 @@ export async function authenticateStaffPassword(
     return txnResult;
   }
 
-  const token = await createStaffSession(user.id);
-  return { ok: true, token };
+  const hasMfa = await staffHasActiveMfa(txnResult.staffUserId);
+  if (hasMfa) {
+    const challenge = await createLoginChallenge({
+      staffUserId: txnResult.staffUserId,
+    });
+    return {
+      ok: true,
+      kind: "mfa_required",
+      challengeToken: challenge.challengeToken,
+      staffUserId: txnResult.staffUserId,
+    };
+  }
+
+  const token = await createStaffSession(txnResult.staffUserId);
+  return { ok: true, kind: "session", token };
+}
+
+export async function verifyStaffPasswordStepUp(input: {
+  staffUserId: string;
+  password: string;
+}): Promise<boolean> {
+  const passwordPolicy = assertPasswordPolicy(input.password);
+  if (!passwordPolicy.ok) {
+    await verifyUnknownUserPassword(input.password);
+    return false;
+  }
+
+  const db = getDb();
+  const [credentials] = await db
+    .select({ passwordHash: staffPasswordCredentials.passwordHash })
+    .from(staffPasswordCredentials)
+    .where(eq(staffPasswordCredentials.staffUserId, input.staffUserId))
+    .limit(1);
+  if (!credentials) {
+    await verifyUnknownUserPassword(input.password);
+    return false;
+  }
+  return verifyPassword(credentials.passwordHash, input.password);
 }

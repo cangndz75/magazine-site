@@ -14,6 +14,7 @@ export default async function WorkspaceLayout({
   const canReview = hasCapability(session.roles, CAPABILITY.CONTENT_REVIEW);
   const canManageHomepage = hasCapability(session.roles, CAPABILITY.HOMEPAGE_MANAGE);
   const canLegal = hasCapability(session.roles, CAPABILITY.CONTENT_LEGAL);
+  const canManageStaff = hasCapability(session.roles, CAPABILITY.STAFF_MANAGE);
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-zinc-50">
@@ -46,6 +47,14 @@ export default async function WorkspaceLayout({
                 Videolar
               </Link>
             )}
+            {canReadContent && (
+              <Link
+                href="/seo"
+                className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+              >
+                SEO
+              </Link>
+            )}
             {canReview && (
               <Link
                 href="/review"
@@ -70,9 +79,23 @@ export default async function WorkspaceLayout({
                 Yasal
               </Link>
             )}
+            {canManageStaff && (
+              <Link
+                href="/staff"
+                className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+              >
+                Personel
+              </Link>
+            )}
           </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <Link
+              href="/settings/security"
+              className="rounded px-2 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+            >
+              Güvenlik
+            </Link>
             <span className="max-w-[9rem] truncate text-xs text-zinc-500 sm:max-w-none">
               {session.displayName}
             </span>

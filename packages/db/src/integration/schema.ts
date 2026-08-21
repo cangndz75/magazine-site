@@ -25,6 +25,27 @@ const EDITORIAL_VIDEO_SQL = "0011_editorial-video-foundation.sql";
 const HOMEPAGE_VIDEO_SLOT_SQL = "0012_homepage-video-slot.sql";
 const MEDIA_IMAGE_RENDITIONS_SQL = "0013_media-image-renditions.sql";
 const EDITORIAL_LEGAL_ACTIONS_SQL = "0014_editorial-legal-actions.sql";
+const STAFF_ADMINISTRATION_SQL = "0015_staff-administration-foundation.sql";
+const STAFF_MFA_RUNTIME_SQL = "0016_staff-mfa-runtime.sql";
+const CONTENT_SLUG_HISTORY_SQL = "0017_content-slug-history.sql";
+
+async function publicColumnExists(
+  client: Client,
+  tableName: string,
+  columnName: string,
+): Promise<boolean> {
+  const result = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = $1
+         AND column_name = $2
+     ) AS exists`,
+    [tableName, columnName],
+  );
+  return result.rows[0]?.exists === true;
+}
 
 async function publicTableExists(
   client: Client,
@@ -184,5 +205,43 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   const hasLegalActions = await publicTableExists(client, "content_legal_actions");
   if (!hasLegalActions) {
     await applySqlFile(client, EDITORIAL_LEGAL_ACTIONS_SQL);
+  }
+
+  const hasStaffSecurityAudit = await publicTableExists(
+    client,
+    "staff_security_audit_events",
+  );
+  if (!hasStaffSecurityAudit) {
+    await applySqlFile(client, STAFF_ADMINISTRATION_SQL);
+  }
+
+  const hasLoginChallenges = await publicTableExists(
+    client,
+    "staff_login_challenges",
+  );
+  const hasLastVerifiedTotpStep = await publicColumnExists(
+    client,
+    "staff_mfa_secrets",
+    "last_verified_totp_step",
+  );
+  if (!hasLoginChallenges || !hasLastVerifiedTotpStep) {
+    const mfaSql = readFileSync(
+      path.join(DRIZZLE_DIR, STAFF_MFA_RUNTIME_SQL),
+      "utf8",
+    );
+    for (const statement of statementsFromDrizzleSql(mfaSql)) {
+      if (hasLoginChallenges && statement.includes("staff_login_challenges")) {
+        continue;
+      }
+      if (hasLastVerifiedTotpStep && statement.includes("last_verified_totp_step")) {
+        continue;
+      }
+      await client.query(statement);
+    }
+  }
+
+  const hasSlugHistory = await publicTableExists(client, "content_slug_history");
+  if (!hasSlugHistory) {
+    await applySqlFile(client, CONTENT_SLUG_HISTORY_SQL);
   }
 }

@@ -1,3 +1,8 @@
+import type { Metadata } from "next";
+import { buildNotFoundArticleMetadata } from "@/lib/seo/article-seo";
+
+export const metadata: Metadata = buildNotFoundArticleMetadata();
+
 export default function PublicArticleNotFound() {
   return (
     <div className="public-page">

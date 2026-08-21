@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
 import {
   PUBLIC_ARTICLE_WITHDRAWAL_KIND,
+  PUBLICATION_STATUS,
+  buildNewsArticleJsonLd,
+  resolveMissingPublicArticleIndexability,
+  resolvePublicArticleCanonical,
+  resolvePublicIndexability,
+  resolvePublicMetadataDescription,
+  resolvePublicMetadataTitle,
+  resolveWithdrawnArticleIndexability,
+  robotsMetadataForIndexability,
+  serializeJsonLd,
+  type PublicPublisherIdentity,
   type PublicWithdrawnArticleShell,
 } from "@magazine/domain";
 import { publicArticleCanonicalUrl } from "./public-site-url";
@@ -10,6 +21,10 @@ export type ArticleSeoInput = {
   title: string;
   subtitle: string | null;
   excerpt: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  canonicalUrl?: string | null;
+  robots?: string | null;
   publishedAt: Date;
   publicDateModified: Date | null;
   hero: {
@@ -51,10 +66,46 @@ function optionalText(value: string | null | undefined): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+export function articleSeoTitle(
+  article: Pick<ArticleSeoInput, "seoTitle" | "title">,
+): string {
+  return resolvePublicMetadataTitle({
+    seoTitle: article.seoTitle,
+    title: article.title,
+  });
+}
+
 export function articleSeoDescription(
-  article: Pick<ArticleSeoInput, "excerpt" | "subtitle">,
+  article: Pick<ArticleSeoInput, "seoDescription" | "excerpt" | "subtitle">,
 ): string | undefined {
-  return optionalText(article.excerpt) ?? optionalText(article.subtitle);
+  return (
+    resolvePublicMetadataDescription({
+      seoDescription: article.seoDescription,
+      excerpt: article.excerpt,
+      subtitle: article.subtitle,
+    }) ?? undefined
+  );
+}
+
+function liveArticleIndexability(article: ArticleSeoInput) {
+  return resolvePublicIndexability({
+    publicationStatus: PUBLICATION_STATUS.PUBLISHED,
+    publishedVersionId: "published",
+    publishedAt: article.publishedAt,
+    deletedAt: null,
+    retractedAt: null,
+    takedownAt: null,
+    storedRobots: article.robots ?? null,
+  });
+}
+
+function articleCanonicalUrl(article: ArticleSeoInput, siteUrl: string): string {
+  const resolved = resolvePublicArticleCanonical({
+    trustedSiteUrl: siteUrl,
+    slug: article.slug,
+    storedCanonicalUrl: article.canonicalUrl ?? null,
+  });
+  return resolved.url ?? publicArticleCanonicalUrl(siteUrl, article.slug);
 }
 
 function primaryCategoryName(
@@ -71,86 +122,64 @@ function authorNames(authors: ArticleSeoInput["authors"]): string[] {
 
 /**
  * JSON-LD must be safe inside <script type="application/ld+json">.
- * Escaping <, >, and & prevents breaking out of the script element.
+ * Escaping is owned by the domain serializeJsonLd contract.
  */
-export function serializeJsonLd(value: unknown): string {
-  return JSON.stringify(value)
-    .replace(/</g, "\\u003c")
-    .replace(/>/g, "\\u003e")
-    .replace(/&/g, "\\u0026")
-    .replace(/\u2028/g, "\\u2028")
-    .replace(/\u2029/g, "\\u2029");
-}
+export { serializeJsonLd };
 
 export function buildNotFoundArticleMetadata(): Metadata {
   return {
     title: NOT_FOUND_TITLE,
     description: NOT_FOUND_DESCRIPTION,
-    robots: {
-      index: false,
-      follow: false,
-    },
+    robots: robotsMetadataForIndexability(
+      resolveMissingPublicArticleIndexability(),
+    ),
   };
 }
 
 export function buildPublishedArticleJsonLd(
   article: ArticleSeoInput,
   siteUrl: string,
-): Record<string, unknown> {
-  const canonicalUrl = publicArticleCanonicalUrl(siteUrl, article.slug);
+  publisher: PublicPublisherIdentity | null = null,
+): Record<string, unknown> | null {
+  const canonicalUrl = articleCanonicalUrl(article, siteUrl);
+  const title = articleSeoTitle(article);
   const description = articleSeoDescription(article);
   const section = primaryCategoryName(article.categories);
   const names = authorNames(article.authors);
 
-  const jsonLd: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": "NewsArticle",
-    headline: article.title,
-    url: canonicalUrl,
-    mainEntityOfPage: {
-      "@type": "WebPage",
-      "@id": canonicalUrl,
-    },
-    datePublished: article.publishedAt.toISOString(),
+  return buildNewsArticleJsonLd({
+    suppressed: false,
+    headline: title,
+    canonicalUrl,
+    datePublished: article.publishedAt,
+    dateModified: article.publicDateModified,
+    description: description ?? null,
+    authors: names,
+    imageUrl: article.hero?.url ?? null,
+    articleSection: section ?? null,
+    publisherName: publisher?.name ?? null,
+    publisherUrl: publisher?.url ?? null,
+    publisherLogoUrl: publisher?.logoUrl ?? null,
     inLanguage: "tr",
-  };
-
-  if (description) {
-    jsonLd.description = description;
-  }
-  if (article.publicDateModified) {
-    jsonLd.dateModified = article.publicDateModified.toISOString();
-  }
-  if (names.length > 0) {
-    jsonLd.author = names.map((name) => ({
-      "@type": "Person",
-      name,
-    }));
-  }
-  if (section) {
-    jsonLd.articleSection = section;
-  }
-  if (article.hero?.url) {
-    jsonLd.image = article.hero.url;
-  }
-
-  return jsonLd;
+  });
 }
 
 export function buildPublishedArticleMetadata(
   article: ArticleSeoInput,
   siteUrl: string,
 ): Metadata {
-  const canonicalUrl = publicArticleCanonicalUrl(siteUrl, article.slug);
+  const canonicalUrl = articleCanonicalUrl(article, siteUrl);
+  const title = articleSeoTitle(article);
   const description = articleSeoDescription(article);
   const section = primaryCategoryName(article.categories);
   const names = authorNames(article.authors);
   const publishedTime = article.publishedAt.toISOString();
   const modifiedTime = article.publicDateModified?.toISOString();
+  const indexability = liveArticleIndexability(article);
 
   const openGraph: NonNullable<Metadata["openGraph"]> = {
     type: "article",
-    title: article.title,
+    title,
     url: canonicalUrl,
     publishedTime,
     locale: "tr_TR",
@@ -180,7 +209,7 @@ export function buildPublishedArticleMetadata(
 
   const twitter: NonNullable<Metadata["twitter"]> = {
     card: article.hero?.url ? "summary_large_image" : "summary",
-    title: article.title,
+    title,
   };
   if (description) {
     twitter.description = description;
@@ -190,10 +219,11 @@ export function buildPublishedArticleMetadata(
   }
 
   const metadata: Metadata = {
-    title: article.title,
+    title,
     alternates: {
       canonical: canonicalUrl,
     },
+    robots: robotsMetadataForIndexability(indexability),
     openGraph,
     twitter,
   };
@@ -230,10 +260,9 @@ export function buildWithdrawnArticleMetadata(
     alternates: {
       canonical: canonicalUrl,
     },
-    robots: {
-      index: false,
-      follow: false,
-    },
+    robots: robotsMetadataForIndexability(
+      resolveWithdrawnArticleIndexability(shell.withdrawalKind),
+    ),
   };
 }
 
@@ -244,6 +273,7 @@ export function buildWithdrawnArticleMetadata(
 export function buildPublicArticleSeo(
   article: ArticleSeoInput | null,
   siteUrl: string,
+  publisher: PublicPublisherIdentity | null = null,
 ): PublicArticleSeo {
   if (!article) {
     return {
@@ -253,17 +283,20 @@ export function buildPublicArticleSeo(
     };
   }
 
-  const jsonLd = buildPublishedArticleJsonLd(article, siteUrl);
+  const jsonLd = liveArticleIndexability(article).indexable
+    ? buildPublishedArticleJsonLd(article, siteUrl, publisher)
+    : null;
   return {
     metadata: buildPublishedArticleMetadata(article, siteUrl),
     jsonLd,
-    jsonLdScript: serializeJsonLd(jsonLd),
+    jsonLdScript: jsonLd ? serializeJsonLd(jsonLd) : null,
   };
 }
 
 export function buildPublicArticlePageSeo(
   page: PublicArticlePageSeoInput | null,
   siteUrl: string,
+  publisher: PublicPublisherIdentity | null = null,
 ): PublicArticleSeo {
   if (!page) {
     return {
@@ -281,5 +314,5 @@ export function buildPublicArticlePageSeo(
     };
   }
 
-  return buildPublicArticleSeo(page.article, siteUrl);
+  return buildPublicArticleSeo(page.article, siteUrl, publisher);
 }

@@ -156,6 +156,14 @@ export async function resetStaffPassword(
       })
       .where(eq(staffPasswordCredentials.staffUserId, user.id));
 
+    await tx
+      .update(staffUsers)
+      .set({
+        passwordResetRequiredAt: null,
+        updatedAt: now,
+      })
+      .where(eq(staffUsers.id, user.id));
+
     const revokedSessions = await tx
       .update(staffSessions)
       .set({ revokedAt: now })

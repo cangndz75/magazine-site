@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EDITOR_LIST_MAX_LIMIT, PUBLISHING_ERROR, STAFF_ROLE, STAFF_SCOPE_MODE } from "@magazine/domain";
 import { parseEditorListSearchParams, parseReviewQueueSearchParams, parseRevisionHistorySearchParams, parseDiffSearchParams } from "./list-params";
-import { parseArticleEditorSaveBody, parseCreateContentBody, parseDraftGalleryBody, parseDraftHeroBody, parseDraftSaveBody, parseRequestChangesBody, parseRevisionBody, parseScheduleBody, parseSubmitReviewBody } from "./payload";
+import { parseArticleEditorSaveBody, parseContentSlugBody, parseCreateContentBody, parseDraftGalleryBody, parseDraftHeroBody, parseDraftSaveBody, parseRequestChangesBody, parseRevisionBody, parseScheduleBody, parseSubmitReviewBody } from "./payload";
 
 const CAT = "11111111-1111-4111-8111-111111111111";
 const VER = "22222222-2222-4222-8222-222222222222";
@@ -192,6 +192,29 @@ describe("create/draft payload validation", () => {
     assert.equal(parsed.categories[0]?.categoryId, CAT);
   });
 
+  it("accepts draft SEO fields with expectedUpdatedAt and supported robots restriction", () => {
+    const parsed = parseArticleEditorSaveBody({
+      versionId: VER,
+      expectedUpdatedAt: "2026-08-16T12:00:00.000Z",
+      title: "Hello",
+      seoTitle: "SEO başlığı",
+      seoDescription: "SEO açıklaması",
+      canonicalUrl: "https://www.example.com/hello",
+      robots: "noindex",
+      body: { blocks: [] },
+      categories: [{ categoryId: CAT, isPrimary: true }],
+      tags: [],
+      entities: [],
+      media: [],
+      authors: [],
+    });
+    assert.equal(parsed.seoTitle, "SEO başlığı");
+    assert.equal(parsed.seoDescription, "SEO açıklaması");
+    assert.equal(parsed.canonicalUrl, "https://www.example.com/hello");
+    assert.equal(parsed.robots, "noindex");
+    assert.equal(parsed.expectedUpdatedAt, "2026-08-16T12:00:00.000Z");
+  });
+
   it("requires expectedUpdatedAt for submit-review", () => {
     assert.throws(() => parseSubmitReviewBody({ versionId: VER }));
     const parsed = parseSubmitReviewBody({
@@ -359,5 +382,33 @@ describe("draft gallery payload", () => {
         items: [{ mediaId: MEDIA, caption: "x".repeat(501) }],
       }),
     );
+  });
+});
+
+describe("content slug payload", () => {
+  it("requires a canonical slug and expectedUpdatedAt", () => {
+    const parsed = parseContentSlugBody({
+      slug: "Yeni-Haber",
+      expectedUpdatedAt: "2026-08-16T12:00:00.000Z",
+    });
+    assert.equal(parsed.slug, "yeni-haber");
+    assert.equal(parsed.expectedUpdatedAt, "2026-08-16T12:00:00.000Z");
+  });
+
+  it("rejects an invalid slug with the shared INVALID_SLUG code", () => {
+    try {
+      parseContentSlugBody({
+        slug: "Hello World",
+        expectedUpdatedAt: "2026-08-16T12:00:00.000Z",
+      });
+      assert.fail("expected throw");
+    } catch (error) {
+      assert.equal(
+        error instanceof Error && "code" in error
+          ? (error as { code: string }).code
+          : null,
+        PUBLISHING_ERROR.INVALID_SLUG,
+      );
+    }
   });
 });

@@ -12,12 +12,21 @@ import {
   MediaUploadError,
   PUBLISHING_ERROR,
   PublishingError,
+  SEO_INSPECTION_ERROR,
+  SeoInspectionError,
+  STAFF_ADMIN_ERROR,
+  STAFF_MFA_ERROR,
+  StaffAdminError,
+  StaffMfaError,
   VIDEO_ERROR,
   VideoError,
   type HomepageBuilderErrorCode,
   type MediaRightsErrorCode,
   type MediaUploadErrorCode,
   type PublishingErrorCode,
+  type SeoInspectionErrorCode,
+  type StaffAdminErrorCode,
+  type StaffMfaErrorCode,
   type VideoErrorCode,
 } from "@magazine/domain";
 
@@ -128,6 +137,11 @@ const VIDEO_STATUS_MAP: Record<VideoErrorCode, number> = {
   [VIDEO_ERROR.STALE_WRITE]: 409,
 };
 
+const SEO_INSPECTION_STATUS: Record<SeoInspectionErrorCode, number> = {
+  [SEO_INSPECTION_ERROR.FORBIDDEN]: 403,
+  [SEO_INSPECTION_ERROR.CONTENT_NOT_FOUND]: 404,
+};
+
 const CONTENT_LEGAL_STATUS: Record<ContentLegalErrorCode, number> = {
   [CONTENT_LEGAL_ERROR.FORBIDDEN]: 403,
   [CONTENT_LEGAL_ERROR.CONTENT_NOT_FOUND]: 404,
@@ -142,6 +156,61 @@ const CONTENT_LEGAL_STATUS: Record<ContentLegalErrorCode, number> = {
   [CONTENT_LEGAL_ERROR.INVALID_NOTE]: 400,
 };
 
+export const STAFF_ADMIN_HTTP_ERROR = {
+  FORBIDDEN: STAFF_ADMIN_ERROR.FORBIDDEN,
+  STAFF_NOT_FOUND: STAFF_ADMIN_ERROR.STAFF_NOT_FOUND,
+  STAFF_WRITE_CONFLICT: STAFF_ADMIN_ERROR.STAFF_WRITE_CONFLICT,
+  LAST_SUPER_ADMIN: STAFF_ADMIN_ERROR.LAST_SUPER_ADMIN,
+  SESSION_NOT_FOUND: STAFF_ADMIN_ERROR.SESSION_NOT_FOUND,
+  MFA_NOT_ENROLLED: STAFF_ADMIN_ERROR.MFA_NOT_ENROLLED,
+  INVALID_STAFF_ROLE: "INVALID_STAFF_ROLE",
+  INVALID_STAFF_SCOPE: "INVALID_STAFF_SCOPE",
+  INVALID_ACCOUNT_TRANSITION: "INVALID_ACCOUNT_TRANSITION",
+} as const;
+
+const STAFF_ADMIN_HTTP_CODE: Record<StaffAdminErrorCode, string> = {
+  [STAFF_ADMIN_ERROR.FORBIDDEN]: STAFF_ADMIN_HTTP_ERROR.FORBIDDEN,
+  [STAFF_ADMIN_ERROR.STAFF_NOT_FOUND]: STAFF_ADMIN_HTTP_ERROR.STAFF_NOT_FOUND,
+  [STAFF_ADMIN_ERROR.STAFF_WRITE_CONFLICT]:
+    STAFF_ADMIN_HTTP_ERROR.STAFF_WRITE_CONFLICT,
+  [STAFF_ADMIN_ERROR.LAST_SUPER_ADMIN]: STAFF_ADMIN_HTTP_ERROR.LAST_SUPER_ADMIN,
+  [STAFF_ADMIN_ERROR.INVALID_ROLE]: STAFF_ADMIN_HTTP_ERROR.INVALID_STAFF_ROLE,
+  [STAFF_ADMIN_ERROR.INVALID_SCOPE]: STAFF_ADMIN_HTTP_ERROR.INVALID_STAFF_SCOPE,
+  [STAFF_ADMIN_ERROR.INVALID_STATUS]:
+    STAFF_ADMIN_HTTP_ERROR.INVALID_ACCOUNT_TRANSITION,
+  [STAFF_ADMIN_ERROR.SESSION_NOT_FOUND]: STAFF_ADMIN_HTTP_ERROR.SESSION_NOT_FOUND,
+  [STAFF_ADMIN_ERROR.MFA_NOT_ENROLLED]: STAFF_ADMIN_HTTP_ERROR.MFA_NOT_ENROLLED,
+};
+
+const STAFF_ADMIN_STATUS: Record<StaffAdminErrorCode, number> = {
+  [STAFF_ADMIN_ERROR.FORBIDDEN]: 403,
+  [STAFF_ADMIN_ERROR.STAFF_NOT_FOUND]: 404,
+  [STAFF_ADMIN_ERROR.STAFF_WRITE_CONFLICT]: 409,
+  [STAFF_ADMIN_ERROR.LAST_SUPER_ADMIN]: 409,
+  [STAFF_ADMIN_ERROR.INVALID_ROLE]: 400,
+  [STAFF_ADMIN_ERROR.INVALID_SCOPE]: 400,
+  [STAFF_ADMIN_ERROR.INVALID_STATUS]: 400,
+  [STAFF_ADMIN_ERROR.SESSION_NOT_FOUND]: 404,
+  [STAFF_ADMIN_ERROR.MFA_NOT_ENROLLED]: 409,
+};
+
+const STAFF_MFA_STATUS: Record<StaffMfaErrorCode, number> = {
+  [STAFF_MFA_ERROR.FORBIDDEN]: 403,
+  [STAFF_MFA_ERROR.MFA_NOT_ENROLLED]: 409,
+  [STAFF_MFA_ERROR.MFA_ALREADY_ACTIVE]: 409,
+  [STAFF_MFA_ERROR.MFA_ENROLLMENT_PENDING]: 409,
+  [STAFF_MFA_ERROR.MFA_ENROLLMENT_NOT_PENDING]: 409,
+  [STAFF_MFA_ERROR.INVALID_TOTP_CODE]: 400,
+  [STAFF_MFA_ERROR.INVALID_RECOVERY_CODE]: 400,
+  [STAFF_MFA_ERROR.CHALLENGE_NOT_FOUND]: 404,
+  [STAFF_MFA_ERROR.CHALLENGE_EXPIRED]: 410,
+  [STAFF_MFA_ERROR.CHALLENGE_CONSUMED]: 409,
+  [STAFF_MFA_ERROR.CHALLENGE_LOCKED]: 429,
+  [STAFF_MFA_ERROR.TOTP_REPLAY]: 409,
+  [STAFF_MFA_ERROR.CRYPTO_ERROR]: 500,
+  [STAFF_MFA_ERROR.STEP_UP_REQUIRED]: 401,
+};
+
 const SAFE_MESSAGES: Record<string, string> = {
   [EDITOR_API_ERROR.UNAUTHENTICATED]: "Authentication required.",
   [EDITOR_API_ERROR.FORBIDDEN]: "You are not allowed to perform this action.",
@@ -153,7 +222,8 @@ const SAFE_MESSAGES: Record<string, string> = {
   [PUBLISHING_ERROR.CONTENT_NOT_FOUND]: "Content was not found.",
   [PUBLISHING_ERROR.VERSION_NOT_FOUND]: "Version was not found.",
   [PUBLISHING_ERROR.CONTENT_DELETED]: "Content was not found.",
-  [PUBLISHING_ERROR.SLUG_CONFLICT]: "That slug is already in use.",
+  [PUBLISHING_ERROR.INVALID_SLUG]: "URL geçersiz.",
+  [PUBLISHING_ERROR.SLUG_CONFLICT]: "Bu URL kullanımda.",
   [PUBLISHING_ERROR.CONTENT_WRITE_CONFLICT]:
     "This draft was updated elsewhere. Reload and try again.",
   [PUBLISHING_ERROR.CATEGORY_OUT_OF_SCOPE]:
@@ -216,6 +286,19 @@ const SAFE_MESSAGES: Record<string, string> = {
   [CONTENT_LEGAL_ERROR.LEGAL_HOLD_NOT_ACTIVE]: "Aktif bir legal hold yok.",
   [CONTENT_LEGAL_ERROR.INVALID_NOTE]: "İç not veya kamu notu geçersiz.",
   [CONTENT_LEGAL_ERROR.INVALID_LEGAL_ACTION]: "Yasal işlem isteği geçersiz.",
+  [STAFF_ADMIN_HTTP_ERROR.STAFF_NOT_FOUND]: "Staff account was not found.",
+  [STAFF_ADMIN_HTTP_ERROR.STAFF_WRITE_CONFLICT]:
+    "This staff account was updated elsewhere. Reload and try again.",
+  [STAFF_ADMIN_HTTP_ERROR.LAST_SUPER_ADMIN]:
+    "The last active Super Admin cannot be removed or disabled.",
+  [STAFF_ADMIN_HTTP_ERROR.INVALID_STAFF_ROLE]: "The requested staff role is invalid.",
+  [STAFF_ADMIN_HTTP_ERROR.INVALID_STAFF_SCOPE]:
+    "The requested category scope is invalid.",
+  [STAFF_ADMIN_HTTP_ERROR.INVALID_ACCOUNT_TRANSITION]:
+    "The requested account status is invalid.",
+  [STAFF_ADMIN_HTTP_ERROR.SESSION_NOT_FOUND]: "Staff session was not found.",
+  [STAFF_ADMIN_HTTP_ERROR.MFA_NOT_ENROLLED]:
+    "This staff account has no MFA factor to disable.",
 };
 
 export function editorJson(body: unknown, status = 200): NextResponse {
@@ -292,6 +375,35 @@ export function mapEditorError(error: unknown): NextResponse {
       CONTENT_LEGAL_STATUS[error.code] ?? 400,
       error.code,
       SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof SeoInspectionError) {
+    const message =
+      error.code === SEO_INSPECTION_ERROR.CONTENT_NOT_FOUND
+        ? "İçerik bulunamadı veya yetkinizin dışında."
+        : "Bu SEO kaydını görüntüleme yetkiniz yok.";
+    return editorErrorResponse(
+      SEO_INSPECTION_STATUS[error.code] ?? 400,
+      error.code,
+      message,
+    );
+  }
+
+  if (error instanceof StaffAdminError) {
+    const code = STAFF_ADMIN_HTTP_CODE[error.code] ?? error.code;
+    return editorErrorResponse(
+      STAFF_ADMIN_STATUS[error.code] ?? 400,
+      code,
+      SAFE_MESSAGES[code],
+    );
+  }
+
+  if (error instanceof StaffMfaError) {
+    return editorErrorResponse(
+      STAFF_MFA_STATUS[error.code] ?? 400,
+      error.code,
+      "The MFA request could not be completed.",
     );
   }
 

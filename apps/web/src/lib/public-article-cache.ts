@@ -35,7 +35,9 @@ export function cachedPublicArticleLoader(
           ? page.article.id
           : page?.status === "withdrawn"
             ? page.shell.id
-            : null;
+            : page?.status === "redirect"
+              ? page.contentItemId
+              : null;
       return { contentItemId };
     },
     ["public-article-identity", slugTag],
@@ -79,6 +81,14 @@ function restorePublicArticlePageCachePayload(
         publishedAt: new Date(page.shell.publishedAt),
         effectiveAt: new Date(page.shell.effectiveAt),
       },
+    };
+  }
+
+  if (page.status === "redirect") {
+    return {
+      status: "redirect",
+      toSlug: page.toSlug,
+      contentItemId: page.contentItemId,
     };
   }
 

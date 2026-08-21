@@ -1,13 +1,17 @@
+import {
+  publicArticleCanonicalUrl as domainPublicArticleCanonicalUrl,
+  publicSiteBaseUrl as domainPublicSiteBaseUrl,
+} from "@magazine/domain";
+
 /**
  * Canonical public URLs are built from configured SITE_URL + the
  * resolved article slug. Never hardcode protocol, host, or path.
+ * Request Host headers are not an input to this helper.
  */
 export function publicSiteBaseUrl(siteUrl: string): string {
-  const url = new URL(siteUrl);
-  const path = url.pathname.replace(/\/+$/, "");
-  return `${url.origin}${path}`;
+  return domainPublicSiteBaseUrl(siteUrl);
 }
 
 export function publicArticleCanonicalUrl(siteUrl: string, slug: string): string {
-  return `${publicSiteBaseUrl(siteUrl)}/${slug}`;
+  return domainPublicArticleCanonicalUrl(siteUrl, slug);
 }

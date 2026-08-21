@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { baseEnvSchema, httpUrlSchema, parseEnv } from "./base";
+import { baseEnvSchema, httpUrlSchema, optionalNonEmptyString, parseEnv } from "./base";
 
 const mediaStorageModeSchema = z.enum(["local", "s3"]);
 
@@ -30,6 +30,18 @@ export const editorEnvSchema = baseEnvSchema
     MEDIA_S3_ACCESS_KEY_ID: z.string().min(1).optional(),
     MEDIA_S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
     MEDIA_S3_REGION: z.string().min(1).optional(),
+    STAFF_MFA_TOTP_ISSUER: z.string().min(1).max(100).optional(),
+    STAFF_MFA_ENCRYPTION_KEY: z
+      .string()
+      .min(1, "STAFF_MFA_ENCRYPTION_KEY is required")
+      .optional(),
+    /**
+     * Public NewsArticle publisher identity used by SEO inspection.
+     * Never NEXT_PUBLIC_*. Invalid URL/logo values are omitted later.
+     */
+    SITE_PUBLISHER_NAME: optionalNonEmptyString,
+    SITE_PUBLISHER_URL: optionalNonEmptyString,
+    SITE_PUBLISHER_LOGO_URL: optionalNonEmptyString,
   })
   .superRefine((value, ctx) => {
     const hosted = value.APP_ENV === "production" || value.APP_ENV === "staging";
@@ -91,6 +103,37 @@ export const editorEnvSchema = baseEnvSchema
           path: ["MEDIA_S3_SECRET_ACCESS_KEY"],
           message: "MEDIA_S3_SECRET_ACCESS_KEY is required when MEDIA_STORAGE_MODE=s3",
         });
+      }
+    }
+    if (hosted) {
+      if (!value.STAFF_MFA_ENCRYPTION_KEY) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["STAFF_MFA_ENCRYPTION_KEY"],
+          message:
+            "STAFF_MFA_ENCRYPTION_KEY is required in staging and production",
+        });
+      } else {
+        try {
+          const key = Buffer.from(value.STAFF_MFA_ENCRYPTION_KEY, "base64url");
+          if (key.length !== 32) {
+            const fallback = Buffer.from(value.STAFF_MFA_ENCRYPTION_KEY, "base64");
+            if (fallback.length !== 32) {
+              ctx.addIssue({
+                code: "custom",
+                path: ["STAFF_MFA_ENCRYPTION_KEY"],
+                message:
+                  "STAFF_MFA_ENCRYPTION_KEY must decode to 32 bytes (base64url)",
+              });
+            }
+          }
+        } catch {
+          ctx.addIssue({
+            code: "custom",
+            path: ["STAFF_MFA_ENCRYPTION_KEY"],
+            message: "STAFF_MFA_ENCRYPTION_KEY must be valid base64url",
+          });
+        }
       }
     }
   });

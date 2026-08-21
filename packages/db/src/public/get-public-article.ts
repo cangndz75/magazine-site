@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import {
   canonicalizeContentSlug,
+  canRedirectHistoricalPublicSlug,
   MEDIA_ROLE,
   MEDIA_TYPE,
   MEDIA_RENDITION_SURFACE,
@@ -26,6 +27,7 @@ import {
   contentVersions,
 } from "../schema/content";
 import { media } from "../schema/media";
+import { contentSlugHistory } from "../schema/slug-history";
 import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import { categories } from "../schema/taxonomy";
 import {
@@ -65,7 +67,8 @@ export type { PublicLegalNotice, PublicWithdrawnArticleShell };
 
 export type PublicArticlePage =
   | { status: "live"; article: PublicArticle }
-  | { status: "withdrawn"; shell: PublicWithdrawnArticleShell };
+  | { status: "withdrawn"; shell: PublicWithdrawnArticleShell }
+  | { status: "redirect"; toSlug: string; contentItemId: string };
 
 export type PublicArticle = {
   id: string;
@@ -73,6 +76,10 @@ export type PublicArticle = {
   title: string;
   subtitle: string | null;
   excerpt: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  canonicalUrl: string | null;
+  robots: string | null;
   publishedAt: Date;
   publicDateModified: Date | null;
   body: unknown;
@@ -142,6 +149,10 @@ export async function getPublicArticleBySlug(
       title: contentVersions.title,
       subtitle: contentVersions.subtitle,
       excerpt: contentVersions.excerpt,
+      seoTitle: contentVersions.seoTitle,
+      seoDescription: contentVersions.seoDescription,
+      canonicalUrl: contentVersions.canonicalUrl,
+      robots: contentVersions.robots,
       body: contentVersions.body,
     })
     .from(contentVersions)
@@ -343,6 +354,10 @@ export async function getPublicArticleBySlug(
     title: version.title,
     subtitle: version.subtitle,
     excerpt: version.excerpt,
+    seoTitle: version.seoTitle,
+    seoDescription: version.seoDescription,
+    canonicalUrl: version.canonicalUrl,
+    robots: version.robots,
     publishedAt: item.publishedAt,
     publicDateModified: item.publicDateModified,
     body: version.body,
@@ -385,9 +400,53 @@ export async function getPublicArticlePageBySlug(
   }
 
   const article = await getPublicArticleBySlug(canonical.value, options);
-  if (!article) {
+  if (article) {
+    return { status: "live", article };
+  }
+
+  return resolveHistoricalPublicArticleSlug(canonical.value);
+}
+
+async function resolveHistoricalPublicArticleSlug(
+  oldSlug: string,
+): Promise<PublicArticlePage | null> {
+  const db = getDb();
+  const [history] = await db
+    .select({
+      contentItemId: contentSlugHistory.contentItemId,
+    })
+    .from(contentSlugHistory)
+    .where(eq(contentSlugHistory.oldSlug, oldSlug))
+    .limit(1);
+
+  if (!history) {
     return null;
   }
 
-  return { status: "live", article };
+  const [item] = await db
+    .select({
+      id: contentItems.id,
+      slug: contentItems.slug,
+      publicationStatus: contentItems.publicationStatus,
+      publishedVersionId: contentItems.publishedVersionId,
+      publishedAt: contentItems.publishedAt,
+      deletedAt: contentItems.deletedAt,
+    })
+    .from(contentItems)
+    .where(eq(contentItems.id, history.contentItemId))
+    .limit(1);
+
+  if (!item || item.slug === oldSlug) {
+    return null;
+  }
+
+  if (!canRedirectHistoricalPublicSlug(item)) {
+    return null;
+  }
+
+  return {
+    status: "redirect",
+    toSlug: item.slug,
+    contentItemId: item.id,
+  };
 }

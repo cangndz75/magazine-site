@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
-import { authenticateStaffPassword } from "@/lib/auth/authenticate";
+import {
+  authenticateStaffPassword,
+  LOGIN_FAILURE_CODE,
+} from "@/lib/auth/authenticate";
 import { assertEditorOrigin, safeInternalPath } from "@/lib/auth/origin";
+import {
+  applyMfaChallengeCookie,
+  clearMfaChallengeCookie,
+} from "@/lib/auth/mfa-challenge-cookie";
 import { applySessionCookie } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -30,9 +37,25 @@ export async function POST(request: Request) {
 
   const result = await authenticateStaffPassword(email, password);
   if (!result.ok) {
+    if (result.code === LOGIN_FAILURE_CODE.PASSWORD_RESET_REQUIRED) {
+      return NextResponse.redirect(
+        new URL("/login?reset_required=1", env.EDITOR_URL),
+        303,
+      );
+    }
     return loginErrorRedirect();
   }
 
+  if (result.kind === "mfa_required") {
+    const response = NextResponse.redirect(
+      new URL(`/login?mfa=1&returnTo=${encodeURIComponent(returnTo)}`, env.EDITOR_URL),
+      303,
+    );
+    await applyMfaChallengeCookie(result.challengeToken);
+    return response;
+  }
+
+  await clearMfaChallengeCookie();
   await applySessionCookie(result.token);
   return NextResponse.redirect(new URL(returnTo, env.EDITOR_URL), 303);
 }

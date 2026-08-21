@@ -143,6 +143,13 @@ describe("audit timeline presentation", () => {
       }).actionLabel,
       "Legal hold kaldırıldı",
     );
+    assert.equal(
+      presentAuditEvent({
+        ...baseEvent,
+        eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_SLUG_CHANGED,
+      }).actionLabel,
+      "Slug değiştirildi",
+    );
   });
 
   it("renders staff and system actors without fake users", () => {
@@ -181,6 +188,21 @@ describe("audit timeline presentation", () => {
     assert.equal(event.scalarChanges[3]?.before, "Kapalı");
     assert.equal(event.scalarChanges[3]?.after, "Açık");
     assert.equal(event.scalarChanges.some((change) => change.before === "null"), false);
+  });
+
+  it("renders slug changes as previous → next without article body", () => {
+    const event = presentAuditEvent({
+      ...baseEvent,
+      eventType: CONTENT_AUDIT_EVENT_TYPE.CONTENT_SLUG_CHANGED,
+      changeSet: {
+        slugChange: { before: "eski-haber", after: "yeni-haber" },
+      },
+    });
+    assert.equal(event.scalarChanges.length, 1);
+    assert.equal(event.scalarChanges[0]?.fieldLabel, "Slug");
+    assert.equal(event.scalarChanges[0]?.before, "eski-haber");
+    assert.equal(event.scalarChanges[0]?.after, "yeni-haber");
+    assert.equal(event.bodyChange, null);
   });
 
   it("renders multiple scalar fields and long text as multiline", () => {

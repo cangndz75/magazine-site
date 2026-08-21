@@ -80,7 +80,8 @@ export const contentAuditEvents = pgTable(
         'CONTENT_RETRACTED',
         'CONTENT_TAKEN_DOWN',
         'CONTENT_LEGAL_HOLD_PLACED',
-        'CONTENT_LEGAL_HOLD_RELEASED'
+        'CONTENT_LEGAL_HOLD_RELEASED',
+        'CONTENT_SLUG_CHANGED'
       )`,
     ),
     check(

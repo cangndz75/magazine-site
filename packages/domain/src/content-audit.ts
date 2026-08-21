@@ -1,3 +1,5 @@
+import { CONTENT_SLUG_PATTERN } from "./publishing/slug";
+
 export const CONTENT_AUDIT_EVENT_TYPE = {
   CONTENT_CREATED: "CONTENT_CREATED",
   DRAFT_REVISION_CREATED: "DRAFT_REVISION_CREATED",
@@ -16,6 +18,7 @@ export const CONTENT_AUDIT_EVENT_TYPE = {
   CONTENT_TAKEN_DOWN: "CONTENT_TAKEN_DOWN",
   CONTENT_LEGAL_HOLD_PLACED: "CONTENT_LEGAL_HOLD_PLACED",
   CONTENT_LEGAL_HOLD_RELEASED: "CONTENT_LEGAL_HOLD_RELEASED",
+  CONTENT_SLUG_CHANGED: "CONTENT_SLUG_CHANGED",
 } as const;
 
 export type ContentAuditEventType =
@@ -39,6 +42,7 @@ export const CONTENT_AUDIT_EVENT_TYPES = [
   CONTENT_AUDIT_EVENT_TYPE.CONTENT_TAKEN_DOWN,
   CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_PLACED,
   CONTENT_AUDIT_EVENT_TYPE.CONTENT_LEGAL_HOLD_RELEASED,
+  CONTENT_AUDIT_EVENT_TYPE.CONTENT_SLUG_CHANGED,
 ] as const;
 
 export const CONTENT_AUDIT_ACTOR_KIND = {
@@ -109,11 +113,17 @@ export type ContentAuditLegalActionSummary = {
   hasPublicNote: boolean;
 };
 
+export type ContentAuditSlugChange = {
+  before: string;
+  after: string;
+};
+
 export type ContentAuditChangeSet = {
   scalarChanges?: ContentAuditScalarChange[];
   bodyChange?: ContentAuditBodySummary;
   relationChanges?: ContentAuditRelationSummary[];
   legalAction?: ContentAuditLegalActionSummary;
+  slugChange?: ContentAuditSlugChange;
   detailLimited?: boolean;
 };
 
@@ -240,6 +250,19 @@ export function assertContentAuditChangeSet(
       typeof legal.hasPublicNote !== "boolean"
     ) {
       throw new Error("Invalid content audit legal action summary.");
+    }
+  }
+
+  if (candidate.slugChange !== undefined) {
+    const slugChange = candidate.slugChange;
+    if (
+      typeof slugChange.before !== "string" ||
+      typeof slugChange.after !== "string" ||
+      !CONTENT_SLUG_PATTERN.test(slugChange.before) ||
+      !CONTENT_SLUG_PATTERN.test(slugChange.after) ||
+      slugChange.before === slugChange.after
+    ) {
+      throw new Error("Invalid content audit slug change.");
     }
   }
 

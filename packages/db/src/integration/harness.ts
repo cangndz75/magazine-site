@@ -580,6 +580,7 @@ export async function countLeftoverFixtures(
   auditEvents: number;
   legalActions: number;
   outboxEvents: number;
+  slugHistory: number;
 }> {
   if (itemIds.length === 0) {
     return {
@@ -589,6 +590,7 @@ export async function countLeftoverFixtures(
       auditEvents: 0,
       legalActions: 0,
       outboxEvents: 0,
+      slugHistory: 0,
     };
   }
 
@@ -599,6 +601,7 @@ export async function countLeftoverFixtures(
     auditEvents: string;
     legalActions: string;
     outboxEvents: string;
+    slugHistory: string;
   }>(
     `SELECT
        (SELECT count(*)::text FROM content_items WHERE id = ANY($1::uuid[])) AS items,
@@ -606,7 +609,8 @@ export async function countLeftoverFixtures(
        (SELECT count(*)::text FROM content_review_events WHERE content_item_id = ANY($1::uuid[])) AS "reviewEvents",
        (SELECT count(*)::text FROM content_audit_events WHERE content_item_id = ANY($1::uuid[])) AS "auditEvents",
        (SELECT count(*)::text FROM content_legal_actions WHERE content_item_id = ANY($1::uuid[])) AS "legalActions",
-       (SELECT count(*)::text FROM public_cache_outbox WHERE (payload->>'contentItemId')::uuid = ANY($1::uuid[])) AS "outboxEvents"`,
+       (SELECT count(*)::text FROM public_cache_outbox WHERE (payload->>'contentItemId')::uuid = ANY($1::uuid[])) AS "outboxEvents",
+       (SELECT count(*)::text FROM content_slug_history WHERE content_item_id = ANY($1::uuid[])) AS "slugHistory"`,
     [itemIds],
   );
 
@@ -617,6 +621,7 @@ export async function countLeftoverFixtures(
     auditEvents: Number(result.rows[0]?.auditEvents ?? "0"),
     legalActions: Number(result.rows[0]?.legalActions ?? "0"),
     outboxEvents: Number(result.rows[0]?.outboxEvents ?? "0"),
+    slugHistory: Number(result.rows[0]?.slugHistory ?? "0"),
   };
 }
 
@@ -661,6 +666,10 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
     );
     await pool.query(
       "DELETE FROM content_audit_events WHERE content_item_id = ANY($1::uuid[])",
+      [itemIds],
+    );
+    await pool.query(
+      "DELETE FROM content_slug_history WHERE content_item_id = ANY($1::uuid[])",
       [itemIds],
     );
     await pool.query(
@@ -746,8 +755,17 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
 
 export async function cleanupStaffAuthTables(): Promise<void> {
   const pool = getRacerPool();
-  await pool.query("DROP TABLE IF EXISTS staff_login_challenges");
+  const loginChallenges = await pool.query<{ exists: boolean }>(
+    `SELECT to_regclass('public.staff_login_challenges') IS NOT NULL AS exists`,
+  );
+  if (loginChallenges.rows[0]?.exists === true) {
+    await pool.query("DELETE FROM staff_login_challenges");
+  }
   await pool.query("DROP TABLE IF EXISTS staff_mfa_challenges");
+  await pool.query("DELETE FROM staff_security_audit_events");
+  await pool.query("DELETE FROM staff_mfa_recovery_codes");
+  await pool.query("DELETE FROM staff_mfa_secrets");
+  await pool.query("DELETE FROM staff_mfa_factors");
   await pool.query("DELETE FROM staff_sessions");
   await pool.query("DELETE FROM staff_user_category_scopes");
   await pool.query("DELETE FROM staff_user_roles");

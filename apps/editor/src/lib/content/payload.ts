@@ -576,6 +576,20 @@ function requiredExpectedUpdatedAt(record: Record<string, unknown>): string {
   return expectedUpdatedAt;
 }
 
+export type ParsedContentSlugBody = {
+  slug: string;
+  expectedUpdatedAt: string;
+};
+
+export function parseContentSlugBody(body: unknown): ParsedContentSlugBody {
+  const record = asRecord(body);
+  const slug = unwrap(canonicalizeContentSlug(requiredString(record, "slug")));
+  return {
+    slug,
+    expectedUpdatedAt: requiredExpectedUpdatedAt(record),
+  };
+}
+
 function unwrap<T>(decision: PublishingDecision<T>): T {
   if (!decision.ok) {
     throw new PublishingError(decision.code);

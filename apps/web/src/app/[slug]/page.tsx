@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { resolvePublicArticleCanonical } from "@magazine/domain";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ArticleHeader } from "@/components/article-header";
 import { ArticleHero } from "@/components/article-hero";
 import { ArticleShare } from "@/components/article-share";
@@ -10,8 +11,9 @@ import { PublicArticleVideos } from "@/components/public-article-videos";
 import { PublicWithdrawnArticleShellView } from "@/components/public-withdrawn-article-shell";
 import { env } from "@/lib/env";
 import { getPublicArticlePageBySlug } from "@/lib/public-article";
-import { publicArticleCanonicalUrl } from "@/lib/seo/public-site-url";
 import { buildPublicArticlePageSeo } from "@/lib/seo/article-seo";
+import { configuredPublicPublisher } from "@/lib/seo/publisher";
+import { publicArticleCanonicalUrl } from "@/lib/seo/public-site-url";
 
 export async function generateMetadata({
   params,
@@ -20,7 +22,14 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const page = await getPublicArticlePageBySlug(slug);
-  return buildPublicArticlePageSeo(page, env.SITE_URL).metadata;
+  if (page?.status === "redirect") {
+    permanentRedirect(publicArticleCanonicalUrl(env.SITE_URL, page.toSlug));
+  }
+  return buildPublicArticlePageSeo(
+    page,
+    env.SITE_URL,
+    configuredPublicPublisher(),
+  ).metadata;
 }
 
 export default async function PublicArticlePage({
@@ -30,6 +39,9 @@ export default async function PublicArticlePage({
 }) {
   const { slug } = await params;
   const page = await getPublicArticlePageBySlug(slug);
+  if (page?.status === "redirect") {
+    permanentRedirect(publicArticleCanonicalUrl(env.SITE_URL, page.toSlug));
+  }
   if (!page) {
     notFound();
   }
@@ -39,8 +51,17 @@ export default async function PublicArticlePage({
   }
 
   const article = page.article;
-  const { jsonLdScript } = buildPublicArticlePageSeo(page, env.SITE_URL);
-  const canonicalUrl = publicArticleCanonicalUrl(env.SITE_URL, article.slug);
+  const { jsonLdScript } = buildPublicArticlePageSeo(
+    page,
+    env.SITE_URL,
+    configuredPublicPublisher(),
+  );
+  const canonicalUrl =
+    resolvePublicArticleCanonical({
+      trustedSiteUrl: env.SITE_URL,
+      slug: article.slug,
+      storedCanonicalUrl: article.canonicalUrl,
+    }).url ?? publicArticleCanonicalUrl(env.SITE_URL, article.slug);
 
   return (
     <div className="public-article-page">

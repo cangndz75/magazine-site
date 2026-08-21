@@ -53,6 +53,15 @@ describe("public article SEO", () => {
     assert.equal(asRecord(seo.jsonLd).url, expected);
   });
 
+  it("cannot be Host-header poisoned because canonical uses the configured SITE_URL only", () => {
+    const attackerHost = "evil.example";
+    const seo = buildPublicArticleSeo(publishedArticle(), SITE_URL);
+    const canonical = String(seo.metadata.alternates?.canonical);
+    assert.equal(canonical.startsWith(SITE_URL), true);
+    assert.equal(canonical.includes(attackerHost), false);
+    assert.equal(canonical.includes("?"), false);
+  });
+
   it("takes title and description from the public read model", () => {
     const withExcerpt = buildPublicArticleSeo(publishedArticle(), SITE_URL);
     assert.equal(withExcerpt.metadata.title, "Yayınlanan haber");
@@ -72,6 +81,76 @@ describe("public article SEO", () => {
       SITE_URL,
     );
     assert.equal(deckFallback.metadata.description, "Deck metni");
+  });
+
+  it("uses seoTitle for metadata only and keeps the article title as the visible H1 source", () => {
+    const article = publishedArticle({
+      title: "Görünen H1",
+      seoTitle: " Kanonik SEO başlığı ",
+    });
+    const seo = buildPublicArticleSeo(article, SITE_URL);
+    assert.equal(seo.metadata.title, "Kanonik SEO başlığı");
+    assert.equal(seo.metadata.openGraph?.title, "Kanonik SEO başlığı");
+    assert.equal(seo.metadata.twitter?.title, "Kanonik SEO başlığı");
+    assert.equal(asRecord(seo.jsonLd).headline, "Kanonik SEO başlığı");
+    assert.equal(article.title, "Görünen H1");
+
+    const fallback = buildPublicArticleSeo(
+      publishedArticle({ seoTitle: "   " }),
+      SITE_URL,
+    );
+    assert.equal(fallback.metadata.title, "Yayınlanan haber");
+  });
+
+  it("uses seoDescription before excerpt and subtitle, and omits a fabricated body description", () => {
+    const seo = buildPublicArticleSeo(
+      publishedArticle({
+        seoDescription: " SEO açıklaması ",
+        excerpt: "Özet metni",
+        subtitle: "Deck metni",
+      }),
+      SITE_URL,
+    );
+    assert.equal(seo.metadata.description, "SEO açıklaması");
+    assert.equal(seo.metadata.openGraph?.description, "SEO açıklaması");
+    assert.equal(seo.metadata.twitter?.description, "SEO açıklaması");
+    assert.equal(asRecord(seo.jsonLd).description, "SEO açıklaması");
+
+    const excerptFallback = articleSeoDescription(
+      publishedArticle({ seoDescription: "  ", excerpt: "Özet", subtitle: "Deck" }),
+    );
+    assert.equal(excerptFallback, "Özet");
+  });
+
+  it("applies a same-origin canonical override and ignores Host-header and invalid overrides", () => {
+    const overridden = buildPublicArticleSeo(
+      publishedArticle({ canonicalUrl: "https://www.example.com/ozel-kanonik" }),
+      SITE_URL,
+    );
+    assert.equal(
+      overridden.metadata.alternates?.canonical,
+      "https://www.example.com/ozel-kanonik",
+    );
+    assert.equal(asRecord(overridden.jsonLd).url, "https://www.example.com/ozel-kanonik");
+
+    const rejected = buildPublicArticleSeo(
+      publishedArticle({ canonicalUrl: "https://evil.example/haber" }),
+      SITE_URL,
+    );
+    assert.equal(
+      rejected.metadata.alternates?.canonical,
+      "https://www.example.com/kanonik-haber",
+    );
+    assert.equal(String(rejected.metadata.alternates?.canonical).includes("evil.example"), false);
+  });
+
+  it("emits noindex when the published version robots override is restrictive", () => {
+    const seo = buildPublicArticleSeo(
+      publishedArticle({ robots: "noindex,follow" }),
+      SITE_URL,
+    );
+    assert.deepEqual(seo.metadata.robots, { index: false, follow: false });
+    assert.equal(seo.jsonLd, null);
   });
 
   it("maps published and modified timestamps without substituting one for the other", () => {
@@ -257,6 +336,44 @@ describe("public article SEO", () => {
     );
     assert.notEqual(seo.jsonLd, null);
     assert.equal(seo.metadata.alternates?.canonical, "https://www.example.com/kanonik-haber");
-    assert.equal(seo.metadata.robots, undefined);
+    assert.deepEqual(seo.metadata.robots, {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+    });
+  });
+
+  it("emits configured publisher Organization and omits invalid URL/logo fields", () => {
+    const seo = buildPublicArticleSeo(
+      publishedArticle(),
+      SITE_URL,
+      {
+        name: "Dergi",
+        url: null,
+        logoUrl: "https://cdn.example.com/logo.png",
+      },
+    );
+    assert.deepEqual(asRecord(seo.jsonLd).publisher, {
+      "@type": "Organization",
+      name: "Dergi",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://cdn.example.com/logo.png",
+      },
+    });
+    assert.equal("url" in asRecord(asRecord(seo.jsonLd).publisher), false);
+    assert.equal("legalName" in asRecord(asRecord(seo.jsonLd).publisher), false);
+  });
+
+  it("keeps 404 metadata generic and noindex without leaking private identity", () => {
+    const missing = buildPublicArticlePageSeo(null, SITE_URL);
+    assert.equal(missing.metadata.title, "Yazı bulunamadı");
+    assert.equal(
+      missing.metadata.description,
+      "Bu yazı yayında değil veya böyle bir adres yok.",
+    );
+    assert.deepEqual(missing.metadata.robots, { index: false, follow: false });
+    assert.equal(missing.metadata.alternates, undefined);
+    assert.equal(missing.jsonLd, null);
   });
 });

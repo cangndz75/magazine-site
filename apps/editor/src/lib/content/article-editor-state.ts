@@ -1,4 +1,11 @@
-import { CREDIBILITY_VALUES, type Credibility } from "@magazine/domain";
+import {
+  CREDIBILITY_VALUES,
+  parseSeoRobotsOverride,
+  resolvePublicArticleCanonical,
+  SEO_ROBOTS_DIRECTIVE,
+  type Credibility,
+} from "@magazine/domain";
+import { presentCanonicalRejection } from "@/lib/seo/presentation";
 
 export type ArticleEditorFields = {
   title: string;
@@ -44,6 +51,12 @@ function normalizeUrl(value: string | null): string | null {
   }
 }
 
+function normalizeRobots(value: string | null): string | null {
+  return parseSeoRobotsOverride(value).directive === SEO_ROBOTS_DIRECTIVE.NOINDEX
+    ? "noindex"
+    : null;
+}
+
 export function normalizeArticleEditorFields(
   fields: ArticleEditorFields,
 ): ArticleEditorFields {
@@ -54,7 +67,7 @@ export function normalizeArticleEditorFields(
     seoTitle: normalizeNullableText(fields.seoTitle),
     seoDescription: normalizeNullableText(fields.seoDescription),
     canonicalUrl: normalizeUrl(fields.canonicalUrl),
-    robots: normalizeNullableText(fields.robots),
+    robots: normalizeRobots(fields.robots),
     credibility: fields.credibility,
     credibilitySource: normalizeNullableText(fields.credibilitySource),
     source: normalizeNullableText(fields.source),
@@ -74,8 +87,15 @@ export function articleEditorFieldsEqual(
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+export type ArticleEditorValidationContext = {
+  trustedSiteUrl?: string;
+  editorOrigin?: string | null;
+  slug?: string;
+};
+
 export function validateArticleEditorFields(
   fields: ArticleEditorFields,
+  context?: ArticleEditorValidationContext,
 ): ArticleEditorValidation {
   const normalized = normalizeArticleEditorFields(fields);
   const errors: ArticleEditorValidation["errors"] = {};
@@ -100,6 +120,23 @@ export function validateArticleEditorFields(
       }
     } catch {
       errors[key] = "Geçerli bir URL girin.";
+    }
+  }
+
+  if (
+    !errors.canonicalUrl &&
+    context?.trustedSiteUrl &&
+    context.slug &&
+    normalizeNullableText(fields.canonicalUrl)
+  ) {
+    const resolved = resolvePublicArticleCanonical({
+      trustedSiteUrl: context.trustedSiteUrl,
+      slug: context.slug,
+      storedCanonicalUrl: fields.canonicalUrl,
+      editorOrigin: context.editorOrigin,
+    });
+    if (resolved.rejection) {
+      errors.canonicalUrl = presentCanonicalRejection(resolved.rejection);
     }
   }
 

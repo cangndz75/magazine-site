@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { canPerform, hasCapability, hasCategoryScope } from "./authorization";
+import { canPerform, effectiveCapabilities, hasCapability, hasCategoryScope } from "./authorization";
 import { CAPABILITY } from "./capability";
 import {
   FAILED_LOGIN_LIMIT,
@@ -77,6 +77,24 @@ describe("RBAC capabilities", () => {
     );
     assert.equal(
       hasCapability([STAFF_ROLE.AUTHOR], CAPABILITY.CONTENT_EDIT),
+      true,
+    );
+  });
+
+  it("derives capabilities from roles and never from a caller-supplied list", () => {
+    assert.deepEqual(effectiveCapabilities([STAFF_ROLE.AUTHOR]), [
+      CAPABILITY.CONTENT_READ,
+      CAPABILITY.CONTENT_CREATE,
+      CAPABILITY.CONTENT_EDIT,
+    ]);
+    assert.equal(
+      effectiveCapabilities([STAFF_ROLE.EDITOR]).includes(CAPABILITY.STAFF_MANAGE),
+      false,
+    );
+    assert.equal(
+      effectiveCapabilities([STAFF_ROLE.SUPER_ADMIN]).includes(
+        CAPABILITY.STAFF_MANAGE,
+      ),
       true,
     );
   });
@@ -330,6 +348,18 @@ describe("serialized credential transitions (unit; does not prove PostgreSQL FOR
       now,
     });
     assert.deepEqual(decision, { mutate: false, code: "UNKNOWN_USER" });
+  });
+
+  it("rejects a matching password when a password reset is required", () => {
+    const decision = decidePasswordCredentialTransition({
+      credentialFound: true,
+      staffStatus: STAFF_STATUS.ACTIVE,
+      throttle: resetLoginFailures(),
+      passwordMatches: true,
+      now,
+      passwordResetRequiredAt: now,
+    });
+    assert.deepEqual(decision, { mutate: false, code: "PASSWORD_RESET_REQUIRED" });
   });
 });
 

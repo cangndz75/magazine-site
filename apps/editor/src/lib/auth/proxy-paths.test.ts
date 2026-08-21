@@ -25,11 +25,24 @@ describe("editor session proxy path exemptions", () => {
     assert.equal(isEditorSessionExemptPath("/api/internal"), false);
     assert.equal(isEditorSessionExemptPath("/api/internals"), false);
     assert.equal(isEditorSessionExemptPath("/api/media/upload"), false);
+    assert.equal(isEditorSessionExemptPath("/api/staff"), false);
+    assert.equal(isEditorSessionExemptPath("/seo"), false);
+    assert.equal(isEditorSessionExemptPath("/api/seo/content"), false);
+    assert.equal(
+      isEditorSessionExemptPath(
+        "/api/staff/1a3ccd0d-594e-41cc-9350-9a6085699090/sessions",
+      ),
+      false,
+    );
   });
 
   it("preserves existing public login and health exemptions", () => {
     assert.equal(isEditorSessionExemptPath("/login"), true);
     assert.equal(isEditorSessionExemptPath("/api/health"), true);
     assert.equal(isEditorSessionExemptPath("/api/auth/login"), true);
+    assert.equal(
+      isEditorSessionExemptPath("/api/auth/mfa/challenge/verify"),
+      true,
+    );
   });
 });

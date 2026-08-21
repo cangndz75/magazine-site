@@ -25,6 +25,7 @@ import {
 } from "@/lib/content/article-editor-state";
 import {
   cloneArticleEditorRelations,
+  getHeroMedia,
   setArticleVideos,
   setGalleryMedia,
   setHeroMedia,
@@ -50,9 +51,11 @@ import {
 import { ArticleWorkflowPanel } from "@/components/article-workflow-panel";
 import { ArticleLegalHoldBanner } from "@/components/article-legal-hold-banner";
 import { ArticleLegalPanel } from "@/components/article-legal-panel";
+import { ArticleSeoSection } from "@/components/article-seo-section";
 import { LEGAL_HOLD_BLOCKED_COPY } from "@/lib/legal/presentation";
 import { formatEditorialDateTime } from "@/lib/content/editorial-timezone";
 import type { WorkflowEligibilityInput } from "@/lib/content/workflow-eligibility";
+import type { SeoSlugHistoryDto } from "@/lib/seo/serialize";
 
 type ArticleEditorModel = {
   contentItem: {
@@ -164,6 +167,9 @@ type Props = {
     canPublish: boolean;
     canLegal: boolean;
   };
+  trustedSiteUrl: string;
+  editorOrigin: string;
+  slugHistory: SeoSlugHistoryDto[];
 };
 
 type SaveState =
@@ -183,6 +189,9 @@ export function ArticleEditor({
   revisions,
   reviewEvents,
   permissions,
+  trustedSiteUrl,
+  editorOrigin,
+  slugHistory,
 }: Props) {
   const router = useRouter();
   const version = model.editableVersion;
@@ -207,6 +216,7 @@ export function ArticleEditor({
   );
   const [bodyError, setBodyError] = useState<string | null>(initialSnapshot.bodyError);
   const [token, setToken] = useState(version?.concurrencyToken ?? "");
+  const [itemUpdatedAt, setItemUpdatedAt] = useState(model.contentItem.updatedAt);
   const [boundVersionId, setBoundVersionId] = useState(version?.id ?? null);
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const [isSaving, setIsSaving] = useState(false);
@@ -215,6 +225,10 @@ export function ArticleEditor({
   const [videoBusy, setVideoBusy] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+
+  function bumpItemUpdatedAt(updatedAt: string) {
+    setItemUpdatedAt(updatedAt);
+  }
 
   if (boundVersionId !== (version?.id ?? null)) {
     const nextSnapshot = createArticleEditorDraftSnapshot(version);
@@ -227,12 +241,20 @@ export function ArticleEditor({
     setBodyDocument(nextSnapshot.body);
     setBodyError(nextSnapshot.bodyError);
     setToken(version?.concurrencyToken ?? "");
+    setItemUpdatedAt(model.contentItem.updatedAt);
     setSaveState({ kind: "idle" });
   }
 
   const validation = useMemo(
-    () => (fields ? validateArticleEditorFields(fields) : { ok: true, errors: {} }),
-    [fields],
+    () =>
+      fields
+        ? validateArticleEditorFields(fields, {
+            trustedSiteUrl,
+            editorOrigin,
+            slug: model.contentItem.slug,
+          })
+        : { ok: true, errors: {} },
+    [editorOrigin, fields, model.contentItem.slug, trustedSiteUrl],
   );
   const isDirty = isArticleEditorDirty({
     fields,
@@ -401,6 +423,7 @@ export function ArticleEditor({
       setBodyDocument(nextBodyDocument);
       setBaselineBody(nextBodyDocument);
       setToken(body.data.updatedAt);
+      bumpItemUpdatedAt(body.data.updatedAt);
       setSaveState({ kind: "saved", message: "Taslak kaydedildi. Yayındaki sürüm değişmedi." });
       setHistoryRefreshKey((current) => current + 1);
       router.refresh();
@@ -459,6 +482,7 @@ export function ArticleEditor({
       setRelations((current) => setHeroMedia(current, persisted));
       setBaselineRelations((current) => setHeroMedia(current, persisted));
       setToken(body.data.updatedAt);
+      bumpItemUpdatedAt(body.data.updatedAt);
       setSaveState({
         kind: "saved",
         message: persisted
@@ -522,6 +546,7 @@ export function ArticleEditor({
       setRelations((current) => setGalleryMedia(current, persisted));
       setBaselineRelations((current) => setGalleryMedia(current, persisted));
       setToken(body.data.updatedAt);
+      bumpItemUpdatedAt(body.data.updatedAt);
       setSaveState({
         kind: "saved",
         message:
@@ -583,6 +608,7 @@ export function ArticleEditor({
       setRelations((current) => setArticleVideos(current, persisted));
       setBaselineRelations((current) => setArticleVideos(current, persisted));
       setToken(body.data.updatedAt);
+      bumpItemUpdatedAt(body.data.updatedAt);
       setSaveState({
         kind: "saved",
         message:
@@ -830,44 +856,31 @@ export function ArticleEditor({
                 </div>
               </section>
 
-              <details className="border-t border-zinc-200 pt-6">
-                <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
-                  Gelişmiş / SEO
-                </summary>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <TextField
-                    id="article-seo-title"
-                    label="SEO başlığı"
-                    value={fields.seoTitle}
-                    disabled={!effectiveCanEdit}
-                    onChange={(value) => patchField("seoTitle", value)}
-                  />
-                  <TextField
-                    id="article-canonical"
-                    label="Canonical URL"
-                    value={fields.canonicalUrl}
-                    disabled={!effectiveCanEdit}
-                    error={validation.errors.canonicalUrl}
-                    onChange={(value) => patchField("canonicalUrl", value)}
-                  />
-                  <TextAreaField
-                    id="article-seo-description"
-                    label="SEO açıklaması"
-                    value={fields.seoDescription}
-                    disabled={!effectiveCanEdit}
-                    rows={3}
-                    onChange={(value) => patchField("seoDescription", value)}
-                  />
-                  <TextAreaField
-                    id="article-robots"
-                    label="Robots yönergesi"
-                    value={fields.robots}
-                    disabled={!effectiveCanEdit}
-                    rows={3}
-                    onChange={(value) => patchField("robots", value)}
-                  />
-                </div>
-              </details>
+              <ArticleSeoSection
+                fields={fields}
+                disabled={!effectiveCanEdit}
+                errors={validation.errors}
+                onChange={patchField}
+                slug={model.contentItem.slug}
+                publicationStatus={model.contentItem.publicationStatus}
+                publishedVersionId={model.contentItem.publishedVersionId}
+                publishedAt={model.contentItem.publishedAt}
+                retractedAt={model.contentItem.retractedAt}
+                takedownAt={model.contentItem.takedownAt}
+                trustedSiteUrl={trustedSiteUrl}
+                editorOrigin={editorOrigin}
+                hero={getHeroMedia(relations)}
+                slugHistory={slugHistory}
+                isDraftRelativeToPublished={Boolean(
+                  model.publishedVersion &&
+                    version &&
+                    model.publishedVersion.id !== version.id,
+                )}
+                contentItemId={model.contentItem.id}
+                contentItemUpdatedAt={itemUpdatedAt}
+                canEditSlug={effectiveCanEdit}
+                onSlugUpdated={({ updatedAt }) => bumpItemUpdatedAt(updatedAt)}
+              />
 
               {bodyDocument ? (
                 <StructuredBodyEditor
@@ -886,7 +899,11 @@ export function ArticleEditor({
 
               <div className="sticky bottom-0 z-20 -mx-4 border-t border-zinc-200 bg-zinc-50/95 px-4 py-3 backdrop-blur">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <SaveMessage state={saveState} isDirty={isDirty} />
+                  <SaveMessage
+                    state={saveState}
+                    isDirty={isDirty}
+                    onReload={() => router.refresh()}
+                  />
                   <button
                     type="submit"
                     disabled={!canEdit || !isDirty || !validation.ok || isSaving || heroBusy || galleryBusy || videoBusy}
@@ -1163,9 +1180,30 @@ function CheckboxField({
   );
 }
 
-function SaveMessage({ state, isDirty }: { state: SaveState; isDirty: boolean }) {
+function SaveMessage({
+  state,
+  isDirty,
+  onReload,
+}: {
+  state: SaveState;
+  isDirty: boolean;
+  onReload: () => void;
+}) {
   if (state.kind === "conflict") {
-    return <p className="text-sm font-medium text-red-700">{state.message}</p>;
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm font-medium text-red-700" role="alert">
+          {state.message}
+        </p>
+        <button
+          type="button"
+          onClick={onReload}
+          className="text-sm text-red-800 underline hover:text-red-900"
+        >
+          Yenile
+        </button>
+      </div>
+    );
   }
   if (state.kind === "error") {
     return <p className="text-sm font-medium text-red-700">{state.message}</p>;

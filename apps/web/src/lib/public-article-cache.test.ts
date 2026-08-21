@@ -17,6 +17,10 @@ function fakeCachedArticle(title: string, id = "content-1"): PublicArticle {
     title,
     subtitle: null,
     excerpt: null,
+    seoTitle: null,
+    seoDescription: null,
+    canonicalUrl: null,
+    robots: null,
     publishedAt: new Date("2026-08-18T00:00:00.000Z"),
     publicDateModified: null,
     body: { blocks: [] },
@@ -191,5 +195,32 @@ describe("public article shared cache wrapper", () => {
 
     assert.equal(resolverCalls, 2);
     assert.equal(cache.calls.length, 0);
+  });
+
+  it("caches a historical slug redirect under the old slug and content identity", async () => {
+    const cache = new TaggedCache();
+    const load: PublicArticlePageLoader = async () => ({
+      status: "redirect",
+      toSlug: "yeni-haber",
+      contentItemId: "content-1",
+    });
+
+    const first = await cachedPublicArticleLoader("eski-haber", load, cache.factory);
+    const second = await cachedPublicArticleLoader("eski-haber", load, cache.factory);
+
+    assert.deepEqual(first, {
+      status: "redirect",
+      toSlug: "yeni-haber",
+      contentItemId: "content-1",
+    });
+    assert.deepEqual(second, first);
+    assert.deepEqual(cache.calls[0]?.keyParts, [
+      "public-article-identity",
+      "article-slug:eski-haber",
+    ]);
+    assert.deepEqual(cache.calls[1]?.options?.tags, [
+      "article-slug:eski-haber",
+      "content:content-1",
+    ]);
   });
 });

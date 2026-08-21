@@ -15,6 +15,14 @@ export const httpUrlSchema = z.url({
   error: "must be a valid http(s) URL",
 });
 
+/** Empty strings become undefined so optional publisher fields can be omitted. */
+export const optionalNonEmptyString = z
+  .string()
+  .trim()
+  .max(2048)
+  .optional()
+  .transform((value) => (value && value.length > 0 ? value : undefined));
+
 export type BaseEnv = z.infer<typeof baseEnvSchema>;
 
 export function parseEnv<T>(

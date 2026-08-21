@@ -77,6 +77,32 @@ describe("article editor validation", () => {
     assert.equal(result.errors.sourceUrl, "URL http veya https olmalı.");
   });
 
+  it("normalizes robots to the supported noindex restriction", () => {
+    assert.equal(
+      normalizeArticleEditorFields(fields({ robots: "NOINDEX, follow" })).robots,
+      "noindex",
+    );
+    assert.equal(
+      normalizeArticleEditorFields(fields({ robots: "index,follow" })).robots,
+      null,
+    );
+  });
+
+  it("rejects a cross-origin canonical override without rewriting it", () => {
+    const result = validateArticleEditorFields(
+      fields({ canonicalUrl: "https://evil.example/x" }),
+      {
+        trustedSiteUrl: "https://www.example.com",
+        slug: "haber",
+      },
+    );
+    assert.equal(result.ok, false);
+    assert.equal(
+      result.errors.canonicalUrl,
+      "Canonical yalnızca bu sitenin adresi olabilir.",
+    );
+  });
+
   it("keeps read-only metadata outside dirty comparison", () => {
     const before = fields({ title: "A" });
     const after = fields({ title: "A" });

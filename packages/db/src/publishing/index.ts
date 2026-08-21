@@ -58,4 +58,9 @@ export {
   type RecordContentLegalActionResult,
   type ContentLegalActionRecord,
 } from "./legal-actions";
+export {
+  updateContentSlug,
+  type UpdateContentSlugInput,
+  type UpdateContentSlugResult,
+} from "./update-slug";
 export { PublishingError, PUBLISHING_ERROR } from "@magazine/domain";

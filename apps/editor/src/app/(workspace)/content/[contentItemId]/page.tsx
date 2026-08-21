@@ -3,6 +3,8 @@ import {
   CAPABILITY,
   PUBLISHING_ERROR,
   PublishingError,
+  SEO_INSPECTION_ERROR,
+  SeoInspectionError,
   hasCapability,
   isUuid,
 } from "@magazine/domain";
@@ -11,6 +13,7 @@ import {
   listContentReviewHistory,
   listContentRevisionHistory,
 } from "@magazine/db/editor";
+import { listSeoSlugHistory } from "@magazine/db/seo";
 import { requireCapability } from "@/lib/auth/authorization";
 import {
   editorScopeFromSession,
@@ -19,6 +22,7 @@ import {
 import { parseArticleSearchParams } from "@/lib/content/article-page-params";
 import { env } from "@/lib/env";
 import { ArticleEditor } from "@/components/article-editor";
+import { serializeSeoSlugHistoryEntry } from "@/lib/seo/serialize";
 
 export const dynamic = "force-dynamic";
 
@@ -63,9 +67,10 @@ export default async function ArticleWorkspacePage({
   let model;
   let revisionHistory;
   let reviewHistory;
+  let slugHistory: Awaited<ReturnType<typeof listSeoSlugHistory>> = [];
 
   try {
-    [model, revisionHistory, reviewHistory] = await Promise.all([
+    [model, revisionHistory, reviewHistory, slugHistory] = await Promise.all([
       getArticleEditorModel(contentItemId, {
         focusVersionId: query.versionId,
         mediaPublicBaseUrl: env.MEDIA_PUBLIC_BASE_URL,
@@ -73,6 +78,19 @@ export default async function ArticleWorkspacePage({
       listContentRevisionHistory(contentItemId, scope, { limit: 8 }),
       listContentReviewHistory(contentItemId, scope, {
         versionId: query.versionId,
+      }),
+      listSeoSlugHistory({
+        scope,
+        contentItemId,
+        trustedSiteUrl: env.SITE_URL,
+      }).catch((error) => {
+        if (
+          error instanceof SeoInspectionError &&
+          error.code === SEO_INSPECTION_ERROR.CONTENT_NOT_FOUND
+        ) {
+          return [];
+        }
+        throw error;
       }),
     ]);
   } catch (error) {
@@ -151,6 +169,9 @@ export default async function ArticleWorkspacePage({
         canPublish: hasCapability(session.roles, CAPABILITY.CONTENT_PUBLISH),
         canLegal: hasCapability(session.roles, CAPABILITY.CONTENT_LEGAL),
       }}
+      trustedSiteUrl={env.SITE_URL}
+      editorOrigin={env.EDITOR_URL}
+      slugHistory={slugHistory.map(serializeSeoSlugHistoryEntry)}
     />
   );
 }

@@ -97,6 +97,13 @@ describe("content audit change-set validation", () => {
     assert.deepEqual(assertContentAuditChangeSet(changeSet), changeSet);
   });
 
+  it("accepts a bounded slug change without article body", () => {
+    const changeSet = {
+      slugChange: { before: "eski-haber", after: "yeni-haber" },
+    };
+    assert.deepEqual(assertContentAuditChangeSet(changeSet), changeSet);
+  });
+
   it("rejects invalid audit payloads", () => {
     assert.throws(() => assertContentAuditChangeSet("bad"));
     assert.throws(() =>
@@ -107,6 +114,16 @@ describe("content audit change-set validation", () => {
     assert.throws(() =>
       assertContentAuditChangeSet({
         bodyChange: { changed: "yes", detailLimited: true },
+      }),
+    );
+    assert.throws(() =>
+      assertContentAuditChangeSet({
+        slugChange: { before: "eski-haber", after: "eski-haber" },
+      }),
+    );
+    assert.throws(() =>
+      assertContentAuditChangeSet({
+        slugChange: { before: "Old Slug", after: "new-slug" },
       }),
     );
   });

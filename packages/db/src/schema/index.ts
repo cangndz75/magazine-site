@@ -13,6 +13,8 @@ export {
   mediaUsageRestrictionEnum,
   publicationStatusEnum,
   reviewEventTypeEnum,
+  staffMfaFactorKindEnum,
+  staffMfaFactorStatusEnum,
   staffRoleEnum,
   staffScopeModeEnum,
   staffStatusEnum,
@@ -35,9 +37,15 @@ export {
 } from "./content";
 export { contentReviewEvents } from "./review-events";
 export { contentAuditEvents } from "./audit-events";
+export { contentSlugHistory } from "./slug-history";
 export { publicCacheOutbox } from "./outbox";
 export {
+  staffLoginChallenges,
+  staffMfaFactors,
+  staffMfaRecoveryCodes,
+  staffMfaSecrets,
   staffPasswordCredentials,
+  staffSecurityAuditEvents,
   staffSessions,
   staffUserCategoryScopes,
   staffUserRoles,
