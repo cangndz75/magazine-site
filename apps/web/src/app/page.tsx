@@ -1,14 +1,22 @@
 import { AnalyticsHomepageView } from "@/components/analytics/analytics-page-view";
 import { HomepageAnalyticsProvider } from "@/components/analytics/homepage-analytics-context";
+import { HomepageBreakingStrip } from "@/components/homepage-breaking-strip";
 import { HomepageFeatured } from "@/components/homepage-featured";
+import { HomepageLatest } from "@/components/homepage-latest";
 import { HomepageLeadGrid } from "@/components/homepage-lead-grid";
 import { HomepageVideo } from "@/components/homepage-video";
+import { PublicUtilityBar } from "@/components/public-utility-bar";
 import { getPublicHomepage } from "@/lib/public-homepage";
 /**
  * Homepage reads are still uncached: there is no homepage invalidation graph.
  * Next.js 16.3.1 here does not enable Cache Components, so this page would
  * otherwise statically prerender a PostgreSQL snapshot at build time.
  * Route-level force-dynamic is the isolated, first-class opt-out for `/`.
+ *
+ * The utility bar's "today" date is rendered only here (not in the shared
+ * layout) for the same reason: other public routes are not force-dynamic,
+ * and a date rendered in a statically-prerendered layout would freeze at
+ * build time.
  */
 export const dynamic = "force-dynamic";
 
@@ -24,6 +32,7 @@ export default async function Home() {
             analyticsContext={homepage.homepageViewContext}
           />
         ) : null}
+        <PublicUtilityBar />
         <div className="homepage__inner">
           <div className="homepage__empty">
             <p className="homepage__empty-kicker">Magazin</p>
@@ -34,6 +43,9 @@ export default async function Home() {
     );
   }
 
+  const hasVideo = Boolean(homepage.video);
+  const hasFeatured = homepage.featured.length > 0;
+
   return (
     <div className="homepage">
       {homepage.homepageViewContext ? (
@@ -42,23 +54,36 @@ export default async function Home() {
           analyticsContext={homepage.homepageViewContext}
         />
       ) : null}
+      <PublicUtilityBar />
       <HomepageAnalyticsProvider homepageVersionId={homepage.homepageVersionId}>
+        <HomepageBreakingStrip story={homepage.lead} placements={homepage.analyticsPlacements} />
         <div className="homepage__inner">
           <div className="homepage__canvas">
-            <div className="homepage__main">
-              <HomepageLeadGrid homepage={homepage} />
-              {homepage.video ? (
-                <HomepageVideo
-                  video={homepage.video}
-                  homepageVersionId={homepage.homepageVersionId}
-                  analyticsContext={homepage.homepageVideoContext}
+            <HomepageLeadGrid homepage={homepage} />
+
+            {hasFeatured || hasVideo ? (
+              <div
+                className={
+                  hasVideo
+                    ? "homepage__second-row homepage__second-row--with-video"
+                    : "homepage__second-row"
+                }
+              >
+                <HomepageFeatured
+                  stories={homepage.featured}
+                  placements={homepage.analyticsPlacements}
                 />
-              ) : null}
-            </div>
-            <HomepageFeatured
-              stories={homepage.featured}
-              placements={homepage.analyticsPlacements}
-            />
+                {homepage.video ? (
+                  <HomepageVideo
+                    video={homepage.video}
+                    homepageVersionId={homepage.homepageVersionId}
+                    analyticsContext={homepage.homepageVideoContext}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+
+            <HomepageLatest stories={homepage.latest} />
           </div>
         </div>
       </HomepageAnalyticsProvider>

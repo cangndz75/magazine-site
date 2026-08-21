@@ -1,6 +1,8 @@
 import type { PublicEditorialVideoProjection } from "@magazine/domain";
 import { ANALYTICS_PLACEMENT } from "@magazine/domain/analytics-client";
 import { AnalyticsVideoImpression } from "@/components/analytics/analytics-video-impression";
+import { HomepageVideoPlayer } from "@/components/homepage-video-player";
+import { env } from "@/lib/env";
 import { trustedPublicArticleVideos } from "@/lib/public-article-video";
 
 type HomepageVideoProps = {
@@ -8,6 +10,16 @@ type HomepageVideoProps = {
   homepageVersionId?: string | null;
   analyticsContext?: string;
 };
+
+function formatDuration(seconds: number | null): string | null {
+  if (seconds === null || !Number.isFinite(seconds) || seconds <= 0) {
+    return null;
+  }
+  const total = Math.round(seconds);
+  const minutes = Math.floor(total / 60);
+  const remaining = total % 60;
+  return `${minutes}:${String(remaining).padStart(2, "0")}`;
+}
 
 export function HomepageVideo({
   video,
@@ -19,32 +31,40 @@ export function HomepageVideo({
     return null;
   }
 
+  const useUnoptimizedImage = env.APP_ENV === "development";
   const iframeTitle = `${trusted.title} (${trusted.providerLabel})`;
   const captionId = trusted.caption
     ? `homepage-video-caption-${trusted.provider}-${trusted.videoId}`
     : undefined;
+  const duration = formatDuration(video.durationSeconds);
 
-  const frame = (
-    <figure className="article-video__figure" aria-labelledby={captionId}>
-      <div className="article-video__frame">
-        <iframe
-          className="article-video__iframe"
-          src={trusted.embedUrl}
-          title={iframeTitle}
-          loading="lazy"
-          referrerPolicy="strict-origin-when-cross-origin"
-          allow="encrypted-media; picture-in-picture; fullscreen"
-          allowFullScreen
-        />
-      </div>
-      <figcaption className="article-video__meta">
-        <p className="article-video__provider">{trusted.providerLabel}</p>
+  const figure = (
+    <figure className="homepage-video__figure" aria-labelledby={captionId}>
+      <HomepageVideoPlayer
+        embedUrl={trusted.embedUrl}
+        iframeTitle={iframeTitle}
+        playLabel={`${trusted.title} videosunu oynat`}
+        poster={
+          video.poster
+            ? {
+                url: video.poster.url,
+                width: video.poster.width,
+                height: video.poster.height,
+                altText: video.poster.altText,
+              }
+            : null
+        }
+        duration={duration}
+        unoptimized={useUnoptimizedImage}
+      />
+      <figcaption className="homepage-video__meta">
+        <p className="homepage-video__provider">{trusted.providerLabel}</p>
         {trusted.caption ? (
-          <p id={captionId} className="article-video__caption">
+          <p id={captionId} className="homepage-video__caption">
             {trusted.caption}
           </p>
         ) : (
-          <p className="article-video__caption">{trusted.title}</p>
+          <p className="homepage-video__caption">{trusted.title}</p>
         )}
       </figcaption>
     </figure>
@@ -60,10 +80,10 @@ export function HomepageVideo({
           homepageVersionId={homepageVersionId}
           analyticsContext={analyticsContext}
         >
-          {frame}
+          {figure}
         </AnalyticsVideoImpression>
       ) : (
-        frame
+        figure
       )}
     </section>
   );

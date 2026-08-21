@@ -12,6 +12,14 @@
 
 export const PUBLIC_HOMEPAGE_FEATURED_LIMIT = 5;
 
+/**
+ * Bounded "Son Haberler" (latest) secondary list: always true recency,
+ * decoupled from Homepage Builder curation. Does not carry homepage
+ * analytics placement identity — there is no authoritative placement slot
+ * for it, and placement identities are not invented casually.
+ */
+export const PUBLIC_HOMEPAGE_LATEST_LIMIT = 6;
+
 export const HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE =
   "HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE" as const;
 
@@ -39,4 +47,27 @@ export function selectTemporaryHomepageFeatured<T extends { id: string }>(
     }
   }
   return featured;
+}
+
+/**
+ * Bounded "Son Haberler" slice: same recency ordering as the incoming
+ * candidates, after excluding every content item already displayed in the
+ * lead, support, or featured placements (whichever placement strategy is
+ * active). Never displays a duplicate story.
+ */
+export function selectTemporaryHomepageLatest<T extends { id: string }>(
+  candidates: readonly T[],
+  excludeIds: ReadonlySet<string>,
+): T[] {
+  const latest: T[] = [];
+  for (const candidate of candidates) {
+    if (excludeIds.has(candidate.id)) {
+      continue;
+    }
+    latest.push(candidate);
+    if (latest.length === PUBLIC_HOMEPAGE_LATEST_LIMIT) {
+      break;
+    }
+  }
+  return latest;
 }

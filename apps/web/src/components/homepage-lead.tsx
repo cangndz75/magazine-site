@@ -33,7 +33,7 @@ export function HomepageLead({ story }: HomepageLeadProps) {
                   {story.primaryCategory.name}
                 </span>
               ) : null}
-              <h2 className="homepage-lead__title">{story.title}</h2>
+              <h1 className="homepage-lead__title">{story.title}</h1>
               {dek ? <p className="homepage-lead__dek">{dek}</p> : null}
             </div>
           </div>
@@ -48,7 +48,7 @@ export function HomepageLead({ story }: HomepageLeadProps) {
         {story.primaryCategory ? (
           <span className="homepage-story__category">{story.primaryCategory.name}</span>
         ) : null}
-        <h2 className="homepage-lead__title homepage-lead__title--text">{story.title}</h2>
+        <h1 className="homepage-lead__title homepage-lead__title--text">{story.title}</h1>
         {dek ? <p className="homepage-lead__dek homepage-lead__dek--text">{dek}</p> : null}
       </Link>
     </article>
