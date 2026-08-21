@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { PublicHomepageStory } from "@magazine/db/public";
 import { HomepageStoryImage } from "@/components/homepage-story-image";
+import { formatPublicationDate } from "@/lib/format-publication-date";
 
 type HomepageFeaturedCardProps = {
   story: PublicHomepageStory;
@@ -26,6 +27,9 @@ export function HomepageFeaturedCard({ story }: HomepageFeaturedCardProps) {
               <span className="homepage-featured-card__category">{story.primaryCategory.name}</span>
             ) : null}
             <h3 className="homepage-featured-card__title">{story.title}</h3>
+            <time className="homepage-featured-card__time" dateTime={story.publishedAt.toISOString()}>
+              {formatPublicationDate(story.publishedAt)}
+            </time>
           </div>
         </Link>
       </article>
