@@ -44,7 +44,7 @@ export function ArticleEditorSectionNav({ onNavigate }: Props) {
   return (
     <nav
       aria-label="Editör bölümleri"
-      className="sticky top-0 z-10 -mx-1 mb-5 overflow-x-auto border-b border-zinc-200 bg-white/95 px-1 pb-2 pt-1 backdrop-blur"
+      className="sticky top-[4.75rem] z-10 -mx-1 mb-5 overflow-x-auto border-b border-zinc-200 bg-white/95 px-1 pb-2 pt-1 backdrop-blur sm:top-12"
     >
       <ul className="flex min-w-max gap-1">
         {EDITOR_SECTION_NAV.map((item) => {
