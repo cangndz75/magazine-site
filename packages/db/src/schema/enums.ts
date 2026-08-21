@@ -4,6 +4,7 @@ import {
   CREDIBILITY_VALUES,
   ENTITY_KINDS,
   ENTITY_ROLES,
+  ENTITY_STATUSES,
   MEDIA_LICENSE_TYPES,
   MEDIA_ROLES,
   MEDIA_SOURCE_KINDS,
@@ -35,6 +36,8 @@ export const credibilityEnum = pgEnum("credibility", CREDIBILITY_VALUES);
 export const entityKindEnum = pgEnum("entity_kind", ENTITY_KINDS);
 
 export const entityRoleEnum = pgEnum("entity_role", ENTITY_ROLES);
+
+export const entityStatusEnum = pgEnum("entity_status", ENTITY_STATUSES);
 
 export const mediaTypeEnum = pgEnum("media_type", MEDIA_TYPES);
 

@@ -1,5 +1,6 @@
 import {
   publicArticleCanonicalUrl as domainPublicArticleCanonicalUrl,
+  publicEntityCanonicalUrl as domainPublicEntityCanonicalUrl,
   publicSiteBaseUrl as domainPublicSiteBaseUrl,
 } from "@magazine/domain";
 
@@ -14,4 +15,8 @@ export function publicSiteBaseUrl(siteUrl: string): string {
 
 export function publicArticleCanonicalUrl(siteUrl: string, slug: string): string {
   return domainPublicArticleCanonicalUrl(siteUrl, slug);
+}
+
+export function publicEntityCanonicalUrl(siteUrl: string, slug: string): string {
+  return domainPublicEntityCanonicalUrl(siteUrl, slug);
 }

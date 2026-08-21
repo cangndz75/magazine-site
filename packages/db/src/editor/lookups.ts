@@ -4,12 +4,14 @@ import {
   exists,
   ilike,
   inArray,
+  isNull,
   or,
   sql,
   type SQL,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
+  ENTITY_STATUS,
   clampEditorLookupLimit,
   sanitizeEditorSearch,
   type MediaType,
@@ -47,6 +49,7 @@ export type EditorEntityLookup = {
   id: string;
   name: string;
   kind: string;
+  status: string;
 };
 
 export type EditorMediaLookup = {
@@ -218,7 +221,11 @@ export async function lookupEditorEntities(
   const db = getDb();
   const limit = clampEditorLookupLimit(input.limit);
   const like = pattern(input.search);
-  const filters: SQL[] = [eq(entities.isActive, true)];
+  const filters: SQL[] = [
+    eq(entities.status, ENTITY_STATUS.ACTIVE),
+    isNull(entities.deletedAt),
+    isNull(entities.mergedIntoEntityId),
+  ];
 
   if (like) {
     const searchClause = or(
@@ -249,6 +256,7 @@ export async function lookupEditorEntities(
       id: entities.id,
       name: entities.canonicalName,
       kind: entities.kind,
+      status: entities.status,
     })
     .from(entities)
     .where(and(...filters))

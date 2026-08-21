@@ -5,6 +5,7 @@ import {
   MEDIA_ROLE,
   assertGalleryAssignableMediaType,
   assertHeroAssignableMediaType,
+  entityMayBeAssignedToVersion,
   type AuthorRole,
   type EntityRole,
   type MediaRole,
@@ -69,6 +70,7 @@ async function assertIdsExist(
 export async function assertRelatedRecordsExist(
   tx: PublishingTx,
   input: ContentRelationInput,
+  options: { currentlyLinkedEntityIds?: readonly string[] } = {},
 ): Promise<void> {
   await assertIdsExist(
     tx,
@@ -80,10 +82,10 @@ export async function assertRelatedRecordsExist(
     tags,
     (input.tags ?? []).map((item) => item.tagId),
   );
-  await assertIdsExist(
+  await assertEntitiesAssignable(
     tx,
-    entities,
     (input.entities ?? []).map((item) => item.entityId),
+    options.currentlyLinkedEntityIds ?? [],
   );
   await assertIdsExist(
     tx,
@@ -95,6 +97,44 @@ export async function assertRelatedRecordsExist(
     authors,
     (input.authors ?? []).map((item) => item.authorId),
   );
+}
+
+async function assertEntitiesAssignable(
+  tx: PublishingTx,
+  entityIds: readonly string[],
+  currentlyLinkedEntityIds: readonly string[],
+): Promise<void> {
+  if (entityIds.length === 0) {
+    return;
+  }
+
+  const uniqueIds = [...new Set(entityIds)];
+  const rows = await tx
+    .select({
+      id: entities.id,
+      status: entities.status,
+      deletedAt: entities.deletedAt,
+      mergedIntoEntityId: entities.mergedIntoEntityId,
+    })
+    .from(entities)
+    .where(inArray(entities.id, uniqueIds));
+
+  if (rows.length !== uniqueIds.length) {
+    throw new PublishingError(PUBLISHING_ERROR.RELATION_NOT_FOUND);
+  }
+
+  const currentlyLinked = new Set(currentlyLinkedEntityIds);
+  for (const row of rows) {
+    const decision = entityMayBeAssignedToVersion({
+      status: row.status,
+      deletedAt: row.deletedAt,
+      mergedIntoEntityId: row.mergedIntoEntityId,
+      alreadyLinked: currentlyLinked.has(row.id),
+    });
+    if (!decision.ok) {
+      throw new PublishingError(PUBLISHING_ERROR.RELATION_NOT_FOUND);
+    }
+  }
 }
 
 export async function assertHeroMediaAssignable(

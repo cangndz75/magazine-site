@@ -1,5 +1,5 @@
 import type { AuthorRole, EntityRole, MediaRole } from "@magazine/domain";
-import { AUTHOR_ROLE, ENTITY_ROLE, MEDIA_ROLE } from "@magazine/domain";
+import { AUTHOR_ROLE, ENTITY_ROLE, ENTITY_STATUS, MEDIA_ROLE } from "@magazine/domain";
 
 export type ArticleEditorCategory = {
   id: string;
@@ -27,6 +27,7 @@ export type ArticleEditorEntity = {
   id: string;
   name: string;
   kind: string;
+  status: string;
   role: EntityRole;
   sortOrder: number;
 };
@@ -251,10 +252,49 @@ export function addEntity(
       ...relations.entities,
       {
         ...entity,
+        status: entity.status ?? ENTITY_STATUS.ACTIVE,
         role: entity.role ?? ENTITY_ROLE.SUBJECT,
         sortOrder: relations.entities.length,
       },
     ].map((item, index) => ({ ...item, sortOrder: index })),
+  };
+}
+
+export function setEntityRole(
+  relations: ArticleEditorRelations,
+  entityId: string,
+  role: EntityRole,
+): ArticleEditorRelations {
+  return {
+    ...relations,
+    entities: relations.entities.map((item) =>
+      item.id === entityId ? { ...item, role } : item,
+    ),
+  };
+}
+
+export function reorderEntity(
+  relations: ArticleEditorRelations,
+  entityId: string,
+  direction: "up" | "down",
+): ArticleEditorRelations {
+  const sorted = relations.entities
+    .slice()
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+  const index = sorted.findIndex((item) => item.id === entityId);
+  if (index < 0) {
+    return relations;
+  }
+  const targetIndex = direction === "up" ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= sorted.length) {
+    return relations;
+  }
+  const next = sorted.slice();
+  const [moved] = next.splice(index, 1);
+  next.splice(targetIndex, 0, moved!);
+  return {
+    ...relations,
+    entities: next.map((item, sortIndex) => ({ ...item, sortOrder: sortIndex })),
   };
 }
 
@@ -419,6 +459,7 @@ export function normalizeArticleEditorRelations(
         id: item.id,
         name: item.name,
         kind: item.kind,
+        status: item.status,
         role: item.role,
         sortOrder: index,
       })),

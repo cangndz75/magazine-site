@@ -3,11 +3,13 @@ import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ENTITY_STATUS,
   PUBLICATION_STATUS,
   SEO_APP_ENV,
   buildPublicRobotsDocument,
   publicHomepageSitemapEntry,
   toPublicSitemapArticleEntry,
+  toPublicSitemapEntityEntry,
 } from "@magazine/domain";
 
 describe("public robots and sitemap wiring", () => {
@@ -46,6 +48,31 @@ describe("public robots and sitemap wiring", () => {
     assert.equal(home.loc, "https://www.example.com");
     assert.equal(article?.loc, "https://www.example.com/kanonik-haber");
     assert.equal(article?.loc.includes("evil.example"), false);
+
+    const entity = toPublicSitemapEntityEntry(
+      {
+        slug: "hande-ercel",
+        status: ENTITY_STATUS.ACTIVE,
+        deletedAt: null,
+        mergedIntoEntityId: null,
+        updatedAt: new Date("2026-08-21T12:00:00.000Z"),
+      },
+      "https://www.example.com",
+    );
+    assert.equal(entity?.loc, "https://www.example.com/kimdir/hande-ercel");
+    assert.equal(
+      toPublicSitemapEntityEntry(
+        {
+          slug: "draft-person",
+          status: ENTITY_STATUS.DRAFT,
+          deletedAt: null,
+          mergedIntoEntityId: null,
+          updatedAt: new Date("2026-08-21T12:00:00.000Z"),
+        },
+        "https://www.example.com",
+      ),
+      null,
+    );
   });
 
   it("serves the sitemap index and shards from request-time route handlers", () => {

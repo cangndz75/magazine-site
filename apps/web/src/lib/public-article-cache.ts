@@ -104,6 +104,7 @@ function restorePublicArticlePageCachePayload(
             effectiveAt: new Date(notice.effectiveAt),
           }))
         : [],
+      entities: Array.isArray(page.article.entities) ? page.article.entities : [],
       publishedAt: new Date(page.article.publishedAt),
       publicDateModified: page.article.publicDateModified
         ? new Date(page.article.publicDateModified)

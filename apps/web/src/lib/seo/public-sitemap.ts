@@ -2,7 +2,9 @@ import "server-only";
 
 import {
   countPublicSitemapArticles,
+  countPublicSitemapEntities,
   listPublicSitemapEntries,
+  listPublicSitemapEntities,
 } from "@magazine/db/seo";
 import {
   SITEMAP_SHARD_SIZE,
@@ -11,13 +13,17 @@ import {
   publicSitemapShardCount,
   publicSitemapShardOffset,
   publicSitemapShardUrl,
+  publicSitemapTotalShardCount,
   type PublicSitemapEntry,
 } from "@magazine/domain";
 import { env } from "@/lib/env";
 
 export async function loadPublicSitemapIndexLocs(): Promise<string[]> {
-  const articleCount = await countPublicSitemapArticles();
-  const shards = publicSitemapShardCount(articleCount);
+  const [articleCount, entityCount] = await Promise.all([
+    countPublicSitemapArticles(),
+    countPublicSitemapEntities(),
+  ]);
+  const shards = publicSitemapTotalShardCount({ articleCount, entityCount });
   return Array.from({ length: shards }, (_, id) =>
     publicSitemapShardUrl(env.SITE_URL, id),
   );
@@ -31,22 +37,35 @@ export async function loadPublicSitemapShard(
     return null;
   }
 
-  const articleCount = await countPublicSitemapArticles();
-  const shardCount = publicSitemapShardCount(articleCount);
-  if (shardId >= shardCount) {
+  const [articleCount, entityCount] = await Promise.all([
+    countPublicSitemapArticles(),
+    countPublicSitemapEntities(),
+  ]);
+  const articleShards = publicSitemapShardCount(articleCount);
+  const totalShards = publicSitemapTotalShardCount({ articleCount, entityCount });
+  if (shardId >= totalShards) {
     return null;
   }
 
-  const entries: PublicSitemapEntry[] = [];
-  if (shardId === 0) {
-    entries.push(publicHomepageSitemapEntry(env.SITE_URL));
+  if (shardId < articleShards) {
+    const entries: PublicSitemapEntry[] = [];
+    if (shardId === 0) {
+      entries.push(publicHomepageSitemapEntry(env.SITE_URL));
+    }
+    const result = await listPublicSitemapEntries({
+      trustedSiteUrl: env.SITE_URL,
+      limit: SITEMAP_SHARD_SIZE,
+      offset: publicSitemapShardOffset(shardId),
+    });
+    entries.push(...result.entries);
+    return entries;
   }
 
-  const result = await listPublicSitemapEntries({
+  const entityShardIndex = shardId - articleShards;
+  const result = await listPublicSitemapEntities({
     trustedSiteUrl: env.SITE_URL,
     limit: SITEMAP_SHARD_SIZE,
-    offset: publicSitemapShardOffset(shardId),
+    offset: publicSitemapShardOffset(entityShardIndex),
   });
-  entries.push(...result.entries);
-  return entries;
+  return result.entries;
 }

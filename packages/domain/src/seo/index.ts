@@ -72,6 +72,11 @@ export {
   type NewsArticleStructuredDataInspection,
 } from "./json-ld";
 export {
+  buildEntityProfileJsonLd,
+  serializeEntityProfileJsonLd,
+  type EntityProfileJsonLd,
+} from "./entity-json-ld";
+export {
   inspectStructuredArticleBody,
   type SeoBodyInspection,
 } from "./body-inspection";
@@ -93,12 +98,16 @@ export {
   encodeSitemapCursor,
   parsePublicSitemapShardId,
   publicHomepageSitemapEntry,
+  publicSitemapEntityShardCount,
   publicSitemapShardCount,
   publicSitemapShardOffset,
+  publicSitemapTotalShardCount,
   sitemapLastModified,
   toPublicSitemapArticleEntry,
+  toPublicSitemapEntityEntry,
   type PublicSitemapArticleSource,
   type PublicSitemapEntry,
+  type PublicSitemapEntitySource,
   type PublicSitemapPage,
   type SitemapCursor,
 } from "./sitemap";

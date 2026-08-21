@@ -5,6 +5,7 @@ import {
   SCHEDULED_PUBLISH_DECISION,
 } from "@magazine/domain";
 import {
+  PUBLIC_CACHE_OUTBOX_EVENT_TYPE,
   PUBLIC_CACHE_OUTBOX_LOCK_TIMEOUT_MS,
   PUBLIC_CACHE_OUTBOX_MAX_ATTEMPTS,
   PUBLIC_CACHE_OUTBOX_STATUS,
@@ -12,6 +13,7 @@ import {
   countPublicCacheOutboxEventsByStatus,
   markPublicCacheOutboxEventCompleted,
   markPublicCacheOutboxEventFailed,
+  type PublicCacheOutboxEvent,
 } from "../public-cache-outbox";
 import {
   approveVersion,
@@ -45,6 +47,7 @@ describe("public cache outbox PostgreSQL", () => {
 
   beforeEach(async () => {
     fixture = await createFixture();
+    await getRacerPool().query("DELETE FROM public_cache_outbox");
   });
 
   afterEach(async () => {
@@ -126,6 +129,53 @@ describe("public cache outbox PostgreSQL", () => {
       [contentItemId],
     );
     return result.rows;
+  }
+
+  function articleOutboxContentItemId(
+    payload: PublicCacheOutboxEvent["payload"],
+  ): string {
+    assert.equal("contentItemId" in payload, true);
+    if (!("contentItemId" in payload)) {
+      throw new Error("expected article cache payload");
+    }
+    return payload.contentItemId;
+  }
+
+  async function claimArticleOutboxEvent(): Promise<PublicCacheOutboxEvent> {
+    let articleEvent: PublicCacheOutboxEvent | null = null;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const claimed = await claimPublicCacheOutboxEvents({ limit: 1 });
+      if (claimed.length === 0) {
+        break;
+      }
+      const current = claimed[0]!;
+      if (
+        current.eventType ===
+        PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ARTICLE_CACHE_INVALIDATE
+      ) {
+        articleEvent = current;
+        break;
+      }
+      assert.equal(await markPublicCacheOutboxEventCompleted(current), true);
+    }
+    assert.ok(articleEvent);
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const claimed = await claimPublicCacheOutboxEvents({ limit: 5 });
+      if (claimed.length === 0) {
+        break;
+      }
+      for (const event of claimed) {
+        if (
+          event.eventType !==
+          PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ARTICLE_CACHE_INVALIDATE
+        ) {
+          assert.equal(await markPublicCacheOutboxEventCompleted(event), true);
+        }
+      }
+    }
+
+    return articleEvent;
   }
 
   it("commits an outbox event with publish and without body payload", async () => {
@@ -228,15 +278,32 @@ describe("public cache outbox PostgreSQL", () => {
     assert.deepEqual(await outboxRows(created.contentItemId), []);
   });
 
+  it("commits entity related invalidation alongside article publish", async () => {
+    const created = await publishApproved("Entity related cache");
+    const result = await getRacerPool().query<{ event_type: string }>(
+      `SELECT event_type
+       FROM public_cache_outbox
+       ORDER BY created_at, id`,
+    );
+    assert.equal(
+      result.rows.some(
+        (row) =>
+          row.event_type ===
+          PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ENTITY_RELATED_CACHE_INVALIDATE,
+      ),
+      true,
+    );
+    assert.equal((await outboxRows(created.contentItemId)).length, 1);
+  });
+
   it("claims, completes, retries, and dead-letters events durably", async () => {
     const created = await publishApproved("Worker lifecycle");
-    const firstClaim = await claimPublicCacheOutboxEvents({ limit: 1 });
-    assert.equal(firstClaim.length, 1);
-    assert.equal(firstClaim[0]?.payload.contentItemId, created.contentItemId);
+    const firstClaim = await claimArticleOutboxEvent();
+    assert.equal(articleOutboxContentItemId(firstClaim.payload), created.contentItemId);
 
     const now = new Date();
     const retryStatus = await markPublicCacheOutboxEventFailed(
-      firstClaim[0]!,
+      firstClaim,
       new Error("cache unavailable"),
       now,
     );
@@ -255,7 +322,7 @@ describe("public cache outbox PostgreSQL", () => {
     assert.equal(rows[0]?.completed_at instanceof Date, true);
 
     const poisonCreated = await publishApproved("Poison event");
-    const poison = (await claimPublicCacheOutboxEvents({ limit: 1 }))[0]!;
+    const poison = await claimArticleOutboxEvent();
     await getRacerPool().query(
       `UPDATE public_cache_outbox
        SET attempt_count = $1
@@ -273,7 +340,31 @@ describe("public cache outbox PostgreSQL", () => {
   });
 
   it("uses SKIP LOCKED style claiming and can reclaim stale processing rows", async () => {
-    const created = await publishApproved("Concurrency");
+    const created = await createDraftItem(fixture, {
+      scope: fixture.superAdmin,
+      includeRelations: false,
+      title: "Concurrency",
+    });
+    const submitted = await submitForReview(
+      created.contentItemId,
+      created.versionId,
+      {
+        expectedUpdatedAt: created.updatedAt,
+        scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
+      },
+    );
+    await approveVersion(created.contentItemId, created.versionId, {
+      expectedUpdatedAt: submitted.updatedAt,
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffReviewerA,
+    });
+    await publishVersion(
+      created.contentItemId,
+      created.versionId,
+      fixture.superAdmin,
+      fixture.ids.staffReviewerA,
+    );
     const [left, right] = await Promise.all([
       claimPublicCacheOutboxEvents({ limit: 1 }),
       claimPublicCacheOutboxEvents({ limit: 1 }),
@@ -333,8 +424,11 @@ describe("public cache outbox PostgreSQL", () => {
     assert.equal(rows[0]?.last_error, null);
 
     const finalAttemptCreated = await publishApproved("Final stale processing");
-    const [finalAttempt] = await claimPublicCacheOutboxEvents({ limit: 1 });
-    assert.equal(finalAttempt?.payload.contentItemId, finalAttemptCreated.contentItemId);
+    const finalAttempt = await claimArticleOutboxEvent();
+    assert.equal(
+      articleOutboxContentItemId(finalAttempt.payload),
+      finalAttemptCreated.contentItemId,
+    );
 
     await getRacerPool().query(
       `UPDATE public_cache_outbox
@@ -343,7 +437,7 @@ describe("public cache outbox PostgreSQL", () => {
       [
         PUBLIC_CACHE_OUTBOX_MAX_ATTEMPTS,
         new Date(Date.now() - PUBLIC_CACHE_OUTBOX_LOCK_TIMEOUT_MS - 1000),
-        finalAttempt!.id,
+        finalAttempt.id,
       ],
     );
     assert.equal(

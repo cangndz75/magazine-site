@@ -357,6 +357,7 @@ export const contentVersionEntities = pgTable(
       columns: [table.entityId],
       foreignColumns: [entities.id],
     }).onDelete("restrict"),
+    index("content_version_entities_entity_idx").on(table.entityId),
     check(
       "content_version_entities_sort_order_non_negative",
       sql`${table.sortOrder} >= 0`,

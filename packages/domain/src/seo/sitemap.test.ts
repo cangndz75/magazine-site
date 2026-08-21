@@ -3,8 +3,10 @@ import { describe, it } from "node:test";
 import {
   SITEMAP_SHARD_SIZE,
   parsePublicSitemapShardId,
+  publicSitemapEntityShardCount,
   publicSitemapShardCount,
   publicSitemapShardOffset,
+  publicSitemapTotalShardCount,
 } from "./sitemap";
 
 describe("public sitemap shards", () => {
@@ -18,6 +20,15 @@ describe("public sitemap shards", () => {
     assert.equal(publicSitemapShardCount(1000), 1);
     assert.equal(publicSitemapShardCount(1001), 2);
     assert.equal(publicSitemapShardOffset(1), 1000);
+  });
+
+  it("appends entity shards after article shards without mixing offsets", () => {
+    assert.equal(publicSitemapEntityShardCount(0), 0);
+    assert.equal(publicSitemapTotalShardCount({ articleCount: 0, entityCount: 0 }), 1);
+    assert.equal(publicSitemapTotalShardCount({ articleCount: 1000, entityCount: 1 }), 2);
+    assert.equal(publicSitemapTotalShardCount({ articleCount: 0, entityCount: 5 }), 2);
+    assert.equal(publicSitemapEntityShardCount(1000), 1);
+    assert.equal(publicSitemapEntityShardCount(1001), 2);
   });
 
   it("rejects malformed shard ids", () => {

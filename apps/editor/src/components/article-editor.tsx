@@ -105,6 +105,7 @@ type ArticleEditorModel = {
         id: string;
         name: string;
         kind: EntityKind;
+        status: string;
         role: EntityRole;
         sortOrder: number;
       }[];
@@ -758,6 +759,10 @@ export function ArticleEditor({
                 heroBusy={heroBusy}
                 galleryBusy={galleryBusy}
                 videoBusy={videoBusy}
+                contentItemId={model.contentItem.id}
+                trustedSiteUrl={trustedSiteUrl}
+                title={fields.title}
+                bodyDocument={bodyDocument}
                 onChange={(next) => {
                   setRelations(next);
                   setSaveState({ kind: "idle" });

@@ -1,14 +1,14 @@
 import { and, eq, sql } from "drizzle-orm";
+import { PUBLIC_CACHE_OUTBOX_EVENT_TYPE } from "@magazine/domain";
 import { getDb } from "./client";
 import {
   publicCacheOutbox,
   type PublicArticleCacheInvalidatePayload,
+  type PublicEntityCacheInvalidatePayload,
 } from "./schema/outbox";
 import type { PublishingTx } from "./publishing/db-types";
 
-export const PUBLIC_CACHE_OUTBOX_EVENT_TYPE = {
-  PUBLIC_ARTICLE_CACHE_INVALIDATE: "PUBLIC_ARTICLE_CACHE_INVALIDATE",
-} as const;
+export { PUBLIC_CACHE_OUTBOX_EVENT_TYPE } from "@magazine/domain";
 
 export const PUBLIC_CACHE_OUTBOX_STATUS = {
   PENDING: "PENDING",
@@ -26,15 +26,27 @@ export const PUBLIC_CACHE_OUTBOX_ERROR_MAX_LENGTH = 2000;
 export type PublicCacheOutboxStatus =
   (typeof PUBLIC_CACHE_OUTBOX_STATUS)[keyof typeof PUBLIC_CACHE_OUTBOX_STATUS];
 
-export type PublicCacheOutboxEvent = {
-  id: string;
-  eventType: typeof PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ARTICLE_CACHE_INVALIDATE;
-  payload: PublicArticleCacheInvalidatePayload;
-  status: PublicCacheOutboxStatus;
-  attemptCount: number;
-  lockedAt: Date;
-  createdAt: Date;
-};
+export type PublicCacheOutboxEvent =
+  | {
+      id: string;
+      eventType: typeof PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ARTICLE_CACHE_INVALIDATE;
+      payload: PublicArticleCacheInvalidatePayload;
+      status: PublicCacheOutboxStatus;
+      attemptCount: number;
+      lockedAt: Date;
+      createdAt: Date;
+    }
+  | {
+      id: string;
+      eventType:
+        | typeof PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ENTITY_CACHE_INVALIDATE
+        | typeof PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ENTITY_RELATED_CACHE_INVALIDATE;
+      payload: PublicEntityCacheInvalidatePayload;
+      status: PublicCacheOutboxStatus;
+      attemptCount: number;
+      lockedAt: Date;
+      createdAt: Date;
+    };
 
 export async function enqueuePublicArticleCacheInvalidation(
   tx: PublishingTx,
@@ -46,6 +58,46 @@ export async function enqueuePublicArticleCacheInvalidation(
     payload: {
       schemaVersion: 1,
       contentItemId: input.contentItemId,
+      slug: input.slug,
+    },
+    status: PUBLIC_CACHE_OUTBOX_STATUS.PENDING,
+    attemptCount: 0,
+    nextAttemptAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+export async function enqueuePublicEntityCacheInvalidation(
+  tx: PublishingTx,
+  input: { entityId: string; slug: string; now?: Date },
+): Promise<void> {
+  const now = input.now ?? new Date();
+  await tx.insert(publicCacheOutbox).values({
+    eventType: PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ENTITY_CACHE_INVALIDATE,
+    payload: {
+      schemaVersion: 1,
+      entityId: input.entityId,
+      slug: input.slug,
+    },
+    status: PUBLIC_CACHE_OUTBOX_STATUS.PENDING,
+    attemptCount: 0,
+    nextAttemptAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+export async function enqueuePublicEntityRelatedCacheInvalidation(
+  tx: PublishingTx,
+  input: { entityId: string; slug: string; now?: Date },
+): Promise<void> {
+  const now = input.now ?? new Date();
+  await tx.insert(publicCacheOutbox).values({
+    eventType: PUBLIC_CACHE_OUTBOX_EVENT_TYPE.PUBLIC_ENTITY_RELATED_CACHE_INVALIDATE,
+    payload: {
+      schemaVersion: 1,
+      entityId: input.entityId,
       slug: input.slug,
     },
     status: PUBLIC_CACHE_OUTBOX_STATUS.PENDING,

@@ -1,5 +1,8 @@
 import { isUuid } from "../editor/query-bounds";
 import { publicArticleCanonicalUrl, publicHomepageCanonicalUrl } from "./canonical";
+import { publicEntityCanonicalUrl } from "../entity/identity";
+import { isPublicEntityProfileEligible } from "../entity/public-authority";
+import type { EntityStatus } from "../entity/types";
 import { isPublicSitemapEligible, type PublicIndexabilityInput } from "./indexability";
 
 export const SITEMAP_PAGE_DEFAULT_LIMIT = 1000;
@@ -75,6 +78,58 @@ export function publicHomepageSitemapEntry(
     loc: publicHomepageCanonicalUrl(trustedSiteUrl),
     lastModified: null,
   };
+}
+
+export type PublicSitemapEntitySource = {
+  slug: string;
+  status: EntityStatus;
+  deletedAt?: Date | string | null;
+  mergedIntoEntityId?: string | null;
+  updatedAt: Date | string | null;
+};
+
+export function toPublicSitemapEntityEntry(
+  input: PublicSitemapEntitySource,
+  trustedSiteUrl: string,
+): PublicSitemapEntry | null {
+  if (
+    !isPublicEntityProfileEligible({
+      status: input.status,
+      slug: input.slug,
+      deletedAt: input.deletedAt,
+      mergedIntoEntityId: input.mergedIntoEntityId,
+    })
+  ) {
+    return null;
+  }
+
+  return {
+    loc: publicEntityCanonicalUrl(trustedSiteUrl, input.slug),
+    lastModified: sitemapLastModified({
+      publicDateModified: input.updatedAt,
+      publishedAt: input.updatedAt,
+    }),
+  };
+}
+
+export function publicSitemapEntityShardCount(entityCount: number): number {
+  const safe = Number.isFinite(entityCount)
+    ? Math.max(0, Math.floor(entityCount))
+    : 0;
+  if (safe === 0) {
+    return 0;
+  }
+  return Math.ceil(safe / SITEMAP_SHARD_SIZE);
+}
+
+export function publicSitemapTotalShardCount(input: {
+  articleCount: number;
+  entityCount: number;
+}): number {
+  return (
+    publicSitemapShardCount(input.articleCount) +
+    publicSitemapEntityShardCount(input.entityCount)
+  );
 }
 
 export type SitemapCursor = {

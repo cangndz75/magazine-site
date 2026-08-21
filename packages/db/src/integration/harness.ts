@@ -712,6 +712,10 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
       [itemIds],
     );
     await pool.query(
+      "DELETE FROM public_cache_outbox WHERE (payload->>'entityId')::uuid = $1::uuid",
+      [fixture.ids.entity],
+    );
+    await pool.query(
       "DELETE FROM content_versions WHERE content_item_id = ANY($1::uuid[])",
       [itemIds],
     );
@@ -769,6 +773,24 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
   await pool.query("DELETE FROM tags WHERE id = ANY($1::uuid[])", [
     [fixture.ids.tag, fixture.ids.extraTag],
   ]);
+  const hasEntityAudit = await pool.query<{ exists: boolean }>(
+    `SELECT to_regclass('public.entity_audit_events') IS NOT NULL AS exists`,
+  );
+  if (hasEntityAudit.rows[0]?.exists === true) {
+    await pool.query(
+      "DELETE FROM entity_audit_events WHERE entity_id = $1 OR actor_staff_user_id = ANY($2::uuid[])",
+      [fixture.ids.entity, staffIds],
+    );
+  }
+  const hasEntitySlugHistory = await pool.query<{ exists: boolean }>(
+    `SELECT to_regclass('public.entity_slug_history') IS NOT NULL AS exists`,
+  );
+  if (hasEntitySlugHistory.rows[0]?.exists === true) {
+    await pool.query(
+      "DELETE FROM entity_slug_history WHERE entity_id = $1 OR actor_staff_user_id = ANY($2::uuid[])",
+      [fixture.ids.entity, staffIds],
+    );
+  }
   await pool.query("DELETE FROM entities WHERE id = $1", [fixture.ids.entity]);
   await pool.query(
     "UPDATE editorial_video_assets SET poster_media_id = NULL WHERE poster_media_id = ANY($1::uuid[])",

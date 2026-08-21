@@ -12,3 +12,8 @@ export {
   listPublicSitemapEntries,
   type ListPublicSitemapEntriesInput,
 } from "./sitemap";
+export {
+  countPublicSitemapEntities,
+  listPublicSitemapEntities,
+  type ListPublicSitemapEntitiesInput,
+} from "./entity-sitemap";

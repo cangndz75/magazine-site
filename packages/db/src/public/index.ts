@@ -4,12 +4,14 @@ export {
   type PublicArticle,
   type PublicArticleAuthor,
   type PublicArticleCategory,
+  type PublicArticleEntityLink,
   type PublicArticleGalleryItem,
   type PublicArticleHeroMedia,
   type PublicArticlePage,
   type PublicArticleReadOptions,
   type PublicEditorialVideoProjection,
 } from "./get-public-article";
+export { loadPublicArticleEntityLinks } from "./load-public-article-entities";
 export {
   loadPublicLegalNotices,
   loadPublicWithdrawnArticleShellBySlug,

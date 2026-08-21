@@ -1,8 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { PublicArticleCacheInvalidatePayload } from "@magazine/domain";
 import { handlePublicCacheInvalidationPost } from "./public-cache-invalidation-http";
-import { invalidatePublicArticleCacheFromEvent } from "./public-cache-invalidation";
 
 const SECRET = "12345678901234567890123456789012";
 const CONTENT_ITEM_ID = "11111111-1111-4111-8111-111111111111";
@@ -76,14 +74,8 @@ describe("public cache invalidation endpoint", () => {
     const response = await handlePublicCacheInvalidationPost(
       requestWith(`Bearer ${SECRET}`, validEvent),
       SECRET,
-      async (event: PublicArticleCacheInvalidatePayload) => {
-        const derived = await invalidatePublicArticleCacheFromEvent(
-          event,
-          (tag) => {
-            tags.push(tag);
-          },
-        );
-        return derived;
+      (tag) => {
+        tags.push(tag);
       },
     );
     const body = await response.json();

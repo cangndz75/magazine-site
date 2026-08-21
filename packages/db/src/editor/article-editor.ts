@@ -9,6 +9,7 @@ import {
   type AuthorRole,
   type EntityKind,
   type EntityRole,
+  type EntityStatus,
   type MediaRole,
 } from "@magazine/domain";
 import { getDb } from "../client";
@@ -63,6 +64,7 @@ export type ArticleEditorRelationSummary = {
     id: string;
     name: string;
     kind: EntityKind;
+    status: EntityStatus;
     role: EntityRole;
     sortOrder: number;
   }[];
@@ -373,6 +375,7 @@ async function loadRelationSummary(
           id: entities.id,
           name: entities.canonicalName,
           kind: entities.kind,
+          status: entities.status,
           role: contentVersionEntities.role,
           sortOrder: contentVersionEntities.sortOrder,
         })

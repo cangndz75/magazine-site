@@ -16,12 +16,22 @@ export type PublicArticleCacheInvalidatePayload = {
   slug: string;
 };
 
+export type PublicEntityCacheInvalidatePayload = {
+  schemaVersion: 1;
+  entityId: string;
+  slug: string;
+};
+
+export type PublicCacheOutboxPayload =
+  | PublicArticleCacheInvalidatePayload
+  | PublicEntityCacheInvalidatePayload;
+
 export const publicCacheOutbox = pgTable(
   "public_cache_outbox",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     eventType: text("event_type").notNull(),
-    payload: jsonb("payload").$type<PublicArticleCacheInvalidatePayload>().notNull(),
+    payload: jsonb("payload").$type<PublicCacheOutboxPayload>().notNull(),
     status: text("status").notNull().default("PENDING"),
     attemptCount: integer("attempt_count").notNull().default(0),
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true })
@@ -40,7 +50,7 @@ export const publicCacheOutbox = pgTable(
   (table) => [
     check(
       "public_cache_outbox_event_type_check",
-      sql`${table.eventType} IN ('PUBLIC_ARTICLE_CACHE_INVALIDATE')`,
+      sql`${table.eventType} IN ('PUBLIC_ARTICLE_CACHE_INVALIDATE', 'PUBLIC_ENTITY_CACHE_INVALIDATE', 'PUBLIC_ENTITY_RELATED_CACHE_INVALIDATE')`,
     ),
     check(
       "public_cache_outbox_status_check",
