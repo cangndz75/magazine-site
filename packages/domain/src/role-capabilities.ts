@@ -11,6 +11,7 @@ const ALL_CAPABILITIES = [
   CAPABILITY.CATEGORY_MANAGE,
   CAPABILITY.HOMEPAGE_MANAGE,
   CAPABILITY.STAFF_MANAGE,
+  CAPABILITY.ANALYTICS_READ,
 ] as const satisfies readonly Capability[];
 
 export const ROLE_CAPABILITIES: Record<StaffRole, readonly Capability[]> = {
@@ -21,6 +22,7 @@ export const ROLE_CAPABILITIES: Record<StaffRole, readonly Capability[]> = {
     CAPABILITY.CONTENT_EDIT,
     CAPABILITY.CONTENT_REVIEW,
     CAPABILITY.CONTENT_PUBLISH,
+    CAPABILITY.ANALYTICS_READ,
   ],
   [STAFF_ROLE.AUTHOR]: [
     CAPABILITY.CONTENT_READ,

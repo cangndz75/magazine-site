@@ -71,6 +71,7 @@ export {
   clearHomepageVideo,
   getHomepageBuilder,
   loadPublishedHomepageSlotMap,
+  loadPublishedHomepageVersionId,
   loadPublishedHomepageVideoAssetId,
   moveHomepageFeaturedSlot,
   publishHomepage,

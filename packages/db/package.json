@@ -15,7 +15,8 @@
     "./staff-password-reset": "./src/staff-password-reset.ts",
     "./staff-administration": "./src/staff-administration.ts",
     "./staff-mfa": "./src/staff-mfa.ts",
-    "./seo": "./src/seo/index.ts"
+    "./seo": "./src/seo/index.ts",
+    "./analytics": "./src/analytics/index.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -23,8 +24,9 @@
     "generate": "drizzle-kit generate",
     "check": "drizzle-kit check",
     "migrate": "node ./scripts/require-database-url.mjs && drizzle-kit migrate",
-    "test": "tsx --test src/media/**/*.test.ts src/storage/**/*.test.ts src/editor/media-upload.test.ts src/editor/hero-thumbnails.test.ts",
-    "test:integration": "node ./scripts/run-content-integration.mjs"
+    "test": "tsx --test src/media/**/*.test.ts src/storage/**/*.test.ts src/editor/media-upload.test.ts src/editor/hero-thumbnails.test.ts src/analytics/**/*.test.ts",
+    "test:integration": "node ./scripts/run-content-integration.mjs",
+    "analytics:aggregate": "node ./scripts/require-database-url.mjs && tsx ./scripts/analytics-aggregate.ts"
   },
   "dependencies": {
     "@magazine/config": "workspace:*",

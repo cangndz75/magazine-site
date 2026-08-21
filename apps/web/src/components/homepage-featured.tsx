@@ -1,12 +1,14 @@
-import type { PublicHomepageStory } from "@magazine/db/public";
+import type { PublicHomepageStory, PublicHomepageAnalyticsPlacement } from "@magazine/db/public";
+import { AnalyticsHomepagePlacement } from "@/components/analytics/analytics-homepage-placement";
 import { HomepageFeaturedCard } from "@/components/homepage-featured-card";
 import { SectionHeader } from "@/components/section-header";
 
 type HomepageFeaturedProps = {
   stories: PublicHomepageStory[];
+  placements?: readonly PublicHomepageAnalyticsPlacement[];
 };
 
-export function HomepageFeatured({ stories }: HomepageFeaturedProps) {
+export function HomepageFeatured({ stories, placements = [] }: HomepageFeaturedProps) {
   if (stories.length === 0) {
     return null;
   }
@@ -21,11 +23,30 @@ export function HomepageFeatured({ stories }: HomepageFeaturedProps) {
         data-count={count}
         role="list"
       >
-        {stories.map((story) => (
-          <div key={story.id} className="homepage-featured__item" role="listitem">
-            <HomepageFeaturedCard story={story} />
-          </div>
-        ))}
+        {stories.map((story) => {
+          const placement = placements.find(
+            (item) =>
+              item.contentItemId === story.id &&
+              item.placement !== "CONVERSATION",
+          );
+          const card = <HomepageFeaturedCard story={story} />;
+          return (
+            <div key={story.id} className="homepage-featured__item" role="listitem">
+              {placement?.analyticsContext ? (
+                <AnalyticsHomepagePlacement
+                  contentItemId={placement.contentItemId}
+                  placement={placement.placement}
+                  position={placement.position}
+                  analyticsContext={placement.analyticsContext}
+                >
+                  {card}
+                </AnalyticsHomepagePlacement>
+              ) : (
+                card
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

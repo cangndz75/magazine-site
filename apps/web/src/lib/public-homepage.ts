@@ -7,5 +7,6 @@ import { env } from "./env";
 export const getPublicHomepage = cache(() =>
   loadPublicHomepage({
     mediaPublicBaseUrl: env.MEDIA_PUBLIC_BASE_URL,
+    analyticsContextSigningKey: env.ANALYTICS_CONTEXT_SIGNING_KEY,
   }),
 );

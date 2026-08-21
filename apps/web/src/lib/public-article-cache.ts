@@ -55,7 +55,7 @@ export function cachedPublicArticleLoader(
     const contentTag = publicContentCacheTag(identity.contentItemId);
     const loadCachedPage = cacheFactory(
       async (canonicalSlug: string) => loadPage(canonicalSlug),
-      ["public-article", slugTag, contentTag],
+      ["public-article-analytics-v1", slugTag, contentTag],
       {
         revalidate: PUBLIC_ARTICLE_CACHE_REVALIDATE_SECONDS,
         tags: [slugTag, contentTag],

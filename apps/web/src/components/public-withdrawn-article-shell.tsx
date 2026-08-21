@@ -1,5 +1,6 @@
 import type { PublicWithdrawnArticleShell } from "@magazine/domain";
 import { PUBLIC_ARTICLE_WITHDRAWAL_KIND } from "@magazine/domain";
+import { AnalyticsWithdrawnPageView } from "@/components/analytics/analytics-page-view";
 import { formatPublicationDate } from "@/lib/format-publication-date";
 
 type PublicWithdrawnArticleShellProps = {
@@ -31,6 +32,11 @@ export function PublicWithdrawnArticleShellView({
 
   return (
     <div className="public-article-page public-article-page--withdrawn">
+      <AnalyticsWithdrawnPageView
+        contentItemId={shell.id}
+        publicSlug={shell.slug}
+        withdrawalKind={shell.withdrawalKind}
+      />
       <div className="public-article-page__text">
         <header className="article-header">
           <h1 className="article-header__title">{shell.title}</h1>

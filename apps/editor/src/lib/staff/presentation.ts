@@ -216,6 +216,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
   CATEGORY_MANAGE: "Kategori yönetimi",
   HOMEPAGE_MANAGE: "Ana sayfa yönetimi",
   STAFF_MANAGE: "Personel yönetimi",
+  ANALYTICS_READ: "Analitik okuma",
 };
 
 export function staffCapabilityLabel(capability: string): string {

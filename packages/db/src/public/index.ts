@@ -23,6 +23,7 @@ export {
   type PublicHomepage,
   type PublicHomepageCategory,
   type PublicHomepageStory,
+  type PublicHomepageAnalyticsPlacement,
 } from "./get-public-homepage";
 export {
   getPublicHomepageConversation,

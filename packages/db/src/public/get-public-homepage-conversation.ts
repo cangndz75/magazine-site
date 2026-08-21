@@ -23,6 +23,7 @@ import {
 export type PublicHomepageConversationArticle = {
   id: string;
   slug: string;
+  publishedVersionId: string;
   hero: PublicArticleHeroMedia | null;
 };
 
@@ -138,6 +139,7 @@ export async function getPublicHomepageConversation(
             ? {
                 id: pointer.contentItemId,
                 slug: row.slug,
+                publishedVersionId: pointer.publishedVersionId,
                 hero: heroByVersion.get(pointer.publishedVersionId) ?? null,
               }
             : null,

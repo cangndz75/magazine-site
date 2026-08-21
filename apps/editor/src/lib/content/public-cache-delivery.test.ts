@@ -271,6 +271,7 @@ describe("editor public cache env contract", () => {
     SITE_URL: "http://localhost:3000",
     EDITOR_URL: "http://localhost:3001",
     SCHEDULED_PUBLISH_RUNNER_SECRET: SECRET,
+    ANALYTICS_AGGREGATION_SECRET: `${SECRET}agg`,
     PUBLIC_CACHE_INVALIDATION_SECRET: SECRET,
     PUBLIC_WEB_INTERNAL_BASE_URL: "http://localhost:3000",
   };
@@ -293,6 +294,17 @@ describe("editor public cache env contract", () => {
           PUBLIC_WEB_INTERNAL_BASE_URL: undefined,
         }),
       /Invalid editor environment variables/,
+    );
+  });
+
+  it("rejects reusing the scheduled-publish secret for analytics aggregation", () => {
+    assert.throws(
+      () =>
+        getEditorEnv({
+          ...base,
+          ANALYTICS_AGGREGATION_SECRET: SECRET,
+        }),
+      /ANALYTICS_AGGREGATION_SECRET must not reuse SCHEDULED_PUBLISH_RUNNER_SECRET/,
     );
   });
 

@@ -1,5 +1,6 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import {
+  ANALYTICS_SURFACE,
   canonicalizeContentSlug,
   canRedirectHistoricalPublicSlug,
   MEDIA_ROLE,
@@ -9,6 +10,7 @@ import {
   PUBLICATION_STATUS,
   toPublicEditorialVideoProjection,
   publicPublishedVersionId,
+  signAnalyticsContext,
   toPublicArticleGalleryItem,
   type AuthorRole,
   type PublicArticleGalleryItem,
@@ -72,6 +74,7 @@ export type PublicArticlePage =
 
 export type PublicArticle = {
   id: string;
+  publishedVersionId: string;
   slug: string;
   title: string;
   subtitle: string | null;
@@ -89,10 +92,13 @@ export type PublicArticle = {
   categories: PublicArticleCategory[];
   authors: PublicArticleAuthor[];
   legalNotices: PublicLegalNotice[];
+  analyticsContext?: string;
 };
 
 export type PublicArticleReadOptions = {
   mediaPublicBaseUrl?: string;
+  analyticsContextSigningKey?: string;
+  analyticsContextNow?: Date;
 };
 
 /**
@@ -239,6 +245,7 @@ export async function getPublicArticleBySlug(
       .orderBy(asc(contentVersionMedia.sortOrder)),
     db
       .select({
+        videoAssetId: editorialVideoAssets.id,
         provider: editorialVideoAssets.provider,
         providerVideoId: editorialVideoAssets.providerVideoId,
         title: editorialVideoAssets.title,
@@ -344,12 +351,13 @@ export async function getPublicArticleBySlug(
             }
           : null,
     });
-    return item ? [item] : [];
+    return item ? [{ ...item, videoAssetId: row.videoAssetId }] : [];
   });
   const legalNotices = await loadPublicLegalNotices(item.id);
 
   return {
     id: item.id,
+    publishedVersionId,
     slug: item.slug,
     title: version.title,
     subtitle: version.subtitle,
@@ -380,6 +388,17 @@ export async function getPublicArticleBySlug(
       role: row.role,
     })),
     legalNotices,
+    ...(options.analyticsContextSigningKey
+      ? {
+          analyticsContext: signAnalyticsContext({
+            signingKey: options.analyticsContextSigningKey,
+            now: options.analyticsContextNow ?? new Date(),
+            surface: ANALYTICS_SURFACE.ARTICLE,
+            contentItemId: item.id,
+            publishedVersionId,
+          }),
+        }
+      : {}),
   };
 }
 

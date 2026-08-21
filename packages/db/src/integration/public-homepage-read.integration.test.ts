@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import {
+  ANALYTICS_PLACEMENT,
   AUTHOR_ROLE,
   HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
   MEDIA_ROLE,
@@ -157,6 +158,29 @@ describe("public homepage read PostgreSQL", () => {
       true,
     );
     assertNoInternalLeak(homepage);
+  });
+
+  it("emits RECENCY_FALLBACK analytics placements when no Homepage Builder version has ever been published", async () => {
+    const created = await publishApproved({
+      title: "Homepage pre-builder fallback",
+      body: articleBody("homepage-pre-builder-fallback"),
+    });
+    const homepage = await getPublicHomepage({
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.equal(homepage.homepageVersionId, null);
+    assert.equal(homepage.lead?.id, created.contentItemId);
+    const leadPlacement = homepage.analyticsPlacements.find(
+      (placement) => placement.contentItemId === created.contentItemId,
+    );
+    assert.equal(leadPlacement !== undefined, true);
+    assert.equal(leadPlacement?.placement, ANALYTICS_PLACEMENT.RECENCY_FALLBACK);
+    assert.equal(
+      homepage.analyticsPlacements.every(
+        (placement) => placement.placement !== ANALYTICS_PLACEMENT.LEAD,
+      ),
+      true,
+    );
   });
 
   it("uses publishedVersionId fields for lead and supports", async () => {

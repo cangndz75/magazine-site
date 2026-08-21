@@ -13,6 +13,7 @@ type CacheOptions = Parameters<typeof unstable_cache>[2];
 function fakeCachedArticle(title: string, id = "content-1"): PublicArticle {
   return {
     id,
+    publishedVersionId: `${id}-v1`,
     slug: "haber",
     title,
     subtitle: null,
@@ -100,7 +101,7 @@ describe("public article shared cache wrapper", () => {
       tags: ["article-slug:haber"],
     });
     assert.deepEqual(cache.calls[1]?.keyParts, [
-      "public-article",
+      "public-article-analytics-v1",
       "article-slug:haber",
       "content:content-1",
     ]);

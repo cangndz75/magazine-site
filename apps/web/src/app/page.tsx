@@ -1,3 +1,5 @@
+import { AnalyticsHomepageView } from "@/components/analytics/analytics-page-view";
+import { HomepageAnalyticsProvider } from "@/components/analytics/homepage-analytics-context";
 import { HomepageFeatured } from "@/components/homepage-featured";
 import { HomepageLeadGrid } from "@/components/homepage-lead-grid";
 import { HomepageVideo } from "@/components/homepage-video";
@@ -16,6 +18,12 @@ export default async function Home() {
   if (!homepage.lead) {
     return (
       <div className="homepage">
+        {homepage.homepageViewContext ? (
+          <AnalyticsHomepageView
+            homepageVersionId={homepage.homepageVersionId}
+            analyticsContext={homepage.homepageViewContext}
+          />
+        ) : null}
         <div className="homepage__inner">
           <div className="homepage__empty">
             <p className="homepage__empty-kicker">Magazin</p>
@@ -28,15 +36,32 @@ export default async function Home() {
 
   return (
     <div className="homepage">
-      <div className="homepage__inner">
-        <div className="homepage__canvas">
-          <div className="homepage__main">
-            <HomepageLeadGrid homepage={homepage} />
-            {homepage.video ? <HomepageVideo video={homepage.video} /> : null}
+      {homepage.homepageViewContext ? (
+        <AnalyticsHomepageView
+          homepageVersionId={homepage.homepageVersionId}
+          analyticsContext={homepage.homepageViewContext}
+        />
+      ) : null}
+      <HomepageAnalyticsProvider homepageVersionId={homepage.homepageVersionId}>
+        <div className="homepage__inner">
+          <div className="homepage__canvas">
+            <div className="homepage__main">
+              <HomepageLeadGrid homepage={homepage} />
+              {homepage.video ? (
+                <HomepageVideo
+                  video={homepage.video}
+                  homepageVersionId={homepage.homepageVersionId}
+                  analyticsContext={homepage.homepageVideoContext}
+                />
+              ) : null}
+            </div>
+            <HomepageFeatured
+              stories={homepage.featured}
+              placements={homepage.analyticsPlacements}
+            />
           </div>
-          <HomepageFeatured stories={homepage.featured} />
         </div>
-      </div>
+      </HomepageAnalyticsProvider>
     </div>
   );
 }

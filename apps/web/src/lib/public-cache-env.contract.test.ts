@@ -16,10 +16,27 @@ describe("web public cache env contract", () => {
       EDITOR_URL: "http://localhost:3001",
       MEDIA_PUBLIC_BASE_URL: "http://localhost:3000/media",
       PUBLIC_CACHE_INVALIDATION_SECRET: SECRET,
+      ANALYTICS_CONTEXT_SIGNING_KEY: `${SECRET}analytics-context`,
     });
 
     assert.equal(env.PUBLIC_CACHE_INVALIDATION_SECRET, SECRET);
     assert.equal("NEXT_PUBLIC_PUBLIC_CACHE_INVALIDATION_SECRET" in env, false);
+  });
+
+  it("rejects reusing the cache invalidation secret for analytics context signing", () => {
+    assert.throws(
+      () =>
+        getWebEnv({
+          NODE_ENV: "test",
+          APP_ENV: "development",
+          SITE_URL: "http://localhost:3000",
+          EDITOR_URL: "http://localhost:3001",
+          MEDIA_PUBLIC_BASE_URL: "http://localhost:3000/media",
+          PUBLIC_CACHE_INVALIDATION_SECRET: SECRET,
+          ANALYTICS_CONTEXT_SIGNING_KEY: SECRET,
+        }),
+      /ANALYTICS_CONTEXT_SIGNING_KEY must not reuse PUBLIC_CACHE_INVALIDATION_SECRET/,
+    );
   });
 
   it("fails clearly when the production secret is missing", () => {

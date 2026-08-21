@@ -120,6 +120,34 @@
       "when": 1787300000000,
       "tag": "0017_content-slug-history",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787320000000,
+      "tag": "0018_analytics-events-foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1787340000000,
+      "tag": "0019_analytics-events-ingestion",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1787360000000,
+      "tag": "0020_analytics-aggregates",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787380000000,
+      "tag": "0021_analytics-recency-fallback-placement",
+      "breakpoints": true
     }
   ]
 }

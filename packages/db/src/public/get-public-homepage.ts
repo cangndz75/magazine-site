@@ -1,17 +1,22 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
+  ANALYTICS_PLACEMENT,
+  ANALYTICS_SURFACE,
   MEDIA_ROLE,
   MEDIA_TYPE,
   MEDIA_RENDITION_SURFACE,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
   PUBLICATION_STATUS,
+  buildPublishedHomepageContentPlacements,
   emptyHomepageSlotMap,
   publicPublishedVersionId,
   resolvePublicHomepagePlacements,
   selectTemporaryHomepageFeatured,
+  signAnalyticsContext,
   toPublicEditorialVideoProjection,
   type PublicEditorialVideoProjection,
+  type PublicHomepageAnalyticsPlacement,
   type VideoProvider,
 } from "@magazine/domain";
 import { getDb } from "../client";
@@ -23,7 +28,11 @@ import {
 } from "../schema/content";
 import { media } from "../schema/media";
 import { categories } from "../schema/taxonomy";
-import { loadPublishedHomepageSlotMap, loadPublishedHomepageVideoAssetId } from "../editor/homepage-builder";
+import {
+  loadPublishedHomepageSlotMap,
+  loadPublishedHomepageVersionId,
+  loadPublishedHomepageVideoAssetId,
+} from "../editor/homepage-builder";
 import { editorialVideoAssets } from "../schema/video";
 import type {
   PublicArticleHeroMedia,
@@ -77,6 +86,10 @@ export type PublicHomepage = {
   featured: PublicHomepageStory[];
   /** Explicit Builder-managed editorial video; null when unset or unavailable. */
   video: PublicEditorialVideoProjection | null;
+  homepageVersionId: string | null;
+  homepageViewContext?: string;
+  homepageVideoContext?: string;
+  analyticsPlacements: PublicHomepageAnalyticsPlacement[];
   /**
    * MEDIA_ROLE.GALLERY is an article attachment role, not a gallery story.
    * Frontend must not render a Foto Galeri module.
@@ -85,7 +98,154 @@ export type PublicHomepage = {
   galleries: readonly [];
 };
 
+export type { PublicHomepageAnalyticsPlacement };
+
 const EMPTY_HOMEPAGE_GALLERIES: readonly [] = [];
+
+function displayedStory(candidate: HomepageCandidate | null): {
+  contentItemId: string;
+  publishedVersionId: string;
+} | null {
+  if (!candidate) {
+    return null;
+  }
+  return {
+    contentItemId: candidate.id,
+    publishedVersionId: candidate.publishedVersionId,
+  };
+}
+
+function signHomepagePlacements(
+  placements: PublicHomepageAnalyticsPlacement[],
+  options: PublicArticleReadOptions,
+  homepageVersionId: string | null,
+): PublicHomepageAnalyticsPlacement[] {
+  const key = options.analyticsContextSigningKey;
+  if (!key) {
+    return placements;
+  }
+  const now = options.analyticsContextNow ?? new Date();
+  return placements.map((placement) => ({
+    ...placement,
+    analyticsContext: signAnalyticsContext({
+      signingKey: key,
+      now,
+      surface: ANALYTICS_SURFACE.HOMEPAGE,
+      contentItemId: placement.contentItemId,
+      publishedVersionId: placement.publishedVersionId,
+      homepageVersionId:
+        placement.placement === ANALYTICS_PLACEMENT.RECENCY_FALLBACK
+          ? null
+          : homepageVersionId,
+      placement: placement.placement,
+      position: placement.position,
+    }),
+  }));
+}
+
+function homepageVideoContextToken(
+  options: PublicArticleReadOptions,
+  homepageVersionId: string | null,
+  videoAssetId: string | null,
+): string | undefined {
+  const key = options.analyticsContextSigningKey;
+  if (!key || !homepageVersionId || !videoAssetId) {
+    return undefined;
+  }
+  return signAnalyticsContext({
+    signingKey: key,
+    now: options.analyticsContextNow ?? new Date(),
+    surface: ANALYTICS_SURFACE.HOMEPAGE,
+    homepageVersionId,
+    placement: ANALYTICS_PLACEMENT.HOMEPAGE_VIDEO,
+    position: 1,
+    videoAssetId,
+  });
+}
+
+function homepageViewContext(
+  options: PublicArticleReadOptions,
+  homepageVersionId: string | null,
+): string | undefined {
+  const key = options.analyticsContextSigningKey;
+  if (!key) {
+    return undefined;
+  }
+  return signAnalyticsContext({
+    signingKey: key,
+    now: options.analyticsContextNow ?? new Date(),
+    surface: ANALYTICS_SURFACE.HOMEPAGE,
+    homepageVersionId,
+  });
+}
+
+function buildHomepageAnalyticsPlacements(input: {
+  homepageVersionId: string | null;
+  editorialSlots: ReturnType<typeof emptyHomepageSlotMap> | null;
+  lead: HomepageCandidate | null;
+  supports: HomepageCandidate[];
+  featured: HomepageCandidate[];
+  conversation: PublicHomepageConversationItem[];
+  options: PublicArticleReadOptions;
+}): PublicHomepageAnalyticsPlacement[] {
+  return signHomepagePlacements(
+    buildPublishedHomepageContentPlacements({
+      homepageVersionId: input.homepageVersionId,
+      editorialSlots: input.editorialSlots,
+      displayed: {
+        lead: displayedStory(input.lead),
+        supports: input.supports.map((story) => ({
+          contentItemId: story.id,
+          publishedVersionId: story.publishedVersionId,
+        })),
+        featured: input.featured.map((story) => ({
+          contentItemId: story.id,
+          publishedVersionId: story.publishedVersionId,
+        })),
+      },
+      conversation: input.conversation.map((item) => ({
+        rank: item.rank,
+        contentItemId: item.article?.id ?? null,
+        publishedVersionId: item.article?.publishedVersionId ?? null,
+      })),
+    }),
+    input.options,
+    input.homepageVersionId,
+  );
+}
+
+function emptyPublicHomepage(input: {
+  conversation: PublicHomepageConversationItem[];
+  video: PublicEditorialVideoProjection | null;
+  homepageVersionId: string | null;
+  editorialSlots: ReturnType<typeof emptyHomepageSlotMap> | null;
+  options: PublicArticleReadOptions;
+}): PublicHomepage {
+  return {
+    lead: null,
+    supports: [],
+    conversation: input.conversation,
+    featured: [],
+    video: input.video,
+    homepageVersionId: input.homepageVersionId,
+    homepageViewContext: homepageViewContext(input.options, input.homepageVersionId),
+    homepageVideoContext: homepageVideoContextToken(
+      input.options,
+      input.homepageVersionId,
+      input.video?.videoAssetId ?? null,
+    ),
+    analyticsPlacements: buildHomepageAnalyticsPlacements({
+      homepageVersionId: input.homepageVersionId,
+      editorialSlots: input.editorialSlots,
+      lead: null,
+      supports: [],
+      featured: [],
+      conversation: input.conversation,
+      options: input.options,
+    }),
+    galleries: EMPTY_HOMEPAGE_GALLERIES,
+  };
+}
 
 type HomepageCandidate = {
   id: string;
@@ -160,7 +320,7 @@ async function loadPublicHomepageVideo(
         })
       : null;
 
-  return toPublicEditorialVideoProjection({
+  const item = toPublicEditorialVideoProjection({
     provider: row.provider as VideoProvider,
     providerVideoId: row.providerVideoId,
     title: row.title,
@@ -178,6 +338,8 @@ async function loadPublicHomepageVideo(
           }
         : null,
   });
+
+  return item ? { ...item, videoAssetId } : null;
 }
 
 export async function getPublicHomepage(
@@ -217,11 +379,13 @@ export async function getPublicHomepage(
     .orderBy(desc(contentItems.publishedAt), desc(contentItems.id))
     .limit(PUBLIC_HOMEPAGE_TEMPORARY_STORY_QUERY_LIMIT);
 
-  const [candidateRows, conversation, publishedVideoAssetId] = await Promise.all([
-    candidateQuery,
-    getPublicHomepageConversation(options),
-    loadPublishedHomepageVideoAssetId(),
-  ]);
+  const [candidateRows, conversation, publishedVideoAssetId, homepageVersionId] =
+    await Promise.all([
+      candidateQuery,
+      getPublicHomepageConversation(options),
+      loadPublishedHomepageVideoAssetId(),
+      loadPublishedHomepageVersionId(),
+    ]);
 
   const homepageVideo =
     publishedVideoAssetId !== null
@@ -337,14 +501,13 @@ export async function getPublicHomepage(
     ...featuredCandidates,
   ].filter((candidate): candidate is HomepageCandidate => candidate !== null);
   if (selected.length === 0) {
-    return {
-      lead: null,
-      supports: [],
+    return emptyPublicHomepage({
       conversation,
-      featured: [],
       video: homepageVideo,
-      galleries: EMPTY_HOMEPAGE_GALLERIES,
-    };
+      homepageVersionId,
+      editorialSlots: editorialMap,
+      options,
+    });
   }
 
   const versionIds = selected.map((candidate) => candidate.publishedVersionId);
@@ -489,6 +652,22 @@ export async function getPublicHomepage(
       toStory(candidate, MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB),
     ),
     video: homepageVideo,
+    homepageVersionId,
+    homepageViewContext: homepageViewContext(options, homepageVersionId),
+    homepageVideoContext: homepageVideoContextToken(
+      options,
+      homepageVersionId,
+      homepageVideo?.videoAssetId ?? null,
+    ),
+    analyticsPlacements: buildHomepageAnalyticsPlacements({
+      homepageVersionId,
+      editorialSlots: editorialMap,
+      lead: leadCandidate,
+      supports: supportCandidates,
+      featured: featuredCandidates,
+      conversation,
+      options,
+    }),
     galleries: EMPTY_HOMEPAGE_GALLERIES,
   };
 }

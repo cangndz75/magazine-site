@@ -15,6 +15,7 @@ export default async function WorkspaceLayout({
   const canManageHomepage = hasCapability(session.roles, CAPABILITY.HOMEPAGE_MANAGE);
   const canLegal = hasCapability(session.roles, CAPABILITY.CONTENT_LEGAL);
   const canManageStaff = hasCapability(session.roles, CAPABILITY.STAFF_MANAGE);
+  const canReadAnalytics = hasCapability(session.roles, CAPABILITY.ANALYTICS_READ);
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-hidden bg-zinc-50">
@@ -53,6 +54,14 @@ export default async function WorkspaceLayout({
                 className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
               >
                 SEO
+              </Link>
+            )}
+            {canReadAnalytics && (
+              <Link
+                href="/analytics"
+                className="rounded px-2.5 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-100"
+              >
+                Analytics
               </Link>
             )}
             {canReview && (

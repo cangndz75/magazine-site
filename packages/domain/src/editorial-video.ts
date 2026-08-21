@@ -86,6 +86,8 @@ export type PublicEditorialVideoProjection = {
   title: string;
   caption: string | null;
   durationSeconds: number | null;
+  /** Public editorial video identity. Playback does not require this field. */
+  videoAssetId?: string;
   poster:
     | {
         url: string;

@@ -625,10 +625,36 @@ export async function countLeftoverFixtures(
   };
 }
 
+async function cleanupAnalyticsDerivedTables(pool: Pool): Promise<void> {
+  const aggregates = await pool.query<{ exists: boolean }>(
+    `SELECT to_regclass('public.analytics_content_daily') IS NOT NULL AS exists`,
+  );
+  if (aggregates.rows[0]?.exists === true) {
+    await pool.query("DELETE FROM analytics_content_hourly");
+    await pool.query("DELETE FROM analytics_content_daily");
+    await pool.query("DELETE FROM analytics_homepage_slot_hourly");
+    await pool.query("DELETE FROM analytics_homepage_slot_daily");
+    await pool.query("DELETE FROM analytics_source_daily");
+    await pool.query("DELETE FROM analytics_category_daily");
+    await pool.query("DELETE FROM analytics_author_daily");
+    await pool.query("DELETE FROM analytics_media_daily");
+    await pool.query("DELETE FROM analytics_video_daily");
+    await pool.query("DELETE FROM analytics_session_daily");
+  }
+
+  const events = await pool.query<{ exists: boolean }>(
+    `SELECT to_regclass('public.analytics_events') IS NOT NULL AS exists`,
+  );
+  if (events.rows[0]?.exists === true) {
+    await pool.query("DELETE FROM analytics_events");
+  }
+}
+
 export async function cleanupFixture(fixture: IntegrationFixture): Promise<void> {
   const pool = getRacerPool();
   const itemIds = fixture.createdItemIds;
 
+  await cleanupAnalyticsDerivedTables(pool);
   await pool.query("DELETE FROM homepage_conversation_items");
   await pool.query("DELETE FROM homepage_audit_events");
   await pool.query("DELETE FROM homepage_slots");
@@ -672,6 +698,15 @@ export async function cleanupFixture(fixture: IntegrationFixture): Promise<void>
       "DELETE FROM content_slug_history WHERE content_item_id = ANY($1::uuid[])",
       [itemIds],
     );
+    const analyticsEvents = await pool.query<{ exists: boolean }>(
+      `SELECT to_regclass('public.analytics_events') IS NOT NULL AS exists`,
+    );
+    if (analyticsEvents.rows[0]?.exists === true) {
+      await pool.query(
+        "DELETE FROM analytics_events WHERE content_item_id = ANY($1::uuid[])",
+        [itemIds],
+      );
+    }
     await pool.query(
       "DELETE FROM public_cache_outbox WHERE (payload->>'contentItemId')::uuid = ANY($1::uuid[])",
       [itemIds],

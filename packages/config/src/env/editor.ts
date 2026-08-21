@@ -15,6 +15,13 @@ export const editorEnvSchema = baseEnvSchema
     SCHEDULED_PUBLISH_RUNNER_SECRET: z
       .string()
       .min(32, "SCHEDULED_PUBLISH_RUNNER_SECRET must be at least 32 characters"),
+    /**
+     * Dedicated bearer for internal analytics aggregation. Never reuse the
+     * scheduled-publish, cache, session, or context-signing secrets.
+     */
+    ANALYTICS_AGGREGATION_SECRET: z
+      .string()
+      .min(32, "ANALYTICS_AGGREGATION_SECRET must be at least 32 characters"),
     /** Server-only origin of the public web app used for cache-outbox delivery. Never expose via NEXT_PUBLIC_*. */
     PUBLIC_WEB_INTERNAL_BASE_URL: httpUrlSchema,
     /** Server-only machine secret for public web cache invalidation delivery. Never expose via NEXT_PUBLIC_*. */
@@ -104,6 +111,26 @@ export const editorEnvSchema = baseEnvSchema
           message: "MEDIA_S3_SECRET_ACCESS_KEY is required when MEDIA_STORAGE_MODE=s3",
         });
       }
+    }
+    if (
+      value.ANALYTICS_AGGREGATION_SECRET === value.SCHEDULED_PUBLISH_RUNNER_SECRET
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ANALYTICS_AGGREGATION_SECRET"],
+        message:
+          "ANALYTICS_AGGREGATION_SECRET must not reuse SCHEDULED_PUBLISH_RUNNER_SECRET",
+      });
+    }
+    if (
+      value.ANALYTICS_AGGREGATION_SECRET === value.PUBLIC_CACHE_INVALIDATION_SECRET
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["ANALYTICS_AGGREGATION_SECRET"],
+        message:
+          "ANALYTICS_AGGREGATION_SECRET must not reuse PUBLIC_CACHE_INVALIDATION_SECRET",
+      });
     }
     if (hosted) {
       if (!value.STAFF_MFA_ENCRYPTION_KEY) {

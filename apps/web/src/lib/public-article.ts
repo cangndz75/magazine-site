@@ -8,9 +8,11 @@ import {
 } from "@magazine/db/public";
 import { env } from "./env";
 import { cachedPublicArticleLoader } from "./public-article-cache";
+import { attachPublicArticleAnalyticsContext } from "./analytics/attach-public-article-context";
 
 const publicArticleReadOptions = {
   mediaPublicBaseUrl: env.MEDIA_PUBLIC_BASE_URL,
+  analyticsContextSigningKey: env.ANALYTICS_CONTEXT_SIGNING_KEY,
 };
 
 export const getPublicArticlePageBySlug = cache((slug: string) => {
@@ -18,7 +20,11 @@ export const getPublicArticlePageBySlug = cache((slug: string) => {
     loadPublicArticlePageBySlug(canonicalSlug, publicArticleReadOptions),
   );
 
-  return cachedPublicArticleLoader(slug, loadPage);
+  return cachedPublicArticleLoader(slug, loadPage).then((page) =>
+    attachPublicArticleAnalyticsContext(page, {
+      signingKey: env.ANALYTICS_CONTEXT_SIGNING_KEY,
+    }),
+  );
 });
 
 export async function getPublicArticleBySlug(slug: string): Promise<PublicArticle | null> {

@@ -1,10 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { PublicHomepageConversationItem } from "@magazine/db/public";
+import type {
+  PublicHomepageConversationItem,
+  PublicHomepageAnalyticsPlacement,
+} from "@magazine/db/public";
+import { ANALYTICS_PLACEMENT } from "@magazine/domain/analytics-client";
+import { AnalyticsHomepagePlacement } from "@/components/analytics/analytics-homepage-placement";
 import { env } from "@/lib/env";
+import { findHomepagePlacement } from "@/lib/analytics/placements";
 
 type HomepageConversationRailProps = {
   items: PublicHomepageConversationItem[];
+  placements?: readonly PublicHomepageAnalyticsPlacement[];
 };
 
 function formatRank(rank: number): string {
@@ -49,7 +56,10 @@ function ConversationRow({ item }: ConversationRowProps) {
   );
 }
 
-export function HomepageConversationRail({ items }: HomepageConversationRailProps) {
+export function HomepageConversationRail({
+  items,
+  placements = [],
+}: HomepageConversationRailProps) {
   if (items.length === 0) {
     return null;
   }
@@ -64,15 +74,34 @@ export function HomepageConversationRail({ items }: HomepageConversationRailProp
           const accessibleName = conversationAccessibleName(item);
 
           if (item.article) {
+            const placement = findHomepagePlacement(placements, {
+              contentItemId: item.article.id,
+              placement: ANALYTICS_PLACEMENT.CONVERSATION,
+              position: item.rank,
+            });
+            const link = (
+              <Link
+                href={`/${item.article.slug}`}
+                className="homepage-conversation-rail__link"
+                aria-label={accessibleName}
+              >
+                <ConversationRow item={item} />
+              </Link>
+            );
             return (
               <li key={item.rank} className="homepage-conversation-rail__item">
-                <Link
-                  href={`/${item.article.slug}`}
-                  className="homepage-conversation-rail__link"
-                  aria-label={accessibleName}
-                >
-                  <ConversationRow item={item} />
-                </Link>
+                {placement?.analyticsContext ? (
+                  <AnalyticsHomepagePlacement
+                    contentItemId={placement.contentItemId}
+                    placement={placement.placement}
+                    position={placement.position}
+                    analyticsContext={placement.analyticsContext}
+                  >
+                    {link}
+                  </AnalyticsHomepagePlacement>
+                ) : (
+                  link
+                )}
               </li>
             );
           }

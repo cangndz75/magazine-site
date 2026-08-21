@@ -3,6 +3,12 @@
 import { useId, useState } from "react";
 import type { PublicArticleGalleryItem } from "@magazine/db/public";
 import {
+  ANALYTICS_EVENT_NAME,
+  ANALYTICS_GALLERY_NAVIGATION_METHOD,
+  galleryAnalyticsEmissions,
+} from "@magazine/domain/analytics-client";
+import { publicAnalytics } from "@/lib/analytics/track";
+import {
   currentGalleryIndex,
   galleryItemsIdentity,
   stepGalleryIndex,
@@ -10,9 +16,15 @@ import {
 
 type PublicArticleGalleryProps = {
   items: PublicArticleGalleryItem[];
+  contentItemId: string;
+  analyticsContext: string;
 };
 
-export function PublicArticleGallery({ items }: PublicArticleGalleryProps) {
+export function PublicArticleGallery({
+  items,
+  contentItemId,
+  analyticsContext,
+}: PublicArticleGalleryProps) {
   if (items.length === 0) {
     return null;
   }
@@ -21,19 +33,60 @@ export function PublicArticleGallery({ items }: PublicArticleGalleryProps) {
     <PublicArticleGalleryViewer
       key={galleryItemsIdentity(items)}
       items={items}
+      contentItemId={contentItemId}
+      analyticsContext={analyticsContext}
     />
   );
 }
 
+function emitGalleryAnalytics(
+  contentItemId: string,
+  analyticsContext: string,
+  emissions: ReturnType<typeof galleryAnalyticsEmissions>["emissions"],
+) {
+  for (const emission of emissions) {
+    if (emission.eventName === ANALYTICS_EVENT_NAME.GALLERY_OPEN) {
+      publicAnalytics.trackGalleryOpen({
+        contentItemId,
+        mediaId: emission.mediaId,
+        galleryPosition: emission.galleryPosition,
+        analyticsContext,
+      });
+      continue;
+    }
+    if (emission.eventName === ANALYTICS_EVENT_NAME.GALLERY_NAVIGATE) {
+      publicAnalytics.trackGalleryNavigate({
+        contentItemId,
+        mediaId: emission.mediaId,
+        galleryPosition: emission.galleryPosition,
+        navigationMethod: emission.navigationMethod,
+        analyticsContext,
+      });
+      continue;
+    }
+    publicAnalytics.trackGalleryImageView({
+      contentItemId,
+      mediaId: emission.mediaId,
+      galleryPosition: emission.galleryPosition,
+      analyticsContext,
+    });
+  }
+}
+
 function PublicArticleGalleryViewer({
   items,
+  contentItemId,
+  analyticsContext,
 }: {
   items: PublicArticleGalleryItem[];
+  contentItemId: string;
+  analyticsContext: string;
 }) {
   const labelId = useId();
   const captionId = useId();
   const [index, setIndex] = useState(0);
   const [failed, setFailed] = useState<Record<string, boolean>>({});
+  const [opened, setOpened] = useState(false);
   const total = items.length;
   const currentIndex = currentGalleryIndex(index, total);
   const current = items[currentIndex] ?? null;
@@ -42,8 +95,31 @@ function PublicArticleGalleryViewer({
     return null;
   }
 
+  function applyUserNavigation(
+    nextIndex: number,
+    method: (typeof ANALYTICS_GALLERY_NAVIGATION_METHOD)[keyof typeof ANALYTICS_GALLERY_NAVIGATION_METHOD],
+  ) {
+    const result = galleryAnalyticsEmissions({
+      opened,
+      items,
+      action: {
+        method,
+        fromIndex: currentIndex,
+        toIndex: nextIndex,
+      },
+    });
+    emitGalleryAnalytics(contentItemId, analyticsContext, result.emissions);
+    setOpened(result.opened);
+    setIndex(result.index);
+  }
+
   function go(delta: number) {
-    setIndex(stepGalleryIndex(currentIndex, total, delta));
+    applyUserNavigation(
+      stepGalleryIndex(currentIndex, total, delta),
+      delta < 0
+        ? ANALYTICS_GALLERY_NAVIGATION_METHOD.PREV
+        : ANALYTICS_GALLERY_NAVIGATION_METHOD.NEXT,
+    );
   }
 
   const currentFailed = failed[current.mediaId] === true;
@@ -58,11 +134,17 @@ function PublicArticleGalleryViewer({
       onKeyDown={(event) => {
         if (event.key === "ArrowLeft") {
           event.preventDefault();
-          go(-1);
+          applyUserNavigation(
+            stepGalleryIndex(currentIndex, total, -1),
+            ANALYTICS_GALLERY_NAVIGATION_METHOD.KEYBOARD,
+          );
         }
         if (event.key === "ArrowRight") {
           event.preventDefault();
-          go(1);
+          applyUserNavigation(
+            stepGalleryIndex(currentIndex, total, 1),
+            ANALYTICS_GALLERY_NAVIGATION_METHOD.KEYBOARD,
+          );
         }
       }}
     >
@@ -143,7 +225,12 @@ function PublicArticleGalleryViewer({
                   }
                   aria-current={selected ? "true" : undefined}
                   aria-label={`Görsel ${itemIndex + 1}${item.caption ? `: ${item.caption}` : ""}`}
-                  onClick={() => setIndex(itemIndex)}
+                  onClick={() =>
+                    applyUserNavigation(
+                      itemIndex,
+                      ANALYTICS_GALLERY_NAVIGATION_METHOD.THUMB,
+                    )
+                  }
                 >
                   {thumbFailed ? (
                     <span className="article-gallery__thumb-missing">Yok</span>

@@ -32,6 +32,28 @@ describe("editor content capability mapping", () => {
     assert.equal(hasCapability([STAFF_ROLE.EDITOR], CAPABILITY.CONTENT_PUBLISH), true);
   });
 
+  it("gives ANALYTICS_READ to Super Admin and Editor, not Author", () => {
+    assert.equal(
+      hasCapability([STAFF_ROLE.SUPER_ADMIN], CAPABILITY.ANALYTICS_READ),
+      true,
+    );
+    assert.equal(hasCapability([STAFF_ROLE.EDITOR], CAPABILITY.ANALYTICS_READ), true);
+    assert.equal(hasCapability([STAFF_ROLE.AUTHOR], CAPABILITY.ANALYTICS_READ), false);
+    try {
+      requireEditorCapability(
+        { roles: [STAFF_ROLE.AUTHOR] },
+        CAPABILITY.ANALYTICS_READ,
+      );
+      assert.fail("expected throw");
+    } catch (error) {
+      assert.equal(error instanceof EditorHttpError, true);
+      if (error instanceof EditorHttpError) {
+        assert.equal(error.status, 403);
+        assert.equal(error.code, EDITOR_API_ERROR.FORBIDDEN);
+      }
+    }
+  });
+
   it("gives STAFF_MANAGE only to Super Admin", () => {
     assert.equal(
       hasCapability([STAFF_ROLE.SUPER_ADMIN], CAPABILITY.STAFF_MANAGE),

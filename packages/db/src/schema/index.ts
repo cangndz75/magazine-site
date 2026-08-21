@@ -60,3 +60,17 @@ export {
   homepageVersionVideos,
   homepageVersions,
 } from "./homepage-builder";
+export { analyticsEvents } from "./analytics-events";
+export {
+  analyticsAggregationCheckpoints,
+  analyticsAuthorDaily,
+  analyticsCategoryDaily,
+  analyticsContentDaily,
+  analyticsContentHourly,
+  analyticsHomepageSlotDaily,
+  analyticsHomepageSlotHourly,
+  analyticsMediaDaily,
+  analyticsSessionDaily,
+  analyticsSourceDaily,
+  analyticsVideoDaily,
+} from "./analytics-aggregates";

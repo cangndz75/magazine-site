@@ -28,6 +28,11 @@ const EDITORIAL_LEGAL_ACTIONS_SQL = "0014_editorial-legal-actions.sql";
 const STAFF_ADMINISTRATION_SQL = "0015_staff-administration-foundation.sql";
 const STAFF_MFA_RUNTIME_SQL = "0016_staff-mfa-runtime.sql";
 const CONTENT_SLUG_HISTORY_SQL = "0017_content-slug-history.sql";
+const ANALYTICS_EVENTS_SQL = "0018_analytics-events-foundation.sql";
+const ANALYTICS_EVENTS_INGESTION_SQL = "0019_analytics-events-ingestion.sql";
+const ANALYTICS_AGGREGATES_SQL = "0020_analytics-aggregates.sql";
+const ANALYTICS_RECENCY_FALLBACK_PLACEMENT_SQL =
+  "0021_analytics-recency-fallback-placement.sql";
 
 async function publicColumnExists(
   client: Client,
@@ -243,5 +248,39 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   const hasSlugHistory = await publicTableExists(client, "content_slug_history");
   if (!hasSlugHistory) {
     await applySqlFile(client, CONTENT_SLUG_HISTORY_SQL);
+  }
+
+  const hasAnalyticsEvents = await publicTableExists(client, "analytics_events");
+  if (!hasAnalyticsEvents) {
+    await applySqlFile(client, ANALYTICS_EVENTS_SQL);
+  }
+
+  const hasAnalyticsFingerprint = await publicColumnExists(
+    client,
+    "analytics_events",
+    "fact_fingerprint",
+  );
+  if (!hasAnalyticsFingerprint) {
+    await applySqlFile(client, ANALYTICS_EVENTS_INGESTION_SQL);
+  }
+
+  const hasAnalyticsAggregates = await publicTableExists(
+    client,
+    "analytics_content_daily",
+  );
+  if (!hasAnalyticsAggregates) {
+    await applySqlFile(client, ANALYTICS_AGGREGATES_SQL);
+  }
+
+  const placementAllowsRecencyFallback = await client.query<{ matches: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM pg_constraint
+       WHERE conname = 'analytics_events_placement_check'
+         AND pg_get_constraintdef(oid) LIKE '%RECENCY_FALLBACK%'
+     ) AS matches`,
+  );
+  if (placementAllowsRecencyFallback.rows[0]?.matches !== true) {
+    await applySqlFile(client, ANALYTICS_RECENCY_FALLBACK_PLACEMENT_SQL);
   }
 }

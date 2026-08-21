@@ -782,17 +782,23 @@ export async function publishHomepage(
   });
 }
 
-export async function loadPublishedHomepageSlotMap(): Promise<Record<
-  HomepageSlotKey,
-  string | null
-> | null> {
+export async function loadPublishedHomepageVersionId(): Promise<string | null> {
   const db = getDb();
   const [config] = await db
     .select({ publishedVersionId: homepages.publishedVersionId })
     .from(homepages)
     .where(eq(homepages.id, HOMEPAGE_CONFIG_ID))
     .limit(1);
-  if (!config?.publishedVersionId) {
+  return config?.publishedVersionId ?? null;
+}
+
+export async function loadPublishedHomepageSlotMap(): Promise<Record<
+  HomepageSlotKey,
+  string | null
+> | null> {
+  const db = getDb();
+  const versionId = await loadPublishedHomepageVersionId();
+  if (!versionId) {
     return null;
   }
   const rows = await db
@@ -801,7 +807,7 @@ export async function loadPublishedHomepageSlotMap(): Promise<Record<
       contentItemId: homepageSlots.contentItemId,
     })
     .from(homepageSlots)
-    .where(eq(homepageSlots.homepageVersionId, config.publishedVersionId));
+    .where(eq(homepageSlots.homepageVersionId, versionId));
   const map = emptyHomepageSlotMap();
   for (const row of rows) {
     map[row.slotKey] = row.contentItemId;

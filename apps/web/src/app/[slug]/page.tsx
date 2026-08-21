@@ -1,5 +1,6 @@
 import { resolvePublicArticleCanonical } from "@magazine/domain";
 import { notFound, permanentRedirect } from "next/navigation";
+import { AnalyticsArticleView } from "@/components/analytics/analytics-page-view";
 import { ArticleHeader } from "@/components/article-header";
 import { ArticleHero } from "@/components/article-hero";
 import { ArticleShare } from "@/components/article-share";
@@ -65,6 +66,11 @@ export default async function PublicArticlePage({
 
   return (
     <div className="public-article-page">
+      <AnalyticsArticleView
+        contentItemId={article.id}
+        publicSlug={article.slug}
+        analyticsContext={article.analyticsContext ?? ""}
+      />
       {jsonLdScript ? <JsonLdScript json={jsonLdScript} /> : null}
 
       <div className="public-article-page__text">
@@ -96,6 +102,8 @@ export default async function PublicArticlePage({
         <div className="public-article-page__gallery">
           <PublicArticleGallery
             key={article.gallery.map((item) => item.mediaId).join(":")}
+            contentItemId={article.id}
+            analyticsContext={article.analyticsContext ?? ""}
             items={article.gallery}
           />
         </div>
@@ -103,7 +111,11 @@ export default async function PublicArticlePage({
 
       {article.videos.length > 0 ? (
         <div className="public-article-page__videos">
-          <PublicArticleVideos videos={article.videos} />
+          <PublicArticleVideos
+            contentItemId={article.id}
+            analyticsContext={article.analyticsContext ?? ""}
+            videos={article.videos}
+          />
         </div>
       ) : null}
     </div>

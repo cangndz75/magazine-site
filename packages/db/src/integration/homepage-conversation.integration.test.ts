@@ -105,7 +105,13 @@ describe("homepage conversation PostgreSQL", () => {
   }
 
   function assertNoInternalLeak(value: object): void {
-    const serialized = JSON.stringify(value);
+    const publicValue = { ...value } as Record<string, unknown>;
+    // Pass 3 public instrumentation IDs, not editorial internals.
+    delete publicValue.analyticsPlacements;
+    delete publicValue.homepageVersionId;
+    delete publicValue.homepageViewContext;
+    delete publicValue.homepageVideoContext;
+    const serialized = JSON.stringify(publicValue);
     assert.equal(serialized.includes("workflowStatus"), false);
     assert.equal(serialized.includes("draftVersionId"), false);
     assert.equal(serialized.includes("scheduledVersionId"), false);
