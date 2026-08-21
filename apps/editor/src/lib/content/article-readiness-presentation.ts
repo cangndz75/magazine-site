@@ -3,9 +3,89 @@ import {
   READINESS_SECTION,
   READINESS_SECTION_STATE,
   type ArticleReadinessDTO,
+  type ReadinessIssue,
   type ReadinessSectionId,
   type ReadinessSectionState,
 } from "@magazine/domain";
+import {
+  presentDiscoverFinding,
+  presentSeoFinding,
+} from "@/lib/seo/presentation";
+
+export const READINESS_ISSUE_LABELS: Record<string, string> = {
+  LEGAL_HOLD: "Legal hold aktif; yayın işlemleri engellendi.",
+  LEGAL_WITHDRAWAL: "Hukuki geri çekme veya kaldırma nedeniyle yayın engellendi.",
+  IN_REVIEW: "Sürüm inceleme bekliyor.",
+  DRAFT: "Sürüm henüz onaylandı değil.",
+  VERSION_NOT_APPROVED: "Yayın için sürüm onaylanmalı.",
+  PUBLISH_READINESS_FAILED: "Yayın için ana kategori gerekir.",
+  TITLE_MISSING: "Başlık zorunlu.",
+  BODY_EMPTY: "Gövde metni gerekli.",
+  BODY_UNINSPECTABLE: "Gövde güvenli şekilde doğrulanamıyor.",
+  PRIMARY_CATEGORY_MISSING: "Ana kategori seçilmedi.",
+  AUTHOR_MISSING: "Yazar atanmadı.",
+  HERO_MISSING: "Kapak görseli seçilmedi.",
+  HERO_ALT_MISSING: "Kapak görseli alt metni eksik.",
+  HERO_PUBLIC_URL_MISSING: "Kapak kamu önizlemesi hazır değil.",
+  HERO_RIGHTS_INELIGIBLE: "Kapak görseli kamu kullanımına uygun değil.",
+  HERO_RIGHTS_UNKNOWN: "Kapak görseli hak durumu doğrulanamadı.",
+  ENTITY_ARCHIVED: "Arşivlenmiş varlık ilişkisi var.",
+  LINK_SUGGESTIONS_PENDING: "İncelenmemiş iç bağlantı önerisi var.",
+  LINK_SUGGESTIONS_AMBIGUOUS: "Belirsiz eşleşme seçim bekliyor.",
+  RETRACTION: "Haber geri çekildi.",
+  TAKEDOWN: "Hukuki kaldırma uygulandı.",
+  FIELD_VALIDATION_FAILED: "Bazı alanlar doğrulamadan geçmedi.",
+};
+
+export function presentReadinessIssueLabel(issue: ReadinessIssue): string {
+  const mapped = READINESS_ISSUE_LABELS[issue.code];
+  if (mapped) {
+    return mapped;
+  }
+
+  if (issue.targetSection === READINESS_SECTION.SEO) {
+    const seo = presentSeoFinding({
+      code: issue.code as never,
+      severity: "WARNING",
+      kind: "EDITORIAL",
+      message: issue.label,
+    });
+    if (seo.title) {
+      return seo.title;
+    }
+    const discover = presentDiscoverFinding({
+      code: issue.code as never,
+      classification: "RECOMMENDATION",
+      message: issue.label,
+    });
+    if (discover.title) {
+      return discover.title;
+    }
+  }
+
+  return issue.label;
+}
+
+export function presentArticleReadiness(
+  readiness: ArticleReadinessDTO,
+): ArticleReadinessDTO {
+  const mapIssue = (issue: ReadinessIssue): ReadinessIssue => ({
+    ...issue,
+    label: presentReadinessIssueLabel(issue),
+  });
+
+  const sections = readiness.sections.map((section) => ({
+    ...section,
+    issues: section.issues.map(mapIssue),
+  }));
+
+  return {
+    ...readiness,
+    sections,
+    blockingIssues: readiness.blockingIssues.map(mapIssue),
+    warnings: readiness.warnings.map(mapIssue),
+  };
+}
 
 export const READINESS_SECTION_LABELS: Record<ReadinessSectionId, string> = {
   [READINESS_SECTION.PUBLICATION]: "Yayın",

@@ -45,6 +45,9 @@ import {
   presentSaveFailure,
 } from "@/lib/content/save-presentation";
 import {
+  presentArticleReadiness,
+} from "@/lib/content/article-readiness-presentation";
+import {
   presentWorkflow,
   type WorkflowEligibilityInput,
 } from "@/lib/content/workflow-eligibility";
@@ -443,6 +446,7 @@ export function ArticleEditor({
   ]);
 
   const reviewFeedback = latestReviewFeedback(reviewEvents);
+  const presentedReadiness = readiness ? presentArticleReadiness(readiness) : null;
 
   function patchField<K extends keyof ArticleEditorFields>(
     key: K,
@@ -772,7 +776,7 @@ export function ArticleEditor({
         />
       </div>
 
-      {readiness ? (
+      {presentedReadiness ? (
         <div className="mt-4 xl:hidden">
           <button
             type="button"
@@ -786,7 +790,7 @@ export function ArticleEditor({
           {mobileReadinessOpen ? (
             <div className="mt-3">
               <PublicationReadinessRail
-                readiness={readiness}
+                readiness={presentedReadiness}
                 compact
                 onNavigate={scrollToEditorSection}
               />
@@ -1049,10 +1053,10 @@ export function ArticleEditor({
         </main>
 
         <aside className="space-y-5 xl:sticky xl:top-4 xl:self-start">
-          {readiness ? (
+          {presentedReadiness ? (
             <div className="hidden xl:block">
               <PublicationReadinessRail
-                readiness={readiness}
+                readiness={presentedReadiness}
                 onNavigate={scrollToEditorSection}
               />
             </div>
