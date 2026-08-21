@@ -53,4 +53,30 @@ describe("staff admin UI security boundary", () => {
     assert.match(source, /href="\/staff"/);
     assert.match(source, /Personel/);
   });
+
+  it("staff detail looks up assigned category names instead of an empty scope list", () => {
+    const source = readFileSync(
+      path.join(root, "app/(workspace)/staff/[staffUserId]/page.tsx"),
+      "utf8",
+    );
+    assert.match(source, /lookupEditorCategories/);
+    assert.match(source, /accountRow\.scopedCategoryIds/);
+    assert.equal(source.includes("scopedCategoryIds: []"), false);
+  });
+
+  it("staff workspace renders the access center from safe role capability data", () => {
+    const source = readFileSync(
+      path.join(root, "components/staff-admin-workspace.tsx"),
+      "utf8",
+    );
+    assert.match(source, /Personel ve Erişim/);
+    assert.match(source, /ROLE_CAPABILITIES/);
+    assert.match(source, /StaffInspector/);
+    assert.match(source, /RoleCapabilityMatrix/);
+    assert.match(source, /Erişim \/ Güvenlik/);
+    assert.match(source, /q: null/);
+    assert.match(source, /scopeMode: null/);
+    assert.equal(source.includes("passwordHash"), false);
+    assert.equal(source.includes("tokenHash"), false);
+  });
 });
