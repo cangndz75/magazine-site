@@ -2,6 +2,10 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useTransition } from "react";
+import type {
+  ArticleReadinessSummaryDTO,
+  ListAttentionSummary,
+} from "@magazine/domain";
 import type { ReviewPageFilters } from "@/lib/content/review-page-params";
 import type {
   AuthorLookupOption,
@@ -33,8 +37,14 @@ export type ReviewQueueListItem = {
   publishedVersionId: string | null;
   scheduledVersionId: string | null;
   scheduledAt: string | null;
+  legalHoldAt: string | null;
+  retractedAt: string | null;
+  takedownAt: string | null;
   primaryCategory: { id: string; name: string; slug: string } | null;
+  secondaryCategories: { id: string; name: string; slug: string }[];
   authors: { id: string; displayName: string; slug: string }[];
+  attention: ListAttentionSummary;
+  readiness: ArticleReadinessSummaryDTO;
 };
 
 type Props = {
@@ -122,7 +132,12 @@ export function ReviewQueueWorkspace({
       />
 
       {items.length === 0 ? (
-        <ContentEmptyState hasFilters={hasFilters} clearHref="/review" />
+        <ContentEmptyState
+          hasFilters={hasFilters}
+          clearHref="/review"
+          emptyMessage="İnceleme bekleyen içerik yok."
+          filteredMessage="Bu filtrelerle eşleşen inceleme bulunamadı."
+        />
       ) : (
         <>
           <ReviewQueueList

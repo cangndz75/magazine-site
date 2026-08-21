@@ -181,6 +181,9 @@ export async function listReviewQueue(
       publishedVersionId: contentItems.publishedVersionId,
       scheduledVersionId: contentItems.scheduledVersionId,
       scheduledAt: contentItems.scheduledAt,
+      legalHoldAt: contentItems.legalHoldAt,
+      retractedAt: contentItems.retractedAt,
+      takedownAt: contentItems.takedownAt,
       primaryCategoryId: reviewPrimaryCategory.id,
       primaryCategoryName: reviewPrimaryCategory.name,
       primaryCategorySlug: reviewPrimaryCategory.slug,
@@ -238,6 +241,9 @@ export async function listReviewQueue(
       publishedVersionId: row.publishedVersionId,
       scheduledVersionId: row.scheduledVersionId,
       scheduledAt: row.scheduledAt,
+      legalHoldAt: row.legalHoldAt,
+      retractedAt: row.retractedAt,
+      takedownAt: row.takedownAt,
       primaryCategory:
         row.primaryCategoryId &&
         row.primaryCategoryName &&

@@ -1,4 +1,8 @@
-import { CAPABILITY } from "@magazine/domain";
+import {
+  CAPABILITY,
+  summarizeListAttention,
+  summarizeNewsroomReadiness,
+} from "@magazine/domain";
 import {
   getEditorAuthorSummary,
   getEditorCategorySummary,
@@ -53,12 +57,48 @@ export default async function ReviewQueuePage({
         : Promise.resolve(null),
     ]);
 
-  const items: ReviewQueueListItem[] = result.items.map((row) => ({
-    ...row,
-    createdAt: row.createdAt.toISOString(),
-    latestSubmittedAt: row.latestSubmittedAt.toISOString(),
-    scheduledAt: row.scheduledAt?.toISOString() ?? null,
-  }));
+  const items: ReviewQueueListItem[] = result.items.map((row) => {
+    const legalHoldAt = row.legalHoldAt?.toISOString() ?? null;
+    const retractedAt = row.retractedAt?.toISOString() ?? null;
+    const takedownAt = row.takedownAt?.toISOString() ?? null;
+    const readinessInput = {
+      publicationStatus: row.publicationStatus,
+      workflowStatus: row.workflowStatus,
+      hasPrimaryCategory: row.primaryCategory !== null,
+      authorCount: row.authors.length,
+      legalHoldAt,
+      retractedAt,
+      takedownAt,
+      changesRequestedNote: null,
+      heroAssigned: true,
+      heroRightsEligible: null,
+    };
+
+    return {
+      contentItemId: row.contentItemId,
+      versionId: row.versionId,
+      versionNumber: row.versionNumber,
+      slug: row.slug,
+      title: row.title,
+      excerpt: row.excerpt,
+      workflowStatus: row.workflowStatus,
+      publicationStatus: row.publicationStatus,
+      createdAt: row.createdAt.toISOString(),
+      latestSubmittedAt: row.latestSubmittedAt.toISOString(),
+      reviewRound: row.reviewRound,
+      publishedVersionId: row.publishedVersionId,
+      scheduledVersionId: row.scheduledVersionId,
+      scheduledAt: row.scheduledAt?.toISOString() ?? null,
+      legalHoldAt,
+      retractedAt,
+      takedownAt,
+      primaryCategory: row.primaryCategory,
+      secondaryCategories: row.secondaryCategories,
+      authors: row.authors,
+      attention: summarizeListAttention(readinessInput),
+      readiness: summarizeNewsroomReadiness(readinessInput),
+    };
+  });
 
   return (
     <ReviewQueueWorkspace

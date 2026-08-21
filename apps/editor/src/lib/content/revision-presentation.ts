@@ -51,3 +51,27 @@ export function revisionPointerLabels(item: RevisionHistoryItem): string[] {
   }
   return labels;
 }
+
+type VersionRoleInput = {
+  workflowStatus: WorkflowStatus | string;
+  isPublishedVersion: boolean;
+  isCurrentDraft: boolean;
+  isScheduledVersion: boolean;
+};
+
+/** A single, primary role label for a version — used as the compare-header title. */
+export function primaryVersionRoleLabel(item: VersionRoleInput): string {
+  if (item.isPublishedVersion) {
+    return "Yayındaki Sürüm";
+  }
+  if (item.workflowStatus === "IN_REVIEW") {
+    return "İncelenen Sürüm";
+  }
+  if (item.isScheduledVersion) {
+    return "Zamanlanmış Sürüm";
+  }
+  if (item.isCurrentDraft) {
+    return "Güncel Taslak";
+  }
+  return "Geçmiş Sürüm";
+}

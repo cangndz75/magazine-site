@@ -352,6 +352,12 @@ export function ArticleWorkflowPanel({
         </fieldset>
       )}
 
+      {presented.approveNotice && !confirmPublish && (
+        <p className="mt-3 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          {presented.approveNotice}
+        </p>
+      )}
+
       {confirmPublish && (
         <p
           id="publish-confirm-copy"

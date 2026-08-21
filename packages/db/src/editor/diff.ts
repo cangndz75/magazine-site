@@ -22,6 +22,7 @@ import {
 import { entities } from "../schema/entities";
 import { media } from "../schema/media";
 import { categories, tags } from "../schema/taxonomy";
+import { contentVersionVideos, editorialVideoAssets } from "../schema/video";
 import { unwrapPublishingDecision } from "../publishing/errors";
 import { getEditorContentAccess } from "./access";
 import { formatEditorMediaLabel } from "./media-label";
@@ -96,6 +97,15 @@ function emptyRelations() {
       altText: string | null;
       credit: string | null;
     }[],
+    videos: [] as {
+      contentVersionId: string;
+      id: string;
+      label: string;
+      provider: string;
+      sortOrder: number;
+      caption: string | null;
+      durationSeconds: number | null;
+    }[],
     authors: [] as {
       contentVersionId: string;
       id: string;
@@ -115,7 +125,7 @@ async function loadLabeledRelations(versionIds: readonly string[]) {
   const db = getDb();
   const ids = [...versionIds];
 
-  const [categoryRows, tagRows, entityRows, mediaRows, authorRows] =
+  const [categoryRows, tagRows, entityRows, mediaRows, videoRows, authorRows] =
     await Promise.all([
       db
         .select({
@@ -171,6 +181,22 @@ async function loadLabeledRelations(versionIds: readonly string[]) {
         .where(inArray(contentVersionMedia.contentVersionId, ids)),
       db
         .select({
+          contentVersionId: contentVersionVideos.contentVersionId,
+          id: editorialVideoAssets.id,
+          title: editorialVideoAssets.title,
+          provider: editorialVideoAssets.provider,
+          durationSeconds: editorialVideoAssets.durationSeconds,
+          sortOrder: contentVersionVideos.sortOrder,
+          caption: contentVersionVideos.caption,
+        })
+        .from(contentVersionVideos)
+        .innerJoin(
+          editorialVideoAssets,
+          eq(contentVersionVideos.videoAssetId, editorialVideoAssets.id),
+        )
+        .where(inArray(contentVersionVideos.contentVersionId, ids)),
+      db
+        .select({
           contentVersionId: contentVersionAuthors.contentVersionId,
           id: authors.id,
           displayName: authors.displayName,
@@ -196,6 +222,15 @@ async function loadLabeledRelations(versionIds: readonly string[]) {
       caption: row.caption,
       altText: row.altText,
       credit: row.credit,
+    })),
+    videos: videoRows.map((row) => ({
+      contentVersionId: row.contentVersionId,
+      id: row.id,
+      label: row.title,
+      provider: row.provider,
+      sortOrder: row.sortOrder,
+      caption: row.caption,
+      durationSeconds: row.durationSeconds,
     })),
     authors: authorRows,
   };
@@ -263,6 +298,16 @@ function toSide(
         caption: row.caption,
         altText: row.altText,
         credit: row.credit,
+      })),
+    videos: relations.videos
+      .filter((row) => row.contentVersionId === version.id)
+      .map((row) => ({
+        id: row.id,
+        label: row.label,
+        provider: row.provider,
+        sortOrder: row.sortOrder,
+        caption: row.caption,
+        durationSeconds: row.durationSeconds,
       })),
     authors: relations.authors
       .filter((row) => row.contentVersionId === version.id)

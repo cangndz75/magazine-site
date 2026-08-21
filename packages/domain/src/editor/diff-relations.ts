@@ -9,6 +9,8 @@ import type {
   ContentVersionDiffEntityInput,
   ContentVersionDiffMediaInput,
   ContentVersionMediaDiff,
+  ContentVersionDiffVideoInput,
+  ContentVersionVideoDiff,
   ContentVersionRelationDiff,
   ContentVersionSetRelationDiff,
 } from "./diff-types";
@@ -201,6 +203,58 @@ export function diffMedia(
   };
 }
 
+export function diffVideos(
+  before: ContentVersionDiffVideoInput[],
+  after: ContentVersionDiffVideoInput[],
+): ContentVersionVideoDiff {
+  const beforeById = new Map(before.map((item) => [item.id, item]));
+  const afterById = new Map(after.map((item) => [item.id, item]));
+  const added = after.filter((item) => !beforeById.has(item.id)).map((item) => ({
+    id: item.id,
+    label: item.label,
+    provider: item.provider,
+    sortOrder: item.sortOrder,
+    caption: item.caption,
+    durationSeconds: item.durationSeconds,
+  }));
+  const removed = before.filter((item) => !afterById.has(item.id)).map((item) => ({
+    id: item.id,
+    label: item.label,
+    provider: item.provider,
+    sortOrder: item.sortOrder,
+    caption: item.caption,
+    durationSeconds: item.durationSeconds,
+  }));
+  const modified = after.flatMap((item) => {
+    const previous = beforeById.get(item.id);
+    if (!previous || previous.caption === item.caption) {
+      return [];
+    }
+    return [
+      {
+        id: item.id,
+        label: item.label,
+        before: { caption: previous.caption },
+        after: { caption: item.caption },
+      },
+    ];
+  });
+  const beforeOrder = orderedIds(before);
+  const afterOrder = orderedIds(after);
+  const commonBefore = beforeOrder.filter((id) => afterById.has(id));
+  const commonAfter = afterOrder.filter((id) => beforeById.has(id));
+  const reordered = commonBefore.join("\0") !== commonAfter.join("\0");
+
+  return {
+    added,
+    removed,
+    modified,
+    reordered,
+    beforeOrder: reordered ? beforeOrder : [],
+    afterOrder: reordered ? afterOrder : [],
+  };
+}
+
 export function diffAuthors(
   before: ContentVersionDiffAuthorInput[],
   after: ContentVersionDiffAuthorInput[],
@@ -260,6 +314,8 @@ export function diffVersionRelations(input: {
   toEntities: ContentVersionDiffEntityInput[];
   fromMedia: ContentVersionDiffMediaInput[];
   toMedia: ContentVersionDiffMediaInput[];
+  fromVideos: ContentVersionDiffVideoInput[];
+  toVideos: ContentVersionDiffVideoInput[];
   fromAuthors: ContentVersionDiffAuthorInput[];
   toAuthors: ContentVersionDiffAuthorInput[];
 }): ContentVersionRelationDiff {
@@ -268,6 +324,7 @@ export function diffVersionRelations(input: {
     tags: diffTags(input.fromTags, input.toTags),
     entities: diffEntities(input.fromEntities, input.toEntities),
     media: diffMedia(input.fromMedia, input.toMedia),
+    videos: diffVideos(input.fromVideos, input.toVideos),
     authors: diffAuthors(input.fromAuthors, input.toAuthors),
   };
 }

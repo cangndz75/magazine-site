@@ -13,6 +13,8 @@ describe("parsePageSearchParams", () => {
     assert.equal(result.categoryId, undefined);
     assert.equal(result.authorId, undefined);
     assert.equal(result.scheduledOnly, false);
+    assert.equal(result.view, "all");
+    assert.equal(result.sort, "updated_desc");
   });
 
   it("parses valid search", () => {
@@ -67,14 +69,25 @@ describe("parsePageSearchParams", () => {
     assert.equal(result.authorId, undefined);
   });
 
-  it("parses scheduledOnly=1", () => {
+  it("maps legacy scheduledOnly=1 to the visible scheduled newsroom view", () => {
     const result = parsePageSearchParams({ scheduledOnly: "1" });
-    assert.equal(result.scheduledOnly, true);
+    assert.equal(result.scheduledOnly, false);
+    assert.equal(result.view, "scheduled");
   });
 
-  it("parses scheduledOnly=true", () => {
+  it("maps legacy scheduledOnly=true to the visible scheduled newsroom view", () => {
     const result = parsePageSearchParams({ scheduledOnly: "true" });
-    assert.equal(result.scheduledOnly, true);
+    assert.equal(result.scheduledOnly, false);
+    assert.equal(result.view, "scheduled");
+  });
+
+  it("lets an explicit newsroom view override legacy scheduledOnly", () => {
+    const result = parsePageSearchParams({
+      scheduledOnly: "1",
+      view: "published",
+    });
+    assert.equal(result.scheduledOnly, false);
+    assert.equal(result.view, "published");
   });
 
   it("ignores scheduledOnly=0", () => {
@@ -97,5 +110,25 @@ describe("parsePageSearchParams", () => {
       q: ["first", "second"] as unknown as string,
     });
     assert.equal(result.search, null);
+  });
+
+  it("parses valid newsroom view", () => {
+    const result = parsePageSearchParams({ view: "in_review" });
+    assert.equal(result.view, "in_review");
+  });
+
+  it("ignores invalid newsroom view", () => {
+    const result = parsePageSearchParams({ view: "bogus" });
+    assert.equal(result.view, "all");
+  });
+
+  it("parses valid newsroom sort", () => {
+    const result = parsePageSearchParams({ sort: "schedule_asc" });
+    assert.equal(result.sort, "schedule_asc");
+  });
+
+  it("ignores invalid newsroom sort", () => {
+    const result = parsePageSearchParams({ sort: "bogus" });
+    assert.equal(result.sort, "updated_desc");
   });
 });

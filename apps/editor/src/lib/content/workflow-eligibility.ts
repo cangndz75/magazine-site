@@ -79,6 +79,7 @@ export type PresentedWorkflow = {
   unpublishScheduleWarning: string | null;
   scheduledRepublishNotice: string | null;
   unavailableReason: string | null;
+  approveNotice: string | null;
   needsReviewNote: boolean;
   needsScheduleInput: boolean;
   confirmPublish: boolean;
@@ -167,6 +168,9 @@ export function presentWorkflow(input: WorkflowEligibilityInput): PresentedWorkf
         ? `Şu anda yayında değil. ${scheduledAtLabel} tarihinde yeniden yayınlanacak.`
         : null,
     unavailableReason: primary ? null : unavailableReason(input),
+    approveNotice: approve
+      ? "Bu işlem sürümü onaylar. İçerik otomatik olarak yayınlanmaz."
+      : null,
     needsReviewNote: requestChanges,
     needsScheduleInput: schedule || reschedule,
     confirmPublish: publish,

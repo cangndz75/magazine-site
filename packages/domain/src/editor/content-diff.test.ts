@@ -41,6 +41,7 @@ function side(
     tags: [],
     entities: [],
     media: [],
+    videos: [],
     authors: [],
     ...overrides,
   };
@@ -570,6 +571,85 @@ describe("relation diff", () => {
     assert.equal(result.relations.media.reordered, true);
     assert.equal(result.relations.media.modified[0]?.before.caption, "old");
     assert.equal(result.relations.media.modified[0]?.after.caption, "new");
+  });
+
+  it("reports video add/remove and caption changes without exposing rights internals", () => {
+    const result = diff(
+      {
+        videos: [
+          {
+            id: "v1",
+            label: "Interview clip",
+            provider: "YOUTUBE",
+            sortOrder: 0,
+            caption: "old caption",
+            durationSeconds: 120,
+          },
+        ],
+      },
+      {
+        videos: [
+          {
+            id: "v1",
+            label: "Interview clip",
+            provider: "YOUTUBE",
+            sortOrder: 0,
+            caption: "new caption",
+            durationSeconds: 120,
+          },
+          {
+            id: "v2",
+            label: "Behind the scenes",
+            provider: "VIMEO",
+            sortOrder: 1,
+            caption: null,
+            durationSeconds: 45,
+          },
+        ],
+      },
+    );
+    assert.equal(result.relations.videos.added.length, 1);
+    assert.equal(result.relations.videos.added[0]?.id, "v2");
+    assert.equal(result.relations.videos.modified.length, 1);
+    assert.equal(result.relations.videos.modified[0]?.before.caption, "old caption");
+    assert.equal(result.relations.videos.modified[0]?.after.caption, "new caption");
+    assert.equal(result.summary.videosChanged, true);
+    assert.equal(JSON.stringify(result).includes("rightsNote"), false);
+    assert.equal(JSON.stringify(result).includes("submittedUrl"), false);
+  });
+
+  it("does not report a video change when nothing about the video changed", () => {
+    const same = diff(
+      {
+        videos: [
+          {
+            id: "v1",
+            label: "Clip",
+            provider: "YOUTUBE",
+            sortOrder: 0,
+            caption: "same",
+            durationSeconds: 30,
+          },
+        ],
+      },
+      {
+        videos: [
+          {
+            id: "v1",
+            label: "Clip",
+            provider: "YOUTUBE",
+            sortOrder: 0,
+            caption: "same",
+            durationSeconds: 30,
+          },
+        ],
+      },
+    );
+    assert.equal(same.relations.videos.added.length, 0);
+    assert.equal(same.relations.videos.removed.length, 0);
+    assert.equal(same.relations.videos.modified.length, 0);
+    assert.equal(same.relations.videos.reordered, false);
+    assert.equal(same.summary.videosChanged, false);
   });
 
   it("reports author add/remove and role changes", () => {

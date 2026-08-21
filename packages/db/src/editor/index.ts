@@ -28,6 +28,7 @@ export {
   type EditorContentListResult,
   type EditorContentListOptions,
 } from "./list";
+export { getNewsroomViewCounts } from "./newsroom-counts";
 export {
   loadEditorHeroThumbnailsByVersionIds,
   heroThumbnailForEditorItem,

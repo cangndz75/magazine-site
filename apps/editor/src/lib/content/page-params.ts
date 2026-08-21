@@ -1,13 +1,18 @@
 import {
   clampEditorListLimit,
   decodeEditorListCursor,
+  parseNewsroomSort,
+  parseNewsroomView,
   parsePublicationStatusFilter,
   parseWorkflowStatusFilter,
   sanitizeEditorSearch,
   isUuid,
+  NEWSROOM_VIEW,
   type PublicationStatus,
   type WorkflowStatus,
   type EditorListCursor,
+  type NewsroomSort,
+  type NewsroomView,
 } from "@magazine/domain";
 
 export type ContentPageFilters = {
@@ -19,6 +24,8 @@ export type ContentPageFilters = {
   categoryId: string | undefined;
   authorId: string | undefined;
   scheduledOnly: boolean;
+  view: NewsroomView;
+  sort: NewsroomSort;
 };
 
 export function parsePageSearchParams(
@@ -55,7 +62,13 @@ export function parsePageSearchParams(
 
   const scheduledRaw =
     typeof params.scheduledOnly === "string" ? params.scheduledOnly : undefined;
-  const scheduledOnly = scheduledRaw === "1" || scheduledRaw === "true";
+  const legacyScheduledView = scheduledRaw === "1" || scheduledRaw === "true";
+
+  const viewRaw = typeof params.view === "string" ? params.view : undefined;
+  const sortRaw = typeof params.sort === "string" ? params.sort : undefined;
+  const view = parseNewsroomView(
+    viewRaw ?? (legacyScheduledView ? NEWSROOM_VIEW.SCHEDULED : undefined),
+  );
 
   return {
     limit: clampEditorListLimit(Number.isNaN(limit) ? undefined : limit),
@@ -65,6 +78,8 @@ export function parsePageSearchParams(
     workflowStatus: workflowStatus === null ? undefined : workflowStatus,
     categoryId,
     authorId,
-    scheduledOnly,
+    scheduledOnly: false,
+    view,
+    sort: parseNewsroomSort(sortRaw),
   };
 }

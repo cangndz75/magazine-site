@@ -103,6 +103,17 @@ describe("workflow eligibility presentation", () => {
     assert.equal(presented.secondary[0]?.label, "Değişiklik iste");
     assert.equal(presented.showReturnToQueue, true);
     assert.equal(presented.needsReviewNote, true);
+    assert.equal(
+      presented.approveNotice,
+      "Bu işlem sürümü onaylar. İçerik otomatik olarak yayınlanmaz.",
+    );
+  });
+
+  it("never shows the approve notice when approve is unavailable", () => {
+    const draft = input({ workflowStatus: "DRAFT" });
+    const presented = presentWorkflow(draft);
+    assert.equal(canApproveReview(draft), false);
+    assert.equal(presented.approveNotice, null);
   });
 
   it("does not treat edit permission as review or publish permission", () => {
