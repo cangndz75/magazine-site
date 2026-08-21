@@ -20,6 +20,8 @@ env:
   MEDIA_PUBLIC_BASE_URL: http://localhost:3000/media
   SCHEDULED_PUBLISH_RUNNER_SECRET: ci-scheduled-publish-runner-secret-32
   PUBLIC_CACHE_INVALIDATION_SECRET: ci-public-cache-invalidation-secret-32
+  ANALYTICS_CONTEXT_SIGNING_KEY: ci-analytics-context-signing-key-0032
+  ANALYTICS_AGGREGATION_SECRET: ci-analytics-aggregation-secret-0032
 
 jobs:
   verify:
