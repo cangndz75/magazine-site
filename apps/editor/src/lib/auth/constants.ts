@@ -9,5 +9,5 @@ export {
   usesHostPrefixCookie,
 } from "./cookie-name";
 
-export const GENERIC_LOGIN_ERROR = "Invalid email or password.";
+export const GENERIC_LOGIN_ERROR = "E-posta veya parola hatalı.";
 export const SESSION_MAX_AGE_SECONDS = SESSION_LIFETIME_MS / 1000;

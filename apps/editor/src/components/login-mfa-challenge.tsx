@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useId, useState } from "react";
+import { LoginBrandHeader } from "@/components/login-brand-header";
+import { LoginArrowIcon } from "@/components/login-icons";
 import { MfaTotpInput } from "@/components/mfa-totp-input";
 import { verifyMfaLoginChallenge } from "@/lib/auth/mfa-client";
 import {
@@ -15,6 +17,15 @@ type LoginMfaMode = "totp" | "recovery";
 type LoginMfaChallengeProps = {
   returnTo: string;
 };
+
+const recoveryInputClassName =
+  "mt-2 block h-[50px] w-full rounded-md border border-zinc-200 bg-white px-3 font-mono text-[0.9375rem] uppercase text-zinc-950 focus:border-brand-magenta focus:outline-none focus:ring-2 focus:ring-brand-magenta/20";
+
+const primaryButtonClassName =
+  "flex h-[50px] w-full items-center justify-center gap-2 rounded-md bg-brand-magenta text-sm font-semibold text-white transition-colors hover:bg-brand-magenta-hover focus:outline-none focus:ring-2 focus:ring-brand-magenta/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-zinc-400";
+
+const secondaryButtonClassName =
+  "w-full text-sm font-medium text-zinc-600 underline underline-offset-2 transition-colors hover:text-brand-magenta focus:outline-none focus:ring-2 focus:ring-brand-magenta/20 disabled:cursor-not-allowed disabled:text-zinc-400";
 
 export function LoginMfaChallenge({ returnTo }: LoginMfaChallengeProps) {
   const errorId = useId();
@@ -76,29 +87,35 @@ export function LoginMfaChallenge({ returnTo }: LoginMfaChallengeProps) {
   }
 
   return (
-    <div className="w-full max-w-sm px-6">
-      <p className="text-sm font-medium uppercase tracking-[0.24em] text-zinc-500">
-        Magazin Editor
-      </p>
-      <h1 className="mt-4 text-3xl font-semibold tracking-tight text-zinc-950">
-        Doğrulama gerekli
+    <div className="w-full">
+      <LoginBrandHeader />
+
+      <h1 className="mt-8 text-center font-serif text-[2.125rem] font-medium leading-tight tracking-tight text-zinc-950 sm:text-[2.375rem]">
+        Doğrulama Gerekli
       </h1>
-      <p className="mt-3 text-sm text-zinc-600">
-        Parolanız doğrulandı. Oturumu tamamlamak için iki adımlı doğrulama kodunu girin.
+      <p className="mx-auto mt-3 max-w-[20rem] text-center text-sm leading-relaxed text-zinc-500">
+        Parolanız doğrulandı. Oturumu tamamlamak için iki adımlı doğrulama
+        kodunu girin.
       </p>
 
       {error ? (
-        <div className="mt-4 space-y-3">
-          <p id={errorId} className="text-sm text-zinc-800" role="alert">
+        <div className="mt-5 space-y-3">
+          <p
+            id={errorId}
+            className="text-center text-sm text-red-800/90"
+            role="alert"
+          >
             {error}
           </p>
           {recoverToPasswordLogin ? (
-            <Link
-              href="/login"
-              className="inline-block text-sm font-medium text-zinc-900 underline underline-offset-2"
-            >
-              Parola ile yeniden giriş yap
-            </Link>
+            <div className="text-center">
+              <Link
+                href="/login"
+                className="text-sm font-medium text-brand-magenta underline underline-offset-2 hover:text-brand-magenta-hover"
+              >
+                Parola ile yeniden giriş yap
+              </Link>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -115,15 +132,16 @@ export function LoginMfaChallenge({ returnTo }: LoginMfaChallengeProps) {
           />
           <button
             type="button"
-            className="w-full bg-zinc-950 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            className={primaryButtonClassName}
             disabled={busy}
             onClick={() => void submit()}
           >
             {busy ? "Doğrulanıyor…" : "Doğrula ve devam et"}
+            {!busy ? <LoginArrowIcon className="h-4 w-4" /> : null}
           </button>
           <button
             type="button"
-            className="w-full text-sm font-medium text-zinc-700 underline underline-offset-2"
+            className={secondaryButtonClassName}
             disabled={busy}
             onClick={() => {
               setMode("recovery");
@@ -136,13 +154,14 @@ export function LoginMfaChallenge({ returnTo }: LoginMfaChallengeProps) {
         </div>
       ) : (
         <div className="mt-8 space-y-4">
-          <p className="text-sm text-zinc-600">
-            Kurtarma kodları tek kullanımlıktır. Kullandıktan sonra geçersiz olur.
+          <p className="text-center text-sm leading-relaxed text-zinc-500">
+            Kurtarma kodları tek kullanımlıktır. Kullandıktan sonra geçersiz
+            olur.
           </p>
-          <label className="block text-sm text-zinc-700">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-zinc-700">
             Kurtarma kodu
             <input
-              className="mt-2 block w-full border border-zinc-300 bg-white px-3 py-2 font-mono uppercase text-zinc-950 focus:outline-none focus:ring-2 focus:ring-zinc-400"
+              className={recoveryInputClassName}
               type="text"
               autoComplete="off"
               spellCheck={false}
@@ -155,15 +174,16 @@ export function LoginMfaChallenge({ returnTo }: LoginMfaChallengeProps) {
           </label>
           <button
             type="button"
-            className="w-full bg-zinc-950 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            className={primaryButtonClassName}
             disabled={busy}
             onClick={() => void submit()}
           >
             {busy ? "Doğrulanıyor…" : "Kurtarma kodu ile devam et"}
+            {!busy ? <LoginArrowIcon className="h-4 w-4" /> : null}
           </button>
           <button
             type="button"
-            className="w-full text-sm font-medium text-zinc-700 underline underline-offset-2"
+            className={secondaryButtonClassName}
             disabled={busy}
             onClick={() => {
               setMode("totp");
@@ -177,7 +197,10 @@ export function LoginMfaChallenge({ returnTo }: LoginMfaChallengeProps) {
       )}
 
       <p className="mt-8 text-center text-sm text-zinc-500">
-        <Link href="/login" className="underline underline-offset-2">
+        <Link
+          href="/login"
+          className="font-medium text-brand-magenta underline underline-offset-2 hover:text-brand-magenta-hover"
+        >
           Parola girişine dön
         </Link>
       </p>

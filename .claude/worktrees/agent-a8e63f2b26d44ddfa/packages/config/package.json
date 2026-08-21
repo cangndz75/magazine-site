@@ -1,0 +1,24 @@
+{
+  "name": "@magazine/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./env/web": "./src/env/web.ts",
+    "./env/editor": "./src/env/editor.ts",
+    "./env/db": "./src/env/db.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "eslint": "^9",
+    "typescript-eslint": "^8",
+    "typescript": "^5"
+  }
+}

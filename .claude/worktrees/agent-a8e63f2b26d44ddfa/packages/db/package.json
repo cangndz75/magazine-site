@@ -1,0 +1,49 @@
+{
+  "name": "@magazine/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./schema": "./src/schema/index.ts",
+    "./client": "./src/client.ts",
+    "./publishing": "./src/publishing/index.ts",
+    "./public": "./src/public/index.ts",
+    "./public-cache-outbox": "./src/public-cache-outbox.ts",
+    "./editor": "./src/editor/index.ts",
+    "./storage": "./src/storage/index.ts",
+    "./staff-provisioning": "./src/staff-provisioning.ts",
+    "./staff-password-reset": "./src/staff-password-reset.ts",
+    "./staff-administration": "./src/staff-administration.ts",
+    "./staff-mfa": "./src/staff-mfa.ts",
+    "./entities": "./src/entities/index.ts",
+    "./seo": "./src/seo/index.ts",
+    "./analytics": "./src/analytics/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "check": "drizzle-kit check",
+    "migrate": "node ./scripts/require-database-url.mjs && drizzle-kit migrate",
+    "test": "tsx --test src/drizzle-journal.test.ts src/media/**/*.test.ts src/storage/**/*.test.ts src/editor/media-upload.test.ts src/editor/hero-thumbnails.test.ts src/analytics/**/*.test.ts",
+    "test:integration": "node ./scripts/run-content-integration.mjs",
+    "analytics:aggregate": "node ./scripts/require-database-url.mjs && tsx ./scripts/analytics-aggregate.ts"
+  },
+  "dependencies": {
+    "@magazine/config": "workspace:*",
+    "@magazine/domain": "workspace:*",
+    "@aws-sdk/client-s3": "3.864.0",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.23.0",
+    "sharp": "0.34.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/pg": "^8.15.6",
+    "drizzle-kit": "0.31.10",
+    "eslint": "^9",
+    "tsx": "^4",
+    "typescript": "^5",
+    "typescript-eslint": "^8"
+  }
+}
