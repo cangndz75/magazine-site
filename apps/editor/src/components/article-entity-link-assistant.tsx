@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   ENTITY_LINK_SUGGESTION_KIND,
   type EntityLinkSuggestion,
@@ -28,6 +28,10 @@ type Props = {
     kind: string;
     status: string;
   }) => void;
+  onSuggestionStats?: (stats: {
+    pendingCount: number;
+    ambiguousCount: number;
+  }) => void;
 };
 
 type SuggestionResponse = {
@@ -47,7 +51,9 @@ export function ArticleEntityLinkAssistant({
   relatedEntityIds,
   disabled,
   onAdd,
+  onSuggestionStats,
 }: Props) {
+  const [, startTransition] = useTransition();
   const [state, setState] = useState<
     | { kind: "idle" }
     | { kind: "loading" }
@@ -73,7 +79,9 @@ export function ArticleEntityLinkAssistant({
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       void (async () => {
-        setState({ kind: "loading" });
+        startTransition(() => {
+          setState({ kind: "loading" });
+        });
         try {
           const response = await fetch(
             `/api/content/${contentItemId}/entity-link-suggestions`,
@@ -91,20 +99,27 @@ export function ArticleEntityLinkAssistant({
           );
           const payload = (await response.json()) as SuggestionResponse;
           if (!response.ok || !payload.ok || !payload.data) {
-            setState({ kind: "error" });
+            startTransition(() => {
+              setState({ kind: "error" });
+            });
             return;
           }
-          setState({
-            kind: "ready",
-            suggestions: payload.data.suggestions,
-            staleSlugWarnings: payload.data.staleSlugWarnings,
-            truncated: payload.data.truncated,
+          const data = payload.data;
+          startTransition(() => {
+            setState({
+              kind: "ready",
+              suggestions: data.suggestions,
+              staleSlugWarnings: data.staleSlugWarnings,
+              truncated: data.truncated,
+            });
           });
         } catch {
           if (controller.signal.aborted) {
             return;
           }
-          setState({ kind: "error" });
+          startTransition(() => {
+            setState({ kind: "error" });
+          });
         }
       })();
     }, 400);
@@ -113,20 +128,47 @@ export function ArticleEntityLinkAssistant({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [bodyDocument, contentItemId, disabled, relatedKey, title, relatedEntityIds]);
+  }, [bodyDocument, contentItemId, disabled, relatedKey, startTransition, title, relatedEntityIds]);
+
+  useEffect(() => {
+    if (!onSuggestionStats) {
+      return;
+    }
+    if (state.kind !== "ready") {
+      onSuggestionStats({ pendingCount: 0, ambiguousCount: 0 });
+      return;
+    }
+
+    const ambiguousCount = state.suggestions.filter(
+      (item) => item.kind === ENTITY_LINK_SUGGESTION_KIND.AMBIGUOUS,
+    ).length;
+    const pendingCount = state.suggestions.filter(
+      (item) =>
+        item.kind !== ENTITY_LINK_SUGGESTION_KIND.AMBIGUOUS && !item.alreadyRelated,
+    ).length;
+
+    onSuggestionStats({ pendingCount, ambiguousCount });
+  }, [onSuggestionStats, state]);
 
   return (
     <section className="space-y-2" aria-labelledby="entity-link-assistant-heading">
-      <div>
-        <h3
-          id="entity-link-assistant-heading"
-          className="text-sm font-semibold text-zinc-900"
-        >
-          {ENTITY_LINK_ASSISTANT_COPY.TITLE}
-        </h3>
-        <p className="mt-1 text-xs text-zinc-500">
-          {ENTITY_LINK_ASSISTANT_COPY.DEFAULT_ROLE_HINT}
-        </p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h3
+            id="entity-link-assistant-heading"
+            className="text-sm font-semibold text-zinc-900"
+          >
+            {ENTITY_LINK_ASSISTANT_COPY.TITLE}
+          </h3>
+          <p className="mt-1 text-xs text-zinc-500">
+            {ENTITY_LINK_ASSISTANT_COPY.DEFAULT_ROLE_HINT}
+          </p>
+        </div>
+        {state.kind === "ready" && state.suggestions.length > 0 ? (
+          <p className="text-xs font-medium text-zinc-600">
+            İç bağlantı önerileri · {state.suggestions.length}
+          </p>
+        ) : null}
       </div>
 
       {state.kind === "loading" ? (

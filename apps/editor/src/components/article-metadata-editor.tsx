@@ -56,6 +56,10 @@ type Props = {
   onRemoveHero: () => void;
   onPersistGallery: (gallery: ArticleEditorMedia[]) => void;
   onPersistVideos: (videos: ArticleEditorVideo[]) => void;
+  onSuggestionStats?: (stats: {
+    pendingCount: number;
+    ambiguousCount: number;
+  }) => void;
 };
 
 export function ArticleMetadataEditor({
@@ -73,6 +77,7 @@ export function ArticleMetadataEditor({
   onRemoveHero,
   onPersistGallery,
   onPersistVideos,
+  onSuggestionStats,
 }: Props) {
   const primary = getPrimaryCategory(relations);
   const secondary = getSecondaryCategories(relations);
@@ -81,125 +86,147 @@ export function ArticleMetadataEditor({
   const videos = getArticleVideos(relations);
 
   return (
-    <section className="space-y-5 border-t border-zinc-200 pt-6">
-      <div>
-        <h2 className="text-sm font-semibold text-zinc-900">Haber bilgileri</h2>
-        <p className="mt-1 text-xs text-zinc-500">
-          Bu alanlar yalnızca açık taslağı değiştirir. Yayındaki sürüm kaydetmekle
-          güncellenmez.
-        </p>
-      </div>
+    <>
+      <section
+        id="editor-section-classification"
+        className="scroll-mt-24 space-y-5 border-t border-zinc-200 pt-6"
+      >
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-900">Sınıflandırma</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Kategori, yazar ve etiketler yalnızca açık taslağı değiştirir.
+          </p>
+        </div>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <PrimaryCategoryPicker
-          selected={primary ? toCategoryOption(primary) : null}
-          disabled={disabled}
-          onSelect={(category) =>
-            onChange(
-              setPrimaryCategory(
-                relations,
-                category ? fromCategoryOption(category) : null,
-              ),
-            )
-          }
-        />
-        <SecondaryCategoryPicker
-          selected={secondary.map(toCategoryOption)}
-          excludedIds={primary ? [primary.id] : []}
-          disabled={disabled}
-          onAdd={(category) =>
-            onChange(
-              setSecondaryCategories(relations, [
-                ...secondary,
-                fromCategoryOption(category),
-              ]),
-            )
-          }
-          onRemove={(id) =>
-            onChange(
-              setSecondaryCategories(
-                relations,
-                secondary.filter((item) => item.id !== id),
-              ),
-            )
-          }
-        />
-        <AuthorRelationPicker
-          selected={relations.authors.map(toAuthorOption)}
-          disabled={disabled}
-          onAdd={(author) => onChange(addAuthor(relations, author))}
-          onRemove={(id) => onChange(removeAuthor(relations, id))}
-        />
-        <TagRelationPicker
-          selected={relations.tags}
-          disabled={disabled}
-          onAdd={(tag) => onChange(addTag(relations, tag))}
-          onRemove={(id) => onChange(removeTag(relations, id))}
-        />
-      </div>
-
-      <ArticleEntityRelationsSection
-        entities={relations.entities}
-        disabled={disabled}
-        onAdd={(entity) => onChange(addEntity(relations, entity))}
-        onRemove={(id) => onChange(removeEntity(relations, id))}
-        onRoleChange={(entityId, role) =>
-          onChange(setEntityRole(relations, entityId, role))
-        }
-        onMove={(entityId, direction) =>
-          onChange(reorderEntity(relations, entityId, direction))
-        }
-      />
-
-      <ArticleEntityLinkAssistant
-        contentItemId={contentItemId}
-        trustedSiteUrl={trustedSiteUrl}
-        title={title}
-        bodyDocument={bodyDocument}
-        relatedEntityIds={relations.entities.map((item) => item.id)}
-        disabled={disabled}
-        onAdd={(entity) =>
-          onChange(addEntity(relations, { ...entity, role: ENTITY_ROLE.MENTIONED }))
-        }
-      />
-
-      <div className="grid gap-5 md:grid-cols-2">
-        <div className="md:col-span-2">
-          <ArticleHeroSection
-            hero={hero}
+        <div className="grid gap-5 md:grid-cols-2">
+          <PrimaryCategoryPicker
+            selected={primary ? toCategoryOption(primary) : null}
             disabled={disabled}
-            busy={heroBusy}
-            onSelect={onPersistHero}
-            onRemove={onRemoveHero}
-            onPresentationChange={(patch) => {
-              if (!hero) {
-                return;
-              }
+            onSelect={(category) =>
               onChange(
-                setHeroMedia(relations, {
-                  ...hero,
-                  altText: patch.altText,
-                  credit: patch.credit,
-                }),
-              );
-            }}
+                setPrimaryCategory(
+                  relations,
+                  category ? fromCategoryOption(category) : null,
+                ),
+              )
+            }
+          />
+          <SecondaryCategoryPicker
+            selected={secondary.map(toCategoryOption)}
+            excludedIds={primary ? [primary.id] : []}
+            disabled={disabled}
+            onAdd={(category) =>
+              onChange(
+                setSecondaryCategories(relations, [
+                  ...secondary,
+                  fromCategoryOption(category),
+                ]),
+              )
+            }
+            onRemove={(id) =>
+              onChange(
+                setSecondaryCategories(
+                  relations,
+                  secondary.filter((item) => item.id !== id),
+                ),
+              )
+            }
+          />
+          <AuthorRelationPicker
+            selected={relations.authors.map(toAuthorOption)}
+            disabled={disabled}
+            onAdd={(author) => onChange(addAuthor(relations, author))}
+            onRemove={(id) => onChange(removeAuthor(relations, id))}
+          />
+          <TagRelationPicker
+            selected={relations.tags}
+            disabled={disabled}
+            onAdd={(tag) => onChange(addTag(relations, tag))}
+            onRemove={(id) => onChange(removeTag(relations, id))}
           />
         </div>
-        <ArticleGallerySection
-          gallery={gallery}
+      </section>
+
+      <section
+        id="editor-section-entities"
+        className="scroll-mt-24 space-y-5 border-t border-zinc-200 pt-6"
+      >
+        <ArticleEntityRelationsSection
+          entities={relations.entities}
           disabled={disabled}
-          busy={galleryBusy}
-          onChange={(next) => onChange(setGalleryMedia(relations, next))}
-          onPersist={onPersistGallery}
+          onAdd={(entity) => onChange(addEntity(relations, entity))}
+          onRemove={(id) => onChange(removeEntity(relations, id))}
+          onRoleChange={(entityId, role) =>
+            onChange(setEntityRole(relations, entityId, role))
+          }
+          onMove={(entityId, direction) =>
+            onChange(reorderEntity(relations, entityId, direction))
+          }
         />
-        <ArticleVideoSection
-          videos={videos}
+
+        <ArticleEntityLinkAssistant
+          contentItemId={contentItemId}
+          trustedSiteUrl={trustedSiteUrl}
+          title={title}
+          bodyDocument={bodyDocument}
+          relatedEntityIds={relations.entities.map((item) => item.id)}
           disabled={disabled}
-          busy={videoBusy}
-          onPersist={onPersistVideos}
+          onSuggestionStats={onSuggestionStats}
+          onAdd={(entity) =>
+            onChange(addEntity(relations, { ...entity, role: ENTITY_ROLE.MENTIONED }))
+          }
         />
-      </div>
-    </section>
+      </section>
+
+      <section
+        id="editor-section-media"
+        className="scroll-mt-24 space-y-5 border-t border-zinc-200 pt-6"
+      >
+        <div>
+          <h2 className="text-sm font-semibold text-zinc-900">Medya</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Kapak, galeri ve video yalnızca taslak sürüme yazılır.
+          </p>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <ArticleHeroSection
+              hero={hero}
+              disabled={disabled}
+              busy={heroBusy}
+              onSelect={onPersistHero}
+              onRemove={onRemoveHero}
+              onPresentationChange={(patch) => {
+                if (!hero) {
+                  return;
+                }
+                onChange(
+                  setHeroMedia(relations, {
+                    ...hero,
+                    altText: patch.altText,
+                    credit: patch.credit,
+                  }),
+                );
+              }}
+            />
+          </div>
+          <ArticleGallerySection
+            gallery={gallery}
+            disabled={disabled}
+            busy={galleryBusy}
+            onChange={(next) => onChange(setGalleryMedia(relations, next))}
+            onPersist={onPersistGallery}
+          />
+          <ArticleVideoSection
+            videos={videos}
+            disabled={disabled}
+            busy={videoBusy}
+            onPersist={onPersistVideos}
+          />
+        </div>
+      </section>
+    </>
   );
 }
 

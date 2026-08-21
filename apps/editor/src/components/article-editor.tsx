@@ -1,17 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AuthorRole, Credibility, EntityKind, EntityRole, MediaRole } from "@magazine/domain";
-import { formatDateTime } from "@/lib/content/format-date";
+import { evaluateArticleReadiness } from "@magazine/domain";
 import { deriveContentStatus } from "@/lib/content/status";
 import { ArticleAuditHistory } from "@/components/article-audit-history";
+import { ArticleEditorHeader } from "@/components/article-editor-header";
+import { ArticleEditorSectionNav } from "@/components/article-editor-section-nav";
+import { ArticleEditorWorkflowBar } from "@/components/article-editor-workflow-bar";
 import { ArticleMetadataEditor } from "@/components/article-metadata-editor";
 import { ArticleRevisionPanel } from "@/components/article-revision-panel";
 import { ArticleReviewPanel, type ReviewHistoryItem } from "@/components/article-review-panel";
+import { PublicationReadinessRail } from "@/components/publication-readiness-rail";
 import { StructuredBodyEditor } from "@/components/structured-body-editor";
-import { StatusBadge } from "@/components/status-badge";
 import {
   cloneBodyEditorDocument,
   editorDocumentToBody,
@@ -43,18 +45,19 @@ import {
   presentSaveFailure,
 } from "@/lib/content/save-presentation";
 import {
-  AUTHOR_ROLE_LABELS,
-  PUBLICATION_STATUS_LABELS,
-  WORKFLOW_STATUS_LABELS,
-  type RevisionHistoryItem,
-} from "@/lib/content/revision-presentation";
+  presentWorkflow,
+  type WorkflowEligibilityInput,
+} from "@/lib/content/workflow-eligibility";
 import { ArticleWorkflowPanel } from "@/components/article-workflow-panel";
 import { ArticleLegalHoldBanner } from "@/components/article-legal-hold-banner";
 import { ArticleLegalPanel } from "@/components/article-legal-panel";
 import { ArticleSeoSection } from "@/components/article-seo-section";
+import {
+  buildArticleReadinessInput,
+  type LinkSuggestionStats,
+} from "@/lib/content/build-article-readiness-input";
 import { LEGAL_HOLD_BLOCKED_COPY } from "@/lib/legal/presentation";
-import { formatEditorialDateTime } from "@/lib/content/editorial-timezone";
-import type { WorkflowEligibilityInput } from "@/lib/content/workflow-eligibility";
+import type { RevisionHistoryItem } from "@/lib/content/revision-presentation";
 import type { SeoSlugHistoryDto } from "@/lib/seo/serialize";
 
 type ArticleEditorModel = {
@@ -179,8 +182,9 @@ type SaveState =
   | { kind: "conflict"; message: string }
   | { kind: "error"; message: string };
 
-const PUBLICATION_AXIS_LABEL = "Yayın durumu";
-const WORKFLOW_AXIS_LABEL = "İş akışı";
+function latestReviewFeedback(events: ReviewHistoryItem[]) {
+  return events.find((event) => event.eventType === "CHANGES_REQUESTED") ?? null;
+}
 
 export function ArticleEditor({
   model,
@@ -226,6 +230,28 @@ export function ArticleEditor({
   const [videoBusy, setVideoBusy] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [linkSuggestionStats, setLinkSuggestionStats] = useState<LinkSuggestionStats>({
+    pendingCount: 0,
+    ambiguousCount: 0,
+  });
+  const [mobileReadinessOpen, setMobileReadinessOpen] = useState(false);
+
+  const handleSuggestionStats = useCallback((stats: LinkSuggestionStats) => {
+    setLinkSuggestionStats((current) =>
+      current.pendingCount === stats.pendingCount &&
+      current.ambiguousCount === stats.ambiguousCount
+        ? current
+        : stats,
+    );
+  }, []);
+
+  const scrollToEditorSection = useCallback((targetId: string) => {
+    document.getElementById(targetId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+    setMobileReadinessOpen(false);
+  }, []);
 
   function bumpItemUpdatedAt(updatedAt: string) {
     setItemUpdatedAt(updatedAt);
@@ -353,6 +379,70 @@ export function ArticleEditor({
       version,
     ],
   );
+
+  const presentedWorkflow = useMemo(
+    () => presentWorkflow(eligibility),
+    [eligibility],
+  );
+
+  const heroMedia = getHeroMedia(relations);
+  const fieldValidationErrors = useMemo(
+    () =>
+      Object.values(validation.errors).filter(
+        (value): value is string => Boolean(value),
+      ),
+    [validation.errors],
+  );
+
+  const readiness = useMemo(() => {
+    if (!fields || !version) {
+      return null;
+    }
+
+    return evaluateArticleReadiness(
+      buildArticleReadinessInput({
+        trustedSiteUrl,
+        editorOrigin,
+        slug: model.contentItem.slug,
+        publicationStatus: model.contentItem.publicationStatus,
+        publishedVersionId: model.contentItem.publishedVersionId,
+        publishedAt: model.contentItem.publishedAt,
+        publicDateModified: model.contentItem.publicDateModified,
+        workflowStatus: version.workflowStatus,
+        legalHoldAt: model.contentItem.legalHoldAt,
+        retractedAt: model.contentItem.retractedAt,
+        takedownAt: model.contentItem.takedownAt,
+        fields,
+        relations,
+        bodyDocument,
+        bodyInspectable: Boolean(bodyDocument && !bodyError),
+        fieldValidationOk: validation.ok,
+        fieldValidationErrors,
+        linkSuggestionStats,
+      }),
+    );
+  }, [
+    bodyDocument,
+    bodyError,
+    editorOrigin,
+    fieldValidationErrors,
+    fields,
+    linkSuggestionStats,
+    model.contentItem.legalHoldAt,
+    model.contentItem.publicDateModified,
+    model.contentItem.publicationStatus,
+    model.contentItem.publishedAt,
+    model.contentItem.publishedVersionId,
+    model.contentItem.retractedAt,
+    model.contentItem.slug,
+    model.contentItem.takedownAt,
+    relations,
+    trustedSiteUrl,
+    validation.ok,
+    version,
+  ]);
+
+  const reviewFeedback = latestReviewFeedback(reviewEvents);
 
   function patchField<K extends keyof ArticleEditorFields>(
     key: K,
@@ -628,23 +718,28 @@ export function ArticleEditor({
   const awaitingReview = version?.workflowStatus === "IN_REVIEW";
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-5 lg:py-7">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href={returnHref}
-          className="rounded px-2 py-1 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-500"
-        >
-          {backLabel}
-        </Link>
-        <p className="text-xs text-zinc-500" aria-live="polite">
-          {isDirty ? "Kaydedilmemiş değişiklikler var" : "Kaydedildi"}
-        </p>
-      </div>
+    <div className="mx-auto max-w-[1440px] px-4 py-5 lg:py-6">
+      <ArticleEditorHeader
+        backHref={returnHref}
+        backLabel={backLabel}
+        title={fields?.title || version?.fields.title || model.contentItem.slug}
+        slug={model.contentItem.slug}
+        publicationStatus={model.contentItem.publicationStatus}
+        workflowStatus={version?.workflowStatus ?? null}
+        publicationVariant={status?.publicationVariant ?? "neutral"}
+        workflowVariant={status?.workflowVariant ?? "neutral"}
+        scheduledLabel={status?.scheduledLabel ?? null}
+        isDirty={isDirty}
+        isSaving={isSaving}
+        saveKind={saveState.kind}
+        saveMessage={saveState.kind === "saved" || saveState.kind === "error" || saveState.kind === "conflict" ? saveState.message : undefined}
+        onReload={() => router.refresh()}
+      />
 
       {(fromReview || awaitingReview) && (
         <div
           role="status"
-          className="mb-5 border-l-2 border-sky-600 bg-sky-50 px-3 py-2 text-sm text-sky-950"
+          className="mt-4 border-l-2 border-sky-600 bg-sky-50 px-3 py-2 text-sm text-sky-950"
         >
           {fromReview
             ? "Bu sürüm inceleme kuyruğundan açıldı. Açık sürüm değiştirilmedi."
@@ -652,43 +747,55 @@ export function ArticleEditor({
         </div>
       )}
 
-      <header className="border-b border-zinc-200 pb-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold tracking-tight text-zinc-950 md:text-3xl">
-              {fields?.title || version?.fields.title || model.contentItem.slug}
-            </h1>
-            <p className="mt-1 text-sm text-zinc-500">{model.contentItem.slug}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-zinc-500">{PUBLICATION_AXIS_LABEL}</span>
-            <StatusBadge
-              label={PUBLICATION_STATUS_LABELS[model.contentItem.publicationStatus]}
-              variant={status?.publicationVariant ?? "neutral"}
-            />
-            <span className="text-xs text-zinc-500">{WORKFLOW_AXIS_LABEL}</span>
-            <StatusBadge
-              label={
-                version
-                  ? WORKFLOW_STATUS_LABELS[version.workflowStatus]
-                  : "—"
-              }
-              variant={status?.workflowVariant ?? "neutral"}
-            />
-            {status?.scheduledLabel && (
-              <StatusBadge label={status.scheduledLabel} variant="info" />
-            )}
-          </div>
+      {reviewFeedback?.note && version?.workflowStatus === "DRAFT" ? (
+        <div
+          role="status"
+          className="mt-4 border-l-2 border-amber-600 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+        >
+          <p className="font-medium">İncelemeden dönen geri bildirim</p>
+          <p className="mt-1">{reviewFeedback.note}</p>
         </div>
-      </header>
+      ) : null}
 
       {legalHoldActive ? (
-        <div className="mt-4">
+        <div className="mt-4" id="editor-section-legal">
           <ArticleLegalHoldBanner message={LEGAL_HOLD_BLOCKED_COPY} />
         </div>
       ) : null}
 
-      <div className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="mt-4">
+        <ArticleEditorWorkflowBar
+          presented={presentedWorkflow}
+          publishedTitle={model.publishedVersion?.title ?? null}
+          draftTitle={model.draftVersion?.title ?? null}
+          focusedTitle={fields?.title ?? version?.fields.title ?? null}
+        />
+      </div>
+
+      {readiness ? (
+        <div className="mt-4 xl:hidden">
+          <button
+            type="button"
+            aria-expanded={mobileReadinessOpen}
+            onClick={() => setMobileReadinessOpen((current) => !current)}
+            className="flex w-full items-center justify-between rounded border border-zinc-200 bg-white px-4 py-3 text-left text-sm font-medium text-zinc-900"
+          >
+            Yayın hazırlığı
+            <span className="text-zinc-500">{mobileReadinessOpen ? "Gizle" : "Göster"}</span>
+          </button>
+          {mobileReadinessOpen ? (
+            <div className="mt-3">
+              <PublicationReadinessRail
+                readiness={readiness}
+                compact
+                onNavigate={scrollToEditorSection}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="grid gap-6 py-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)]">
         <main className="min-w-0">
           {version && fields ? (
             <form
@@ -698,6 +805,8 @@ export function ArticleEditor({
                 void save();
               }}
             >
+              <ArticleEditorSectionNav onNavigate={scrollToEditorSection} />
+
               {!canEdit && (
                 <Notice>
                   {awaitingReview
@@ -708,7 +817,10 @@ export function ArticleEditor({
                 </Notice>
               )}
 
-              <section className="space-y-4">
+              <section
+                id="editor-section-content"
+                className="scroll-mt-28 space-y-4"
+              >
                 <div>
                   <label
                     htmlFor="article-title"
@@ -751,6 +863,21 @@ export function ArticleEditor({
                   rows={4}
                   onChange={(value) => patchField("excerpt", value)}
                 />
+
+                {bodyDocument ? (
+                  <StructuredBodyEditor
+                    document={bodyDocument}
+                    disabled={!effectiveCanEdit}
+                    onChange={(next) => {
+                      setBodyDocument(next);
+                      setSaveState({ kind: "idle" });
+                    }}
+                  />
+                ) : (
+                  <Notice>
+                    {bodyError ?? "Gövde bu editörde güvenli şekilde açılamıyor."}
+                  </Notice>
+                )}
               </section>
 
               <ArticleMetadataEditor
@@ -779,9 +906,13 @@ export function ArticleEditor({
                 onPersistVideos={(videos) => {
                   void persistVideosMutation(videos);
                 }}
+                onSuggestionStats={handleSuggestionStats}
               />
 
-              <section className="border-t border-zinc-200 pt-6">
+              <section
+                id="editor-section-publication"
+                className="scroll-mt-28 border-t border-zinc-200 pt-6"
+              >
                 <h2 className="mb-4 text-sm font-semibold text-zinc-900">
                   Kaynak ve güvenilirlik
                 </h2>
@@ -874,7 +1005,7 @@ export function ArticleEditor({
                 takedownAt={model.contentItem.takedownAt}
                 trustedSiteUrl={trustedSiteUrl}
                 editorOrigin={editorOrigin}
-                hero={getHeroMedia(relations)}
+                hero={heroMedia}
                 slugHistory={slugHistory}
                 isDraftRelativeToPublished={Boolean(
                   model.publishedVersion &&
@@ -887,22 +1018,7 @@ export function ArticleEditor({
                 onSlugUpdated={({ updatedAt }) => bumpItemUpdatedAt(updatedAt)}
               />
 
-              {bodyDocument ? (
-                <StructuredBodyEditor
-                  document={bodyDocument}
-                  disabled={!effectiveCanEdit}
-                  onChange={(next) => {
-                    setBodyDocument(next);
-                    setSaveState({ kind: "idle" });
-                  }}
-                />
-              ) : (
-                <Notice>
-                  {bodyError ?? "Gövde bu editörde güvenli şekilde açılamıyor."}
-                </Notice>
-              )}
-
-              <div className="sticky bottom-0 z-20 -mx-4 border-t border-zinc-200 bg-zinc-50/95 px-4 py-3 backdrop-blur">
+              <div className="sticky bottom-0 z-20 -mx-4 border-t border-zinc-200 bg-zinc-50/95 px-4 py-3 backdrop-blur lg:mx-0 lg:rounded lg:border lg:px-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <SaveMessage
                     state={saveState}
@@ -911,7 +1027,15 @@ export function ArticleEditor({
                   />
                   <button
                     type="submit"
-                    disabled={!canEdit || !isDirty || !validation.ok || isSaving || heroBusy || galleryBusy || videoBusy}
+                    disabled={
+                      !canEdit ||
+                      !isDirty ||
+                      !validation.ok ||
+                      isSaving ||
+                      heroBusy ||
+                      galleryBusy ||
+                      videoBusy
+                    }
                     className="h-9 rounded bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:bg-zinc-300"
                   >
                     {isSaving ? "Kaydediliyor..." : "Taslağı kaydet"}
@@ -920,13 +1044,20 @@ export function ArticleEditor({
               </div>
             </form>
           ) : (
-            <Notice>
-              Bu içerik için gösterilecek bir sürüm yok.
-            </Notice>
+            <Notice>Bu içerik için gösterilecek bir sürüm yok.</Notice>
           )}
         </main>
 
-        <aside className="space-y-8 lg:border-l lg:border-zinc-200 lg:pl-6">
+        <aside className="space-y-5 xl:sticky xl:top-4 xl:self-start">
+          {readiness ? (
+            <div className="hidden xl:block">
+              <PublicationReadinessRail
+                readiness={readiness}
+                onNavigate={scrollToEditorSection}
+              />
+            </div>
+          ) : null}
+
           <ArticleWorkflowPanel
             contentItemId={model.contentItem.id}
             eligibility={eligibility}
@@ -934,109 +1065,18 @@ export function ArticleEditor({
             fromReview={fromReview}
             returnHref={returnHref}
             onConcurrencyToken={setToken}
-            onHistoryRefresh={() =>
-              setHistoryRefreshKey((current) => current + 1)
-            }
+            onHistoryRefresh={() => setHistoryRefreshKey((current) => current + 1)}
           />
 
-          <ArticleLegalPanel
-            key={historyRefreshKey}
-            contentItemId={model.contentItem.id}
-            canLegal={permissions.canLegal}
-            onConcurrencyToken={setToken}
-            onHistoryRefresh={() =>
-              setHistoryRefreshKey((current) => current + 1)
-            }
-          />
-
-          <section>
-            <h2 className="text-sm font-semibold text-zinc-900">Yayın ve iş akışı</h2>
-            <dl className="mt-3 space-y-2">
-              <Meta
-                label="Yayın durumu"
-                value={PUBLICATION_STATUS_LABELS[model.contentItem.publicationStatus]}
-              />
-              <Meta
-                label="İş akışı"
-                value={
-                  version
-                    ? WORKFLOW_STATUS_LABELS[version.workflowStatus]
-                    : "—"
-                }
-              />
-              <Meta
-                label="Açık sürüm"
-                value={version ? `Sürüm ${version.versionNumber}` : "Yok"}
-              />
-              <Meta
-                label="Yayındaki sürüm"
-                value={
-                  model.publishedVersion
-                    ? `Sürüm ${model.publishedVersion.versionNumber}`
-                    : "Yok"
-                }
-              />
-              <Meta
-                label="Güncel taslak"
-                value={
-                  model.draftVersion
-                    ? `Sürüm ${model.draftVersion.versionNumber}`
-                    : "Yok"
-                }
-              />
-              <Meta
-                label="Zamanlanmış sürüm"
-                value={
-                  model.scheduledVersion
-                    ? `Sürüm ${model.scheduledVersion.versionNumber}`
-                    : "Yok"
-                }
-              />
-              <Meta
-                label="Yayın tarihi"
-                value={formatDateTime(model.contentItem.publishedAt)}
-              />
-              <Meta
-                label="Zamanlama"
-                value={formatEditorialDateTime(model.contentItem.scheduledAt)}
-              />
-              <Meta
-                label="Son güncelleme"
-                value={formatDateTime(model.contentItem.updatedAt)}
-              />
-            </dl>
-          </section>
-
-          {version && (
-            <section>
-              <h2 className="text-sm font-semibold text-zinc-900">Künye</h2>
-              <p className="mt-1 text-xs text-zinc-500">
-                Açık sürümün künyesi. Yayındaki sürüm ayrı durur.
-              </p>
-              <dl className="mt-3 space-y-2">
-                <Meta
-                  label="Ana kategori"
-                  value={
-                    relations.categories.find((item) => item.isPrimary)?.name ??
-                    "Belirtilmedi"
-                  }
-                />
-                <Meta
-                  label="Yazar"
-                  value={
-                    relations.authors.length > 0
-                      ? relations.authors
-                          .map(
-                            (item) =>
-                              `${item.displayName} (${AUTHOR_ROLE_LABELS[item.role]})`,
-                          )
-                          .join(", ")
-                      : "Belirtilmedi"
-                  }
-                />
-              </dl>
-            </section>
-          )}
+          <div id="editor-section-legal">
+            <ArticleLegalPanel
+              key={historyRefreshKey}
+              contentItemId={model.contentItem.id}
+              canLegal={permissions.canLegal}
+              onConcurrencyToken={setToken}
+              onHistoryRefresh={() => setHistoryRefreshKey((current) => current + 1)}
+            />
+          </div>
 
           <ArticleRevisionPanel
             contentItemId={model.contentItem.id}
@@ -1227,15 +1267,6 @@ function Notice({ children }: { children: ReactNode }) {
   return (
     <div className="border-l-2 border-amber-600 bg-amber-50 px-3 py-2 text-sm text-amber-950">
       {children}
-    </div>
-  );
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4 text-sm">
-      <dt className="text-zinc-500">{label}</dt>
-      <dd className="text-right font-medium text-zinc-800">{value}</dd>
     </div>
   );
 }

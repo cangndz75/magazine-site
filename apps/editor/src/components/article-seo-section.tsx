@@ -92,7 +92,11 @@ export function ArticleSeoSection({
   const seoDescriptionLength = (fields.seoDescription ?? "").trim().length;
 
   return (
-    <section className="border-t border-zinc-200 pt-6" aria-labelledby="article-seo-heading">
+    <section
+      id="editor-section-seo"
+      className="scroll-mt-24 border-t border-zinc-200 pt-6"
+      aria-labelledby="article-seo-heading"
+    >
       <h2 id="article-seo-heading" className="text-sm font-semibold text-zinc-900">
         SEO
       </h2>
