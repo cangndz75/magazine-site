@@ -3,6 +3,11 @@ export type PublicNavItem = {
   href: string;
 };
 
+/** Category routes are not implemented yet; `#` entries are visual labels only. */
+export function isPublicNavPlaceholder(item: PublicNavItem): boolean {
+  return item.href === "#";
+}
+
 export const PUBLIC_NAV_ITEMS: PublicNavItem[] = [
   { label: "Gündem", href: "#" },
   { label: "Ünlüler", href: "#" },

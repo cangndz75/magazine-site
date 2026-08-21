@@ -492,7 +492,9 @@ export {
 export {
   HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
+  PUBLIC_HOMEPAGE_LATEST_LIMIT,
   selectTemporaryHomepageFeatured,
+  selectTemporaryHomepageLatest,
   type HomepageGalleryDataSourceStatus,
 } from "./homepage-second-viewport";
 export {

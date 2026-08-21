@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef } from "react";
-import { PUBLIC_NAV_ITEMS } from "@/lib/public-nav";
+import { isPublicNavPlaceholder, PUBLIC_NAV_ITEMS } from "@/lib/public-nav";
 
 export function PublicSiteMobileMenu() {
   const detailsRef = useRef<HTMLDetailsElement>(null);
@@ -28,13 +28,22 @@ export function PublicSiteMobileMenu() {
           <ul className="public-site-header__menu-list">
             {PUBLIC_NAV_ITEMS.map((item) => (
               <li key={item.label}>
-                <Link
-                  href={item.href}
-                  className="public-site-header__menu-link"
-                  onClick={closeMenu}
-                >
-                  {item.label}
-                </Link>
+                {isPublicNavPlaceholder(item) ? (
+                  <span
+                    className="public-site-header__menu-link public-site-header__menu-link--placeholder"
+                    aria-disabled="true"
+                  >
+                    {item.label}
+                  </span>
+                ) : (
+                  <Link
+                    href={item.href}
+                    className="public-site-header__menu-link"
+                    onClick={closeMenu}
+                  >
+                    {item.label}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

@@ -36,11 +36,16 @@ export default async function StaffDetailPage({
   const staffUserId = parseStaffUserId(rawId);
   const actor = staffAdminActorFromSession(session);
 
-  const [accountRow, sessionsRow, auditEvents, categories] = await Promise.all([
-    getStaffAccount({ actor, staffUserId }),
+  const accountRow = await getStaffAccount({ actor, staffUserId });
+  const [sessionsRow, auditEvents, categories] = await Promise.all([
     listStaffSessions({ actor, staffUserId }),
     listStaffSecurityAuditEvents({ actor, staffUserId }),
-    lookupEditorCategories({ scopedCategoryIds: [] }),
+    lookupEditorCategories({
+      scopedCategoryIds:
+        accountRow.scopedCategoryIds.length > 0
+          ? accountRow.scopedCategoryIds
+          : null,
+    }),
   ]);
 
   const account = serializeStaffAccountDetail(accountRow);

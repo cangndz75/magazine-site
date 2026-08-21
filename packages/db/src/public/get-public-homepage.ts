@@ -7,12 +7,14 @@ import {
   MEDIA_TYPE,
   MEDIA_RENDITION_SURFACE,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
+  PUBLIC_HOMEPAGE_LATEST_LIMIT,
   PUBLICATION_STATUS,
   buildPublishedHomepageContentPlacements,
   emptyHomepageSlotMap,
   publicPublishedVersionId,
   resolvePublicHomepagePlacements,
   selectTemporaryHomepageFeatured,
+  selectTemporaryHomepageLatest,
   signAnalyticsContext,
   toPublicEditorialVideoProjection,
   type PublicEditorialVideoProjection,
@@ -58,10 +60,13 @@ export { PUBLIC_HOMEPAGE_FEATURED_LIMIT };
 
 /**
  * Bounded candidate window for the temporary recency placement:
- * ATF (3) + featured (5). Do not load all published content.
+ * ATF (3) + featured (5) + latest ("Son Haberler", 6). Do not load all
+ * published content.
  */
 export const PUBLIC_HOMEPAGE_TEMPORARY_STORY_QUERY_LIMIT =
-  PUBLIC_HOMEPAGE_LEAD_SLICE_SIZE + PUBLIC_HOMEPAGE_FEATURED_LIMIT;
+  PUBLIC_HOMEPAGE_LEAD_SLICE_SIZE +
+  PUBLIC_HOMEPAGE_FEATURED_LIMIT +
+  PUBLIC_HOMEPAGE_LATEST_LIMIT;
 
 export type PublicHomepageCategory = {
   name: string;
@@ -84,6 +89,12 @@ export type PublicHomepage = {
   supports: PublicHomepageStory[];
   conversation: PublicHomepageConversationItem[];
   featured: PublicHomepageStory[];
+  /**
+   * "Son Haberler": bounded, always-recency secondary list, decoupled from
+   * Homepage Builder curation. Never duplicates a lead/support/featured
+   * story. Does not carry homepage analytics placement identity.
+   */
+  latest: PublicHomepageStory[];
   /** Explicit Builder-managed editorial video; null when unset or unavailable. */
   video: PublicEditorialVideoProjection | null;
   homepageVersionId: string | null;
@@ -226,6 +237,7 @@ function emptyPublicHomepage(input: {
     supports: [],
     conversation: input.conversation,
     featured: [],
+    latest: [],
     video: input.video,
     homepageVersionId: input.homepageVersionId,
     homepageViewContext: homepageViewContext(input.options, input.homepageVersionId),
@@ -495,10 +507,17 @@ export async function getPublicHomepage(
   const leadCandidate = placement.lead;
   const supportCandidates = placement.supports;
   const featuredCandidates = placement.featured;
+  const displayedIds = new Set(
+    [leadCandidate, ...supportCandidates, ...featuredCandidates]
+      .filter((candidate): candidate is HomepageCandidate => candidate !== null)
+      .map((candidate) => candidate.id),
+  );
+  const latestCandidates = selectTemporaryHomepageLatest(eligible, displayedIds);
   const selected = [
     leadCandidate,
     ...supportCandidates,
     ...featuredCandidates,
+    ...latestCandidates,
   ].filter((candidate): candidate is HomepageCandidate => candidate !== null);
   if (selected.length === 0) {
     return emptyPublicHomepage({
@@ -649,6 +668,9 @@ export async function getPublicHomepage(
     ),
     conversation,
     featured: featuredCandidates.map((candidate) =>
+      toStory(candidate, MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB),
+    ),
+    latest: latestCandidates.map((candidate) =>
       toStory(candidate, MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB),
     ),
     video: homepageVideo,
