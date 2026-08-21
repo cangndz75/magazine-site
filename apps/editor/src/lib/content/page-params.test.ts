@@ -69,14 +69,25 @@ describe("parsePageSearchParams", () => {
     assert.equal(result.authorId, undefined);
   });
 
-  it("parses scheduledOnly=1", () => {
+  it("maps legacy scheduledOnly=1 to the visible scheduled newsroom view", () => {
     const result = parsePageSearchParams({ scheduledOnly: "1" });
-    assert.equal(result.scheduledOnly, true);
+    assert.equal(result.scheduledOnly, false);
+    assert.equal(result.view, "scheduled");
   });
 
-  it("parses scheduledOnly=true", () => {
+  it("maps legacy scheduledOnly=true to the visible scheduled newsroom view", () => {
     const result = parsePageSearchParams({ scheduledOnly: "true" });
-    assert.equal(result.scheduledOnly, true);
+    assert.equal(result.scheduledOnly, false);
+    assert.equal(result.view, "scheduled");
+  });
+
+  it("lets an explicit newsroom view override legacy scheduledOnly", () => {
+    const result = parsePageSearchParams({
+      scheduledOnly: "1",
+      view: "published",
+    });
+    assert.equal(result.scheduledOnly, false);
+    assert.equal(result.view, "published");
   });
 
   it("ignores scheduledOnly=0", () => {

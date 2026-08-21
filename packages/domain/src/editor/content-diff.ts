@@ -37,6 +37,8 @@ export function diffContentVersions(
     toEntities: input.to.entities,
     fromMedia: input.from.media,
     toMedia: input.to.media,
+    fromVideos: input.from.videos,
+    toVideos: input.to.videos,
     fromAuthors: input.from.authors,
     toAuthors: input.to.authors,
   });
@@ -69,6 +71,11 @@ export function diffContentVersions(
       relations.media.removed.length > 0 ||
       relations.media.modified.length > 0 ||
       relations.media.reordered,
+    videosChanged:
+      relations.videos.added.length > 0 ||
+      relations.videos.removed.length > 0 ||
+      relations.videos.modified.length > 0 ||
+      relations.videos.reordered,
     authorsChanged:
       relations.authors.added.length > 0 ||
       relations.authors.removed.length > 0 ||
@@ -87,6 +94,7 @@ export function diffContentVersions(
     summary.tagsRemoved > 0 ||
     summary.entitiesChanged ||
     summary.mediaChanged ||
+    summary.videosChanged ||
     summary.authorsChanged;
 
   return {

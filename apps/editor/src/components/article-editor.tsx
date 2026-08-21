@@ -773,7 +773,7 @@ export function ArticleEditor({
       ) : null}
 
       {legalHoldActive ? (
-        <div className="mt-4" id="editor-section-legal">
+        <div className="mt-4">
           <ArticleLegalHoldBanner message={LEGAL_HOLD_BLOCKED_COPY} />
         </div>
       ) : null}

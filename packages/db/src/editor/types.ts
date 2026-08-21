@@ -130,6 +130,9 @@ export type EditorReviewQueueRow = {
   publishedVersionId: string | null;
   scheduledVersionId: string | null;
   scheduledAt: Date | null;
+  legalHoldAt: Date | null;
+  retractedAt: Date | null;
+  takedownAt: Date | null;
   primaryCategory: EditorListPrimaryCategory | null;
   secondaryCategories: EditorListPrimaryCategory[];
   authors: EditorListAuthorSummary[];

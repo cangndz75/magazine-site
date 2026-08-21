@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ENTITY_LINK_SUGGESTION_KIND,
   type EntityLinkSuggestion,
@@ -95,6 +95,13 @@ export function ArticleEntityLinkAssistant({
     () => [...relatedEntityIds].sort().join(","),
     [relatedEntityIds],
   );
+  const onSuggestionStatsRef = useRef(onSuggestionStats);
+  const onSuggestionSnapshotRef = useRef(onSuggestionSnapshot);
+
+  useEffect(() => {
+    onSuggestionStatsRef.current = onSuggestionStats;
+    onSuggestionSnapshotRef.current = onSuggestionSnapshot;
+  }, [onSuggestionStats, onSuggestionSnapshot]);
 
   useEffect(() => {
     if (!bodyDocument || disabled) {
@@ -102,8 +109,11 @@ export function ArticleEntityLinkAssistant({
     }
 
     const controller = new AbortController();
+    let active = true;
     const timer = window.setTimeout(() => {
       void (async () => {
+        onSuggestionSnapshotRef.current?.([]);
+        onSuggestionStatsRef.current?.({ pendingCount: 0, ambiguousCount: 0 });
         startTransition(() => {
           setState({ kind: "loading" });
         });
@@ -123,6 +133,9 @@ export function ArticleEntityLinkAssistant({
             },
           );
           const payload = (await response.json()) as SuggestionResponse;
+          if (!active) {
+            return;
+          }
           if (!response.ok || !payload.ok || !payload.data) {
             startTransition(() => {
               setState({ kind: "error" });
@@ -139,7 +152,7 @@ export function ArticleEntityLinkAssistant({
             });
           });
         } catch {
-          if (controller.signal.aborted) {
+          if (controller.signal.aborted || !active) {
             return;
           }
           startTransition(() => {
@@ -150,26 +163,32 @@ export function ArticleEntityLinkAssistant({
     }, 400);
 
     return () => {
+      active = false;
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [bodyDocument, contentItemId, disabled, relatedKey, startTransition, title, relatedEntityIds]);
+  }, [
+    bodyDocument,
+    contentItemId,
+    disabled,
+    relatedKey,
+    startTransition,
+    title,
+    relatedEntityIds,
+  ]);
 
   useEffect(() => {
-    if (!onSuggestionStats) {
-      return;
-    }
     if (state.kind === "ready") {
-      onSuggestionSnapshot?.(state.suggestions);
-      onSuggestionStats(
+      onSuggestionSnapshotRef.current?.(state.suggestions);
+      onSuggestionStatsRef.current?.(
         computeEntityLinkSuggestionStats(state.suggestions, relatedEntityIds),
       );
       return;
     }
     if (state.kind === "idle" || state.kind === "error") {
-      onSuggestionStats({ pendingCount: 0, ambiguousCount: 0 });
+      onSuggestionStatsRef.current?.({ pendingCount: 0, ambiguousCount: 0 });
     }
-  }, [onSuggestionSnapshot, onSuggestionStats, relatedKey, relatedEntityIds, state]);
+  }, [relatedKey, relatedEntityIds, state]);
 
   return (
     <section className="space-y-2" aria-labelledby="entity-link-assistant-heading">

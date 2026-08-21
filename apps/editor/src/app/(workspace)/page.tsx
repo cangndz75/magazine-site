@@ -46,7 +46,6 @@ export default async function ContentPage({
     workflowStatus: filters.workflowStatus,
     categoryId: filters.categoryId,
     authorId: filters.authorId,
-    scheduledOnly: filters.scheduledOnly,
     view: filters.view,
     sort: filters.sort,
   };
@@ -66,7 +65,6 @@ export default async function ContentPage({
       workflowStatus: filters.workflowStatus,
       categoryId: filters.categoryId,
       authorId: filters.authorId,
-      scheduledOnly: filters.scheduledOnly,
     }),
     lookupEditorCategories({
       scopedCategoryIds: scope.scopedCategoryIds,

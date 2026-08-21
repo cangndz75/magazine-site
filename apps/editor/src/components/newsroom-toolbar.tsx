@@ -255,6 +255,16 @@ export function NewsroomToolbar({
               onRemove={() => onUpdate({ authorId: null })}
             />
           ) : null}
+          {filters.sort !== "updated_desc" ? (
+            <FilterTag
+              label={
+                NEWSROOM_SORT_OPTIONS.find(
+                  (option) => option.value === filters.sort,
+                )?.label ?? "Sıralama"
+              }
+              onRemove={() => onUpdate({ sort: null })}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>

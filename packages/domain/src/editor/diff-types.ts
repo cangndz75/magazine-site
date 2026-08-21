@@ -147,6 +147,29 @@ export type ContentVersionMediaDiff = {
   afterOrder: string[];
 };
 
+export type ContentVersionVideoDiffItem = ContentVersionDiffLabel & {
+  provider: string;
+  sortOrder: number;
+  caption: string | null;
+  durationSeconds: number | null;
+};
+
+export type ContentVersionVideoModified = {
+  id: string;
+  label: string;
+  before: { caption: string | null };
+  after: { caption: string | null };
+};
+
+export type ContentVersionVideoDiff = {
+  added: ContentVersionVideoDiffItem[];
+  removed: ContentVersionVideoDiffItem[];
+  modified: ContentVersionVideoModified[];
+  reordered: boolean;
+  beforeOrder: string[];
+  afterOrder: string[];
+};
+
 export type ContentVersionAuthorDiffItem = ContentVersionDiffLabel & {
   role: string;
   sortOrder: number;
@@ -179,6 +202,7 @@ export type ContentVersionRelationDiff = {
   tags: ContentVersionSetRelationDiff;
   entities: ContentVersionEntityDiff;
   media: ContentVersionMediaDiff;
+  videos: ContentVersionVideoDiff;
   authors: ContentVersionAuthorDiff;
 };
 
@@ -197,6 +221,7 @@ export type ContentVersionDiffSummary = {
   tagsRemoved: number;
   entitiesChanged: boolean;
   mediaChanged: boolean;
+  videosChanged: boolean;
   authorsChanged: boolean;
 };
 
@@ -266,6 +291,15 @@ export type ContentVersionDiffAuthorInput = {
   sortOrder: number;
 };
 
+export type ContentVersionDiffVideoInput = {
+  id: string;
+  label: string;
+  provider: string;
+  sortOrder: number;
+  caption: string | null;
+  durationSeconds: number | null;
+};
+
 export type ContentVersionDiffSideInput = ContentVersionDiffScalarSnapshot & {
   id: string;
   versionNumber: number;
@@ -279,6 +313,7 @@ export type ContentVersionDiffSideInput = ContentVersionDiffScalarSnapshot & {
   tags: ContentVersionDiffTagInput[];
   entities: ContentVersionDiffEntityInput[];
   media: ContentVersionDiffMediaInput[];
+  videos: ContentVersionDiffVideoInput[];
   authors: ContentVersionDiffAuthorInput[];
 };
 

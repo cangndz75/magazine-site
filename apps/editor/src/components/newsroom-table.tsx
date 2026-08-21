@@ -213,28 +213,26 @@ function NewsroomCardRow({
   });
 
   return (
-    <li>
+    <li
+      className={`rounded border px-3 py-3 ${
+        selected
+          ? "border-zinc-900 bg-zinc-50"
+          : "border-zinc-200 bg-white hover:bg-zinc-50"
+      }`}
+    >
       <button
         type="button"
         onClick={onSelect}
         aria-pressed={selected}
-        className={`w-full rounded border px-3 py-3 text-left ${
-          selected
-            ? "border-zinc-900 bg-zinc-50"
-            : "border-zinc-200 bg-white hover:bg-zinc-50"
-        }`}
+        className="block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <Link
-              href={href}
-              onClick={(event) => event.stopPropagation()}
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
-            >
+            <p className="font-medium text-zinc-900">
               {item.displayVersion.title || (
                 <span className="italic text-zinc-400">Başlıksız</span>
               )}
-            </Link>
+            </p>
             <p className="mt-0.5 truncate text-xs text-zinc-500">{item.slug}</p>
           </div>
           {attentionLabel ? (
@@ -259,6 +257,12 @@ function NewsroomCardRow({
           <RelativeTime iso={item.updatedAt} />
         </div>
       </button>
+      <Link
+        href={href}
+        className="mt-3 inline-flex h-8 items-center rounded border border-zinc-300 px-2.5 text-xs font-medium text-zinc-700 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500"
+      >
+        Editörde Aç
+      </Link>
     </li>
   );
 }

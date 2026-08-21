@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  NEWSROOM_SORT,
   NEWSROOM_VIEW,
   type ArticleReadinessSummaryDTO,
   type ListAttentionSummary,
@@ -129,14 +130,20 @@ export function NewsroomDesk({
       filters.publicationStatus ||
       filters.workflowStatus ||
       filters.categoryId ||
-      filters.authorId,
+      filters.authorId ||
+      filters.scheduledOnly ||
+      filters.sort !== NEWSROOM_SORT.UPDATED_DESC,
   );
 
   const clearFilters = useCallback(() => {
     startTransition(() => {
-      router.push(hrefWithQuery("/", applyFilterUpdates(searchParams, { view: filters.view })));
+      const params = new URLSearchParams();
+      if (filters.view !== NEWSROOM_VIEW.ALL) {
+        params.set("view", filters.view);
+      }
+      router.push(hrefWithQuery("/", params));
     });
-  }, [filters.view, router, searchParams, startTransition]);
+  }, [filters.view, router, startTransition]);
 
   const returnTo = buildListReturnTo(searchParams.toString());
   const firstPageHref = hrefWithQuery("/", applyFilterUpdates(searchParams, {}));

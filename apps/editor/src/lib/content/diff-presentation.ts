@@ -15,12 +15,71 @@ const FIELD_LABELS: Record<string, string> = {
   isMaterialUpdate: "Materyal güncelleme",
 };
 
+export const DIFF_FIELD_GROUP = {
+  CONTENT: "CONTENT",
+  SEO: "SEO",
+  SOURCE: "SOURCE",
+} as const;
+
+export type DiffFieldGroup = (typeof DIFF_FIELD_GROUP)[keyof typeof DIFF_FIELD_GROUP];
+
+const FIELD_GROUPS: Record<string, DiffFieldGroup> = {
+  title: DIFF_FIELD_GROUP.CONTENT,
+  subtitle: DIFF_FIELD_GROUP.CONTENT,
+  excerpt: DIFF_FIELD_GROUP.CONTENT,
+  seoTitle: DIFF_FIELD_GROUP.SEO,
+  seoDescription: DIFF_FIELD_GROUP.SEO,
+  canonicalUrl: DIFF_FIELD_GROUP.SEO,
+  robots: DIFF_FIELD_GROUP.SEO,
+  credibility: DIFF_FIELD_GROUP.SOURCE,
+  credibilitySource: DIFF_FIELD_GROUP.SOURCE,
+  source: DIFF_FIELD_GROUP.SOURCE,
+  sourceOrganization: DIFF_FIELD_GROUP.SOURCE,
+  sourceUrl: DIFF_FIELD_GROUP.SOURCE,
+  syndicated: DIFF_FIELD_GROUP.SOURCE,
+  isMaterialUpdate: DIFF_FIELD_GROUP.SOURCE,
+};
+
+export function fieldGroup(field: string): DiffFieldGroup {
+  return FIELD_GROUPS[field] ?? DIFF_FIELD_GROUP.CONTENT;
+}
+
 const CHANGE_TYPE_LABELS = {
   ADDED: "Eklendi",
   REMOVED: "Kaldırıldı",
   MODIFIED: "Değişti",
   MOVED: "Taşındı",
 } as const;
+
+/** Entity relation roles, in canonical repository order (SUBJECT/SECONDARY/MENTIONED). */
+export const ENTITY_ROLE_LABELS: Record<string, string> = {
+  SUBJECT: "Ana Konu",
+  SECONDARY: "İlgili",
+  MENTIONED: "Bahsedilen",
+};
+
+export function entityRoleLabel(role: string): string {
+  return ENTITY_ROLE_LABELS[role] ?? role;
+}
+
+export const AUTHOR_ROLE_DIFF_LABELS: Record<string, string> = {
+  AUTHOR: "Yazar",
+  CONTRIBUTOR: "Katkıda bulunan",
+};
+
+export function authorRoleDiffLabel(role: string): string {
+  return AUTHOR_ROLE_DIFF_LABELS[role] ?? role;
+}
+
+const MEDIA_ROLE_LABELS: Record<string, string> = {
+  HERO: "Kahraman görsel",
+  GALLERY: "Galeri",
+  INLINE: "Metin içi",
+};
+
+export function mediaRoleLabel(role: string): string {
+  return MEDIA_ROLE_LABELS[role] ?? role;
+}
 
 export type DiffSummaryInput = {
   changed: boolean;
@@ -37,6 +96,7 @@ export type DiffSummaryInput = {
   tagsRemoved: number;
   entitiesChanged: boolean;
   mediaChanged: boolean;
+  videosChanged?: boolean;
   authorsChanged: boolean;
 };
 
@@ -103,6 +163,9 @@ export function presentDiffSummary(summary: DiffSummaryInput): string[] {
   if (summary.mediaChanged) {
     lines.push("Kapak ve bağlı medya değişti.");
   }
+  if (summary.videosChanged) {
+    lines.push("Video değişti.");
+  }
 
   return lines.length > 0 ? lines : ["Sürümler arasında fark var."];
 }
@@ -116,3 +179,9 @@ export function formatBooleanDiff(value: string | boolean | null): string {
   }
   return value;
 }
+
+export type DiffChangeCounts = {
+  added: number;
+  changed: number;
+  removed: number;
+};
