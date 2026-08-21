@@ -96,7 +96,7 @@ export default async function PublicEntityProfilePage({
 
         {!hasStories ? (
           <p className="public-entity-page__empty">
-            Bu kişiyle ilgili yayımlanmış haber bulunmuyor.
+            Bu varlıkla ilgili yayımlanmış haber bulunmuyor.
           </p>
         ) : (
           <>
