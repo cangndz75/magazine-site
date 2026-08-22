@@ -7,6 +7,7 @@ import {
   PublishingError,
   selectEditorDisplayVersionId,
   type AuthorRole,
+  type ContentKind,
   type EntityKind,
   type EntityRole,
   type EntityStatus,
@@ -105,6 +106,7 @@ export type ArticleEditorRelationSummary = {
 export type ArticleEditorModel = {
   contentItem: {
     id: string;
+    contentKind: ContentKind;
     slug: string;
     publicationStatus: "NEVER_PUBLISHED" | "PUBLISHED" | "UNPUBLISHED";
     publishedVersionId: string | null;
@@ -145,6 +147,7 @@ export async function getArticleEditorModel(
   const [item] = await db
     .select({
       id: contentItems.id,
+      contentKind: contentItems.contentKind,
       slug: contentItems.slug,
       publicationStatus: contentItems.publicationStatus,
       publishedVersionId: contentItems.publishedVersionId,
@@ -210,6 +213,7 @@ export async function getArticleEditorModel(
   return {
     contentItem: {
       id: item.id,
+      contentKind: item.contentKind,
       slug: item.slug,
       publicationStatus: item.publicationStatus,
       publishedVersionId: item.publishedVersionId,
