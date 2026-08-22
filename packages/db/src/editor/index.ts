@@ -79,11 +79,13 @@ export { formatEditorMediaLabel } from "./media-label";
 export {
   createHomepageConversationItem,
   deleteHomepageConversationItem,
+  getHomepageConversationManagerState,
   listHomepageConversationItems,
   reorderHomepageConversationItems,
   updateHomepageConversationItem,
   type CreateHomepageConversationItemInput,
   type EditorHomepageConversationItem,
+  type EditorHomepageConversationState,
   type UpdateHomepageConversationItemInput,
 } from "./homepage-conversation";
 export {

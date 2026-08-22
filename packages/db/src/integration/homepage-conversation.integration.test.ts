@@ -159,6 +159,10 @@ describe("homepage conversation PostgreSQL", () => {
     });
     await reorderHomepageConversationItems({
       scope: fixture.superAdmin,
+      expectedUpdatedAt: (await listHomepageConversationItems(fixture.superAdmin)).reduce(
+        (latest, item) => (item.updatedAt > latest ? item.updatedAt : latest),
+        new Date(0),
+      ),
       orderedIds: [third.id, first.id, second.id],
     });
 
@@ -178,13 +182,28 @@ describe("homepage conversation PostgreSQL", () => {
     assertNoInternalLeak(homepage);
   });
 
-  it("exposes at most 5 public conversation items", async () => {
-    for (const label of ["One", "Two", "Three", "Four", "Five", "Six"]) {
+  it("enforces the public 5 item limit at write time", async () => {
+    for (const label of ["One", "Two", "Three", "Four", "Five"]) {
       await createHomepageConversationItem({
         scope: fixture.superAdmin,
         label,
       });
     }
+
+    await assert.rejects(
+      () =>
+        createHomepageConversationItem({
+          scope: fixture.superAdmin,
+          label: "Six",
+        }),
+      (error: unknown) => {
+        assert.equal(error instanceof ConversationError, true);
+        if (error instanceof ConversationError) {
+          assert.equal(error.code, CONVERSATION_ERROR.LIMIT_EXCEEDED);
+        }
+        return true;
+      },
+    );
 
     const homepage = await getPublicHomepage();
     assert.equal(homepage.conversation.length, 5);
@@ -429,6 +448,10 @@ describe("homepage conversation PostgreSQL", () => {
 
     await reorderHomepageConversationItems({
       scope: fixture.superAdmin,
+      expectedUpdatedAt: remaining.reduce(
+        (latest, item) => (item.updatedAt > latest ? item.updatedAt : latest),
+        new Date(0),
+      ),
       orderedIds: [c.id, a.id],
     });
     const homepage = await getPublicHomepage();
@@ -479,6 +502,101 @@ describe("homepage conversation PostgreSQL", () => {
     assert.deepEqual((await getPublicHomepage()).conversation, []);
   });
 
+  it("rejects duplicate linked content and stale reorder tokens", async () => {
+    const published = await publishApproved({
+      title: "Duplicate conversation article",
+      body: articleBody("duplicate-conversation-article"),
+    });
+    const first = await createHomepageConversationItem({
+      scope: fixture.superAdmin,
+      label: "First duplicate",
+      contentItemId: published.contentItemId,
+    });
+    const second = await createHomepageConversationItem({
+      scope: fixture.superAdmin,
+      label: "Second item",
+    });
+    const staleUpdatedAt = (await listHomepageConversationItems(fixture.superAdmin)).reduce(
+      (latest, item) => (item.updatedAt > latest ? item.updatedAt : latest),
+      new Date(0),
+    );
+
+    await assert.rejects(
+      () =>
+        createHomepageConversationItem({
+          scope: fixture.superAdmin,
+          label: "Duplicate article",
+          contentItemId: published.contentItemId,
+        }),
+      (error: unknown) => {
+        assert.equal(error instanceof ConversationError, true);
+        if (error instanceof ConversationError) {
+          assert.equal(error.code, CONVERSATION_ERROR.DUPLICATE_CONTENT_ITEM);
+        }
+        return true;
+      },
+    );
+
+    const updated = await updateHomepageConversationItem({
+      scope: fixture.superAdmin,
+      id: second.id,
+      expectedUpdatedAt: second.updatedAt,
+      label: "Second item updated",
+    });
+
+    await assert.rejects(
+      () =>
+        reorderHomepageConversationItems({
+          scope: fixture.superAdmin,
+          expectedUpdatedAt: staleUpdatedAt,
+          orderedIds: [updated.id, first.id],
+        }),
+      (error: unknown) => {
+        assert.equal(error instanceof ConversationError, true);
+        if (error instanceof ConversationError) {
+          assert.equal(error.code, CONVERSATION_ERROR.WRITE_CONFLICT);
+        }
+        return true;
+      },
+    );
+
+    const listed = await listHomepageConversationItems(fixture.superAdmin);
+    assert.deepEqual(
+      listed.map((item) => item.label),
+      ["First duplicate", "Second item updated"],
+    );
+    assert.deepEqual(
+      (await getPublicHomepage()).conversation.map((item) => item.label),
+      ["First duplicate", "Second item updated"],
+    );
+  });
+
+  it("removes only the conversation placement and leaves the linked article published", async () => {
+    const published = await publishApproved({
+      title: "Placement-only conversation article",
+      body: articleBody("placement-only-conversation-article"),
+    });
+    const created = await createHomepageConversationItem({
+      scope: fixture.superAdmin,
+      label: "Placement topic",
+      contentItemId: published.contentItemId,
+    });
+
+    await deleteHomepageConversationItem({
+      scope: fixture.superAdmin,
+      id: created.id,
+      expectedUpdatedAt: created.updatedAt,
+    });
+
+    assert.deepEqual(await listHomepageConversationItems(fixture.superAdmin), []);
+    assert.deepEqual((await getPublicHomepage()).conversation, []);
+
+    const item = await getContentItem(published.contentItemId);
+    assert.equal(item.publicationStatus, PUBLICATION_STATUS.PUBLISHED);
+    assert.equal(item.publishedVersionId, published.versionId);
+    assert.equal(item.deletedAt, null);
+  });
+
   it("rejects editor conversation writes without HOMEPAGE_MANAGE", async () => {
     await rejectUnauthorized(() =>
       listHomepageConversationItems(fixture.selectedOnA),
@@ -506,6 +624,7 @@ describe("homepage conversation PostgreSQL", () => {
     await rejectUnauthorized(() =>
       reorderHomepageConversationItems({
         scope: fixture.selectedOnA,
+        expectedUpdatedAt: created.updatedAt,
         orderedIds: [created.id],
       }),
     );
