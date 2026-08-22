@@ -2,6 +2,14 @@ import Link from "next/link";
 import { PublicSiteMobileMenu } from "@/components/public-site-mobile-menu";
 import { isPublicNavPlaceholder, PUBLIC_NAV_ITEMS } from "@/lib/public-nav";
 
+function PublicSearchLink({ className }: { className: string }) {
+  return (
+    <Link href="/arama" className={className} aria-label="Arama">
+      Ara
+    </Link>
+  );
+}
+
 export function PublicSiteHeader() {
   return (
     <header className="public-site-header">
@@ -31,14 +39,7 @@ export function PublicSiteHeader() {
           </ul>
         </nav>
 
-        <button
-          type="button"
-          className="public-site-header__search"
-          aria-label="Ara (yakında)"
-          disabled
-        >
-          Ara
-        </button>
+        <PublicSearchLink className="public-site-header__search" />
       </div>
 
       <div className="public-site-header__mobile">
@@ -46,14 +47,7 @@ export function PublicSiteHeader() {
           MAGAZİN
         </Link>
         <div className="public-site-header__mobile-actions">
-          <button
-            type="button"
-            className="public-site-header__search"
-            aria-label="Ara (yakında)"
-            disabled
-          >
-            Ara
-          </button>
+          <PublicSearchLink className="public-site-header__search" />
           <PublicSiteMobileMenu />
         </div>
       </div>
