@@ -21,6 +21,12 @@ describe("homepage instrumentation contract", () => {
     assert.equal(page.includes("homepage.homepageVersionId"), true);
   });
 
+  it("does not render the breaking-news strip on the public homepage", () => {
+    const page = read("app/page.tsx");
+    assert.equal(page.includes("HomepageBreakingStrip"), false);
+    assert.equal(page.includes("homepage-breaking-strip"), false);
+  });
+
   it("uses canonical placements rather than CSS class names", () => {
     const placement = read("components/analytics/analytics-homepage-placement.tsx");
     const leadGrid = read("components/homepage-lead-grid.tsx");
@@ -29,6 +35,7 @@ describe("homepage instrumentation contract", () => {
     // server-computed analyticsPlacements (LEAD vs RECENCY_FALLBACK), rather than
     // hardcoding ANALYTICS_PLACEMENT.LEAD, so a recency-backfilled slot is still tracked.
     assert.equal(leadGrid.includes("ANALYTICS_PLACEMENT.LEAD"), false);
+    assert.equal(leadGrid.includes("homepage-lead-grid__rail"), true);
     assert.equal(leadGrid.includes("ANALYTICS_PLACEMENT.CONVERSATION"), true);
     assert.equal(leadGrid.includes("found.placement"), true);
     assert.equal(leadGrid.includes("analyticsPlacements"), true);

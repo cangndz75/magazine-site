@@ -9,6 +9,7 @@ type HomepageVideoProps = {
   video: PublicEditorialVideoProjection;
   homepageVersionId?: string | null;
   analyticsContext?: string;
+  variant?: "default" | "rail";
 };
 
 function formatDuration(seconds: number | null): string | null {
@@ -25,6 +26,7 @@ export function HomepageVideo({
   video,
   homepageVersionId,
   analyticsContext,
+  variant = "default",
 }: HomepageVideoProps) {
   const trusted = trustedPublicArticleVideos([video])[0];
   if (!trusted) {
@@ -70,8 +72,11 @@ export function HomepageVideo({
     </figure>
   );
 
+  const sectionClassName =
+    variant === "rail" ? "homepage-video homepage-video--rail" : "homepage-video";
+
   return (
-    <section className="homepage-video" aria-label="Video">
+    <section className={sectionClassName} aria-label="Video">
       <h2 className="homepage-video__title">Video</h2>
       {video.videoAssetId && homepageVersionId && analyticsContext ? (
         <AnalyticsVideoImpression

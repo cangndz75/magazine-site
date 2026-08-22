@@ -1,10 +1,8 @@
 import { AnalyticsHomepageView } from "@/components/analytics/analytics-page-view";
 import { HomepageAnalyticsProvider } from "@/components/analytics/homepage-analytics-context";
-import { HomepageBreakingStrip } from "@/components/homepage-breaking-strip";
 import { HomepageFeatured } from "@/components/homepage-featured";
 import { HomepageLatest } from "@/components/homepage-latest";
 import { HomepageLeadGrid } from "@/components/homepage-lead-grid";
-import { HomepageVideo } from "@/components/homepage-video";
 import { PublicUtilityBar } from "@/components/public-utility-bar";
 import { getPublicHomepage } from "@/lib/public-homepage";
 /**
@@ -43,7 +41,6 @@ export default async function Home() {
     );
   }
 
-  const hasVideo = Boolean(homepage.video);
   const hasFeatured = homepage.featured.length > 0;
 
   return (
@@ -56,30 +53,16 @@ export default async function Home() {
       ) : null}
       <PublicUtilityBar />
       <HomepageAnalyticsProvider homepageVersionId={homepage.homepageVersionId}>
-        <HomepageBreakingStrip story={homepage.lead} placements={homepage.analyticsPlacements} />
         <div className="homepage__inner">
           <div className="homepage__canvas">
             <HomepageLeadGrid homepage={homepage} />
 
-            {hasFeatured || hasVideo ? (
-              <div
-                className={
-                  hasVideo
-                    ? "homepage__second-row homepage__second-row--with-video"
-                    : "homepage__second-row"
-                }
-              >
+            {hasFeatured ? (
+              <div className="homepage__featured-row">
                 <HomepageFeatured
                   stories={homepage.featured}
                   placements={homepage.analyticsPlacements}
                 />
-                {homepage.video ? (
-                  <HomepageVideo
-                    video={homepage.video}
-                    homepageVersionId={homepage.homepageVersionId}
-                    analyticsContext={homepage.homepageVideoContext}
-                  />
-                ) : null}
               </div>
             ) : null}
 
