@@ -29,6 +29,10 @@ export const READINESS_ISSUE_LABELS: Record<string, string> = {
   HERO_PUBLIC_URL_MISSING: "Kapak kamu önizlemesi hazır değil.",
   HERO_RIGHTS_INELIGIBLE: "Kapak görseli kamu kullanımına uygun değil.",
   HERO_RIGHTS_UNKNOWN: "Kapak görseli hak durumu doğrulanamadı.",
+  GALLERY_COVER_MISSING: "Kapak görseli eksik.",
+  GALLERY_IMAGES_MISSING: "Galeri görseli eklenmemiş.",
+  GALLERY_MEDIA_INELIGIBLE: "Kullanıma uygun olmayan medya var.",
+  GALLERY_CREDIT_MISSING: "Zorunlu kredi eksik.",
   ENTITY_ARCHIVED: "Arşivlenmiş varlık ilişkisi var.",
   LINK_SUGGESTIONS_PENDING: "İncelenmemiş iç bağlantı önerisi var.",
   LINK_SUGGESTIONS_AMBIGUOUS: "Belirsiz eşleşme seçim bekliyor.",
@@ -146,6 +150,13 @@ export const EDITOR_SECTION_NAV: EditorSectionNavItem[] = [
   { id: "editor-section-entities", label: "Varlıklar" },
   { id: "editor-section-seo", label: "SEO" },
   { id: "editor-section-publication", label: "Yayın" },
+];
+
+export const GALLERY_EDITOR_SECTION_NAV: EditorSectionNavItem[] = [
+  { id: "editor-section-content", label: "Kimlik" },
+  { id: "editor-section-cover", label: "Kapak" },
+  { id: "editor-section-gallery-sequence", label: "Görsel sırası" },
+  { id: "editor-section-seo", label: "SEO" },
 ];
 
 export type SavePresentationState =

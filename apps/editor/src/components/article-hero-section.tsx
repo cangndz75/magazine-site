@@ -24,6 +24,7 @@ type ArticleHeroSectionProps = {
   onSelect: (next: ArticleEditorMedia) => void;
   onRemove: () => void;
   onPresentationChange: (patch: { altText: string | null; credit: string | null }) => void;
+  context?: "article" | "gallery";
 };
 
 function publicCredit(hero: ArticleEditorMedia): string {
@@ -41,6 +42,7 @@ export function ArticleHeroSection({
   onSelect,
   onRemove,
   onPresentationChange,
+  context = "article",
 }: ArticleHeroSectionProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const altId = useId();
@@ -52,8 +54,9 @@ export function ArticleHeroSection({
       <div>
         <h3 className="text-sm font-medium text-zinc-700">Kapak görseli</h3>
         <p className="mt-1 text-xs text-zinc-500">
-          Yalnızca açık taslağı değiştirir. Yayındaki kapak, haber yayımlanana kadar
-          aynı kalır.
+          {context === "gallery"
+            ? "Bu görsel galerinin kapak görseli. Yalnızca açık taslağı değiştirir; yayındaki kapak galeri yayımlanana kadar aynı kalır."
+            : "Yalnızca açık taslağı değiştirir. Yayındaki kapak, haber yayımlanana kadar aynı kalır."}
         </p>
       </div>
 

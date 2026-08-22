@@ -9,18 +9,32 @@ import {
   galleryAnalyticsEmissions,
 } from "@magazine/domain/analytics-client";
 
+const root = fileURLToPath(new URL("../..", import.meta.url));
+
+function read(rel: string): string {
+  return readFileSync(path.join(root, rel), "utf8");
+}
+
+const gallerySources = [
+  "components/public-article-gallery.tsx",
+  "components/public-photo-gallery-story.tsx",
+];
+
 const MEDIA_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const MEDIA_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-const gallerySource = readFileSync(
-  path.join(fileURLToPath(new URL("../../components/public-article-gallery.tsx", import.meta.url))),
-  "utf8",
-);
 
 describe("public gallery analytics", () => {
   it("does not open the gallery from the initial render path", () => {
-    assert.equal(gallerySource.includes("galleryAnalyticsEmissions"), true);
-    assert.equal(gallerySource.includes("applyUserNavigation"), true);
-    assert.equal(gallerySource.includes("useEffect(() => {\n    publicAnalytics.trackGalleryOpen"), false);
+    for (const rel of gallerySources) {
+      const source = read(rel);
+      assert.equal(source.includes("galleryAnalyticsEmissions"), true);
+      assert.equal(
+        source.includes("useEffect(() => {\n    publicAnalytics.trackGalleryOpen"),
+        false,
+      );
+    }
+    assert.equal(read("components/public-article-gallery.tsx").includes("applyUserNavigation"), true);
+    assert.equal(read("components/public-photo-gallery-story.tsx").includes("applyNavigation"), true);
   });
 
   it("records OPEN then NAVIGATE then IMAGE_VIEW for next", () => {
@@ -78,6 +92,8 @@ describe("public gallery analytics", () => {
   });
 
   it("does not put storageKey into gallery instrumentation", () => {
-    assert.equal(gallerySource.includes("storageKey"), false);
+    for (const rel of gallerySources) {
+      assert.equal(read(rel).includes("storageKey"), false);
+    }
   });
 });
