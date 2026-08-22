@@ -35,14 +35,18 @@ export async function verifyRestoredDatabase(databaseUrl: string): Promise<{
       throw new Error(`Restored schema is missing critical tables: ${missing.join(", ")}`);
     }
 
-    const migrations = await pool.query<{ exists: boolean }>(
-      "SELECT to_regclass('public.__drizzle_migrations') IS NOT NULL AS exists",
+    const migrations = await pool.query<{ table_path: string | null }>(
+      `SELECT coalesce(
+         to_regclass('drizzle.__drizzle_migrations')::text,
+         to_regclass('public.__drizzle_migrations')::text
+       ) AS table_path`,
     );
     let latestMigrationTag: string | null = null;
-    if (migrations.rows[0]?.exists === true) {
+    const migrationTable = migrations.rows[0]?.table_path;
+    if (migrationTable) {
       const latest = await pool.query<{ tag: string | null }>(
         `SELECT hash AS tag
-         FROM __drizzle_migrations
+         FROM ${migrationTable}
          ORDER BY created_at DESC
          LIMIT 1`,
       );

@@ -26,7 +26,8 @@ async function main(): Promise<void> {
   }
 
   const env = getDbEnv();
-  await assertToolAvailable("pg_dump");
+  const pgDump = process.env.PG_DUMP_BINARY ?? "pg_dump";
+  await assertToolAvailable(pgDump);
 
   const createdAt = process.env.BACKUP_CREATED_AT ?? new Date().toISOString();
   const resolvedOutputDir = path.resolve(outputDir);
@@ -39,7 +40,7 @@ async function main(): Promise<void> {
   const journalPath = path.join(repoRoot, "packages/db/drizzle/meta/_journal.json");
 
   await runCommand(
-    "pg_dump",
+    pgDump,
     ["--format=custom", "--no-owner", "--no-acl", "--file", dumpPath],
     { env: postgresUrlToToolEnv(env.DATABASE_URL) },
   );

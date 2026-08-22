@@ -23,7 +23,8 @@ async function main(): Promise<void> {
 
   const restoreUrl = process.env.RESTORE_DATABASE_URL;
   const destination = assertSafeRestoreDatabaseUrl(restoreUrl);
-  await assertToolAvailable("pg_restore");
+  const pgRestore = process.env.PG_RESTORE_BINARY ?? "pg_restore";
+  await assertToolAvailable(pgRestore);
 
   const manifestPath = path.resolve(manifestArg);
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as BackupManifest;
@@ -31,7 +32,7 @@ async function main(): Promise<void> {
   const dumpPath = path.resolve(path.dirname(manifestPath), manifest.database.filename);
 
   await runCommand(
-    "pg_restore",
+    pgRestore,
     ["--clean", "--if-exists", "--no-owner", "--no-acl", "--dbname", destination.databaseName, dumpPath],
     { env: postgresUrlToToolEnv(restoreUrl ?? "") },
   );

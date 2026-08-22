@@ -10,7 +10,8 @@ export type CommandRunner = (
 
 export const runCommand: CommandRunner = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const invocation = resolveCommandInvocation(command, args);
+    const child = spawn(invocation.command, invocation.args, {
       env: options.env,
       stdio: ["ignore", "inherit", "inherit"],
       windowsHide: true,
@@ -24,6 +25,27 @@ export const runCommand: CommandRunner = (command, args, options = {}) =>
       reject(new Error(`${command} exited with code ${code ?? "unknown"}.`));
     });
   });
+
+export function shouldUseWindowsCommandShell(command: string): boolean {
+  return process.platform === "win32" && /\.(cmd|bat)$/i.test(command);
+}
+
+export function resolveCommandInvocation(
+  command: string,
+  args: readonly string[],
+): {
+  command: string;
+  args: readonly string[];
+} {
+  if (!shouldUseWindowsCommandShell(command)) {
+    return { command, args };
+  }
+
+  return {
+    command: process.env.ComSpec ?? "cmd.exe",
+    args: ["/d", "/s", "/c", command, ...args],
+  };
+}
 
 export async function assertToolAvailable(
   command: string,

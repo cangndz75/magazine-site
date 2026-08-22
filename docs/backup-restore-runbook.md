@@ -18,6 +18,9 @@ target.
 Prerequisites:
 
 - `pg_dump` is installed and available on `PATH`.
+- `pg_dump` major version matches the PostgreSQL server major version when
+  possible. Newer clients can emit restore-time settings older servers do not
+  recognize.
 - `DATABASE_URL` points at the intended PostgreSQL source.
 - The output directory is explicit and outside Git-tracked source.
 
@@ -59,6 +62,8 @@ This is a file-level integrity check. It does not prove the dump can restore.
 Prerequisites:
 
 - `pg_restore` is installed and available on `PATH`.
+- `pg_restore` major version matches the PostgreSQL server major version when
+  possible.
 - `RESTORE_DATABASE_URL` points at a local dedicated restore-test database.
 - The destination database name ends with `_restore_test`.
 
@@ -86,7 +91,8 @@ the approved restore-test database, then validates:
 - application connectivity
 - representative critical tables exist
 - the restored public schema is queryable
-- Drizzle migration table presence when available
+- Drizzle migration table presence when available, including
+  `drizzle.__drizzle_migrations`
 
 ## Media Inventory
 
