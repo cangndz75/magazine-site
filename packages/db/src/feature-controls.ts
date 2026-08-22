@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import {
   FEATURE_CONTROL_DEFINITIONS,
   FEATURE_CONTROL_ERROR,
@@ -17,6 +17,7 @@ import {
   type StaffRole,
 } from "@magazine/domain";
 import { getDb } from "./client";
+import { staffUsers } from "./schema/staff";
 import {
   featureControlAuditEvents,
   featureControls,
@@ -25,6 +26,20 @@ import {
 export type FeatureControlActor = {
   staffUserId: string;
   roles: readonly StaffRole[];
+};
+
+export type ResolvedFeatureControlWithActor = ResolvedFeatureControl & {
+  updatedByDisplayName: string | null;
+};
+
+export type FeatureControlAuditProjection = {
+  controlKey: FeatureControlKey;
+  controlType: ResolvedFeatureControl["type"];
+  oldEnabled: boolean;
+  newEnabled: boolean;
+  occurredAt: string;
+  actorStaffUserId: string;
+  actorDisplayName: string;
 };
 
 export type UpdateFeatureControlInput = {
@@ -60,16 +75,68 @@ export async function getFeatureControl(
 
 export async function listFeatureControls(
   actor: FeatureControlActor,
-): Promise<ResolvedFeatureControl[]> {
+): Promise<ResolvedFeatureControlWithActor[]> {
   authorizeActor(actor);
   const rows = await getDb()
-    .select()
+    .select({
+      control: featureControls,
+      updatedByDisplayName: staffUsers.displayName,
+    })
     .from(featureControls)
+    .leftJoin(
+      staffUsers,
+      eq(staffUsers.id, featureControls.updatedByStaffUserId),
+    )
     .orderBy(asc(featureControls.key));
-  const byKey = new Map(rows.map((row) => [row.key, row]));
-  return FEATURE_CONTROL_DEFINITIONS.map((definition) =>
-    resolveFeatureControl(definition.key, byKey.get(definition.key) ?? null),
-  );
+  const byKey = new Map(rows.map((row) => [row.control.key, row]));
+  return FEATURE_CONTROL_DEFINITIONS.map((definition) => {
+    const row = byKey.get(definition.key);
+    const resolved = resolveFeatureControl(
+      definition.key,
+      row?.control ?? null,
+    );
+    return {
+      ...resolved,
+      updatedByDisplayName: row?.updatedByDisplayName ?? null,
+    };
+  });
+}
+
+export async function listRecentFeatureControlAuditEvents(
+  actor: FeatureControlActor,
+  limit = 15,
+): Promise<FeatureControlAuditProjection[]> {
+  authorizeActor(actor);
+  const rows = await getDb()
+    .select({
+      controlKey: featureControlAuditEvents.controlKey,
+      controlType: featureControlAuditEvents.controlType,
+      oldEnabled: featureControlAuditEvents.oldEnabled,
+      newEnabled: featureControlAuditEvents.newEnabled,
+      occurredAt: featureControlAuditEvents.occurredAt,
+      actorStaffUserId: featureControlAuditEvents.actorStaffUserId,
+      actorDisplayName: staffUsers.displayName,
+    })
+    .from(featureControlAuditEvents)
+    .innerJoin(
+      staffUsers,
+      eq(staffUsers.id, featureControlAuditEvents.actorStaffUserId),
+    )
+    .orderBy(desc(featureControlAuditEvents.occurredAt))
+    .limit(limit);
+
+  return rows.map((row) => ({
+    controlKey: row.controlKey as FeatureControlKey,
+    controlType: row.controlType as ResolvedFeatureControl["type"],
+    oldEnabled: row.oldEnabled,
+    newEnabled: row.newEnabled,
+    occurredAt:
+      row.occurredAt instanceof Date
+        ? row.occurredAt.toISOString()
+        : new Date(row.occurredAt).toISOString(),
+    actorStaffUserId: row.actorStaffUserId,
+    actorDisplayName: row.actorDisplayName,
+  }));
 }
 
 export async function isFeatureEnabled(key: FeatureFlagKey): Promise<boolean> {

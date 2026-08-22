@@ -168,7 +168,7 @@ export async function getSiteHealth(
       () => loadCacheHealth(),
     ),
     section(
-      "Feature controls",
+      "Özellik kontrolleri",
       { featureFlagsDisabled: null, killSwitchesActive: null },
       () => loadFeatureControlsHealth(),
     ),
@@ -220,16 +220,18 @@ async function loadFeatureControlsHealth(): Promise<
   return {
     status: needsAttention ? SITE_HEALTH_STATUS.ATTENTION : SITE_HEALTH_STATUS.HEALTHY,
     availability: "AVAILABLE",
-    label: "Feature controls",
+    label: "Özellik kontrolleri",
     summary: needsAttention
-      ? "At least one runtime control is currently changing normal behavior."
-      : "Runtime controls are at their default production posture.",
+      ? summary.killSwitchesActive > 0
+        ? "En az bir acil durum kontrolü aktif; normal davranış değişmiş olabilir."
+        : "Bazı özellik bayrakları kapalı; ürün yüzeyleri kısıtlanmış olabilir."
+    : "Çalışma zamanı kontrolleri varsayılan üretim durumunda.",
     updatedAt: summary.updatedAt,
     metrics: {
       featureFlagsDisabled: summary.featureFlagsDisabled,
       killSwitchesActive: summary.killSwitchesActive,
     },
-    actionTarget: null,
+    actionTarget: "/feature-controls",
   };
 }
 

@@ -192,6 +192,20 @@ export function buildSummaryStrip(health: SiteHealthDto, now: Date = new Date())
           ? `${formatSiteHealthCount(cache.metrics.dead)} başarısız invalidation`
           : "Runtime gözlemlenemiyor",
     },
+    {
+      key: "featureControls",
+      label: "Özellik Kontrolleri",
+      status: health.featureControls.status,
+      context:
+        health.featureControls.metrics.killSwitchesActive === null
+          ? "Sinyal yok"
+          : health.featureControls.metrics.killSwitchesActive > 0
+            ? `${formatSiteHealthCount(health.featureControls.metrics.killSwitchesActive)} acil durum aktif`
+            : health.featureControls.metrics.featureFlagsDisabled &&
+                health.featureControls.metrics.featureFlagsDisabled > 0
+              ? `${formatSiteHealthCount(health.featureControls.metrics.featureFlagsDisabled)} bayrak kapalı`
+              : "Varsayılan durum",
+    },
   ];
 }
 
@@ -200,6 +214,7 @@ export const ACTION_LINK_LABEL: Record<string, string> = {
   "/analytics": "İncele →",
   "/seo": "İncele →",
   "/homepage": "Yönet →",
+  "/feature-controls": "Kontrolleri Yönet →",
 };
 
 export function actionLinkLabel(href: string | null): string | null {

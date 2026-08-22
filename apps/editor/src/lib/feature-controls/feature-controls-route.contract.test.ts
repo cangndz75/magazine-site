@@ -11,22 +11,19 @@ function source(relativePath: string): string {
   return readFileSync(path.join(root, relativePath), "utf8");
 }
 
-describe("Site Health editor route contract", () => {
-  it("adds a protected Site Health page without a client API route", () => {
+describe("Feature controls editor route contract", () => {
+  it("adds a protected feature controls page", () => {
     assert.equal(
-      existsSync(path.join(root, "app/(workspace)/site-health/page.tsx")),
+      existsSync(path.join(root, "app/(workspace)/feature-controls/page.tsx")),
       true,
     );
-    assert.equal(existsSync(path.join(root, "app/api/site-health/route.ts")), false);
   });
 
-  it("requires STAFF_MANAGE server-side before loading the read model", () => {
-    const page = source("app/(workspace)/site-health/page.tsx");
+  it("requires STAFF_MANAGE server-side before loading controls", () => {
+    const page = source("app/(workspace)/feature-controls/page.tsx");
     assert.match(page, /requireCapability\(CAPABILITY\.STAFF_MANAGE\)/);
-    assert.match(page, /getSiteHealth/);
-    assert.match(page, /editorScopeFromSession/);
-    assert.equal(page.includes("CAPABILITY.CONTENT_READ"), false);
-    assert.equal(page.includes("CAPABILITY.ANALYTICS_READ"), false);
+    assert.match(page, /listFeatureControls/);
+    assert.match(page, /listRecentFeatureControlAuditEvents/);
   });
 
   it("uses the existing Super Admin capability contract", () => {
@@ -35,25 +32,31 @@ describe("Site Health editor route contract", () => {
     assert.equal(hasCapability([STAFF_ROLE.AUTHOR], CAPABILITY.STAFF_MANAGE), false);
   });
 
-  it("shows navigation only through the existing management group", () => {
+  it("shows navigation only through the management group", () => {
     const navigation = source("lib/workspace/navigation.ts");
-    assert.match(navigation, /href: "\/site-health"/);
-    assert.match(navigation, /Sistem Sağlığı/);
     assert.match(navigation, /href: "\/feature-controls"/);
+    assert.match(navigation, /Özellik Kontrolleri/);
     assert.match(navigation, /input\.canManageStaff/);
   });
 
-  it("does not reference sensitive DTO fields in the page", () => {
-    const page = source("app/(workspace)/site-health/page.tsx");
+  it("gates API routes on STAFF_MANAGE and editor wrappers", () => {
+    const listRoute = source("app/api/feature-controls/route.ts");
+    const patchRoute = source("app/api/feature-controls/[key]/route.ts");
+    assert.match(listRoute, /CAPABILITY\.STAFF_MANAGE/);
+    assert.match(listRoute, /withEditorRead/);
+    assert.match(patchRoute, /CAPABILITY\.STAFF_MANAGE/);
+    assert.match(patchRoute, /withEditorWrite/);
+    assert.match(patchRoute, /expectedUpdatedAt/);
+  });
+
+  it("does not reference sensitive tokens in the page", () => {
+    const page = source("app/(workspace)/feature-controls/page.tsx");
     for (const token of [
-      "storageKey",
-      "databaseUrl",
       "passwordHash",
       "tokenHash",
       "secretCiphertext",
-      "recoveryCode",
-      "eventId",
-      "anonymousId",
+      "databaseUrl",
+      "connectionString",
     ]) {
       assert.equal(page.includes(token), false, token);
     }

@@ -140,6 +140,12 @@ export function buildWorkspaceNavigation(
               marker: "S",
             },
             {
+              href: "/feature-controls",
+              label: "Özellik Kontrolleri",
+              description: "Özellik bayrakları ve acil durum kontrolleri",
+              marker: "Ö",
+            },
+            {
               href: "/staff",
               label: "Personel",
               description: "Roller, kapsam ve güvenlik",
