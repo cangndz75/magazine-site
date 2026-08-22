@@ -1,48 +1,73 @@
 import Link from "next/link";
 import {
+  isPublicNavPlaceholder,
   PUBLIC_FOOTER_SECTION_LINKS,
-  PUBLIC_NAV_ITEMS,
+  type PublicNavItem,
 } from "@/lib/public-nav";
+
+function FooterNavItem({
+  item,
+  className,
+}: {
+  item: PublicNavItem;
+  className: string;
+}) {
+  if (isPublicNavPlaceholder(item)) {
+    return (
+      <span className={`${className} ${className}--placeholder`} aria-disabled="true">
+        {item.label}
+      </span>
+    );
+  }
+
+  return (
+    <Link href={item.href} className={className}>
+      {item.label}
+    </Link>
+  );
+}
 
 export function PublicSiteFooter() {
   return (
     <footer className="public-site-footer">
-      <div className="public-site-footer__inner">
-        <div className="public-site-footer__brand">
-          <p className="public-site-footer__wordmark">MAGAZİN</p>
-          <p className="public-site-footer__blurb">
-            Türkiye&apos;nin magazin, ünlü ve eğlence yayını.
-          </p>
-        </div>
-
-        <div className="public-site-footer__columns">
-          <div className="public-site-footer__column">
-            <p className="public-site-footer__label">Bölümler</p>
-            <ul className="public-site-footer__links">
-              {PUBLIC_NAV_ITEMS.map((item) => (
-                <li key={item.label}>
-                  <Link href={item.href}>{item.label}</Link>
-                </li>
-              ))}
-            </ul>
+      <div className="public-site-footer__body">
+        <div className="public-site-footer__inner">
+          <div className="public-site-footer__brand">
+            <Link href="/" className="public-site-footer__wordmark">
+              MAGAZİN
+            </Link>
+            <p className="public-site-footer__blurb">
+              Türkiye&apos;nin magazin, ünlü ve eğlence yayını.
+            </p>
           </div>
 
-          <div className="public-site-footer__column">
+          <nav className="public-site-footer__column" aria-label="Kurumsal">
             <p className="public-site-footer__label">Kurumsal</p>
             <ul className="public-site-footer__links">
               {PUBLIC_FOOTER_SECTION_LINKS.map((item) => (
                 <li key={item.label}>
-                  <Link href={item.href}>{item.label}</Link>
+                  <FooterNavItem item={item} className="public-site-footer__link" />
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
         </div>
       </div>
 
-      <p className="public-site-footer__legal">
-        © {new Date().getFullYear()} Magazin. Tüm hakları saklıdır.
-      </p>
+      <div className="public-site-footer__legal">
+        <div className="public-site-footer__legal-inner">
+          <p className="public-site-footer__copyright">
+            © {new Date().getFullYear()} Magazin. Tüm hakları saklıdır.
+          </p>
+          <ul className="public-site-footer__legal-links">
+            {PUBLIC_FOOTER_SECTION_LINKS.map((item) => (
+              <li key={item.label}>
+                <FooterNavItem item={item} className="public-site-footer__legal-link" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </footer>
   );
 }

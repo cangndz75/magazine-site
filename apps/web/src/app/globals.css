@@ -415,50 +415,54 @@ summary:focus-visible {
 /* —— Footer —— */
 
 .public-site-footer {
-  margin-top: var(--space-6);
-  padding-top: var(--space-4);
-  background: var(--surface-soft);
-  border-top: 1px solid var(--line);
+  margin-top: var(--space-5);
+}
+
+.public-site-footer__body {
+  background: var(--ink);
+  color: var(--inverse);
+  border-top: 3px solid var(--brand);
 }
 
 .public-site-footer__inner {
   max-width: var(--site-max);
   margin-inline: auto;
-  padding-inline: var(--space-3);
-  padding-bottom: var(--space-4);
+  padding: var(--space-5) var(--space-3);
   display: grid;
   gap: var(--space-4);
 }
 
 .public-site-footer__wordmark {
+  display: inline-block;
   margin: 0;
   font-family: var(--font-geist), system-ui, sans-serif;
-  font-size: 1.125rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: clamp(1.75rem, 2vw + 1rem, 2.25rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
   color: var(--brand);
+  text-decoration: none;
+}
+
+.public-site-footer__wordmark:hover {
+  color: var(--inverse);
 }
 
 .public-site-footer__blurb {
-  margin: var(--space-1) 0 0;
+  margin: var(--space-2) 0 0;
   max-width: 22rem;
-  color: var(--ink-muted);
+  color: rgba(255, 255, 255, 0.62);
   font-size: var(--text-ui-sm);
-  line-height: 1.5;
-}
-
-.public-site-footer__columns {
-  display: grid;
-  gap: var(--space-4);
+  line-height: 1.55;
 }
 
 .public-site-footer__label {
-  margin: 0 0 var(--space-1);
+  margin: 0 0 var(--space-2);
   font-size: var(--text-ui-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-muted);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .public-site-footer__links {
@@ -467,36 +471,96 @@ summary:focus-visible {
   list-style: none;
 }
 
-.public-site-footer__links a {
+.public-site-footer__link {
   display: block;
-  padding: 0.25rem 0;
+  padding: 0.3rem 0;
   font-size: var(--text-ui-sm);
-  color: var(--ink-secondary);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
   text-decoration: none;
 }
 
-.public-site-footer__links a:hover {
+.public-site-footer__link:hover {
   color: var(--brand);
 }
 
+.public-site-footer__link--placeholder {
+  cursor: default;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.public-site-footer__link--placeholder:hover {
+  color: rgba(255, 255, 255, 0.48);
+}
+
 .public-site-footer__legal {
+  background: #0a0a0a;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.public-site-footer__legal-inner {
   max-width: var(--site-max);
-  margin: 0 auto;
-  padding: var(--space-2) var(--space-3) var(--space-4);
-  border-top: 1px solid var(--line);
-  color: var(--ink-muted);
+  margin-inline: auto;
+  padding: 0.875rem var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem var(--space-3);
+}
+
+.public-site-footer__copyright {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.48);
   font-size: var(--text-ui-xs);
+}
+
+.public-site-footer__legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.public-site-footer__legal-link {
+  font-size: var(--text-ui-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.55);
+  text-decoration: none;
+}
+
+.public-site-footer__legal-link:hover {
+  color: var(--inverse);
+}
+
+.public-site-footer__legal-link--placeholder {
+  cursor: default;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.public-site-footer__legal-link--placeholder:hover {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+@media (max-width: 767px) {
+  .public-site-footer__inner,
+  .public-site-footer__legal-inner {
+    padding-inline: var(--space-2);
+  }
+
+  .public-site-footer__inner {
+    padding-block: var(--space-4);
+  }
 }
 
 @media (min-width: 768px) {
   .public-site-footer__inner {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1.6fr) minmax(12rem, 0.55fr);
     align-items: start;
-  }
-
-  .public-site-footer__columns {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-3);
+    column-gap: var(--space-6);
   }
 }
 
@@ -2049,7 +2113,8 @@ summary:focus-visible {
   min-width: 0;
 }
 
-.homepage-photo-gallery-card__link {
+.homepage-photo-gallery-card__link,
+.homepage-photo-gallery-card__static {
   display: block;
   color: inherit;
   text-decoration: none;
@@ -2105,6 +2170,226 @@ summary:focus-visible {
   color: var(--ink-muted);
 }
 
+.homepage__lifestyle-row {
+  display: grid;
+  gap: var(--space-5);
+  margin-top: var(--space-5);
+  min-width: 0;
+}
+
+.homepage-video-gallery,
+.homepage-astrology {
+  min-width: 0;
+}
+
+.homepage-video-gallery__layout {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.homepage-video-gallery__featured-figure,
+.homepage-video-gallery__thumb {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-image);
+  background: var(--surface-soft);
+}
+
+.homepage-video-gallery__featured-figure {
+  aspect-ratio: 16 / 9;
+}
+
+.homepage-video-gallery__thumb {
+  flex-shrink: 0;
+  width: 7.25rem;
+  aspect-ratio: 16 / 9;
+}
+
+.homepage-video-gallery__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.homepage-video-gallery__play {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--inverse);
+  color: var(--ink);
+}
+
+.homepage-video-gallery__thumb .homepage-video-gallery__play {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.homepage-video-gallery__thumb .homepage-video-gallery__play svg {
+  width: 12px;
+  height: 12px;
+}
+
+.homepage-video-gallery__duration {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 1;
+  padding: 0.15rem 0.4rem;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.75);
+  color: var(--inverse);
+  font-size: var(--text-ui-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.homepage-video-gallery__body {
+  padding-top: 0.625rem;
+}
+
+.homepage-video-gallery__title {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-geist), system-ui, sans-serif;
+  font-size: clamp(1.0625rem, 0.4vw + 0.95rem, 1.25rem);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.homepage-video-gallery__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0;
+}
+
+.homepage-video-gallery__list li {
+  border-top: 1px solid var(--line);
+}
+
+.homepage-video-gallery__list li:first-child {
+  border-top: none;
+}
+
+.homepage-video-gallery__item {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0.75rem 0;
+  min-width: 0;
+}
+
+.homepage-video-gallery__item-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.homepage-video-gallery__item-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.homepage-video-gallery__item-duration {
+  font-size: var(--text-ui-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+.homepage-astrology__featured {
+  padding: var(--space-3) 0 var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.homepage-astrology__sign {
+  margin: 0;
+  font-family: var(--font-geist), system-ui, sans-serif;
+  font-size: clamp(1.75rem, 2vw + 0.75rem, 2.25rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  color: var(--brand);
+}
+
+.homepage-astrology__dates {
+  margin: 0.35rem 0 0;
+  font-size: var(--text-ui-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.homepage-astrology__teaser {
+  margin: var(--space-2) 0 0;
+  max-width: 36rem;
+  font-size: var(--text-deck);
+  line-height: 1.45;
+  color: var(--ink-secondary);
+}
+
+.homepage-astrology__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.homepage-astrology__row {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.homepage-astrology__row:last-child {
+  border-bottom: none;
+}
+
+.homepage-astrology__row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.homepage-astrology__row-sign {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.homepage-astrology__row-dates {
+  font-size: var(--text-ui-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.homepage-astrology__row-teaser {
+  margin: 0.35rem 0 0;
+  font-size: var(--text-ui-sm);
+  line-height: 1.45;
+  color: var(--ink-secondary);
+}
+
 @media (min-width: 768px) {
   .homepage-latest__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2122,6 +2407,16 @@ summary:focus-visible {
 
   .homepage-photo-galleries__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .homepage-video-gallery__layout {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  .homepage-video-gallery__list li:first-child .homepage-video-gallery__item {
+    padding-top: 0;
   }
 }
 
@@ -2231,6 +2526,12 @@ summary:focus-visible {
 @media (min-width: 1280px) {
   .homepage-photo-galleries__grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .homepage__lifestyle-row {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    column-gap: var(--space-5);
+    align-items: start;
   }
 
   .homepage-featured__grid[data-count="5"] {
