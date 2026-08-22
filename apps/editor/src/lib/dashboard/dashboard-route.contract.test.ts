@@ -40,10 +40,11 @@ describe("Super Admin dashboard route contract", () => {
 
   it("shows dashboard navigation only behind the staff management capability", () => {
     const layout = source("app/(workspace)/layout.tsx");
+    const navigation = source("lib/workspace/navigation.ts");
     assert.match(layout, /canManageStaff/);
     assert.match(layout, /CAPABILITY\.STAFF_MANAGE/);
-    assert.match(layout, /href="\/dashboard"/);
-    assert.match(layout, /Kontrol Merkezi/);
+    assert.match(navigation, /href: "\/dashboard"/);
+    assert.match(navigation, /Kontrol Merkezi/);
   });
 
   it("does not expose dashboard data through a client API route", () => {

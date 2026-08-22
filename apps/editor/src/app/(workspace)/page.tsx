@@ -122,6 +122,8 @@ export default async function ContentPage({
       selectedCategory={selectedCategory}
       selectedAuthor={selectedAuthor}
       canCreate={hasCapability(session.roles, CAPABILITY.CONTENT_CREATE)}
+      canReview={hasCapability(session.roles, CAPABILITY.CONTENT_REVIEW)}
+      canManageStaff={hasCapability(session.roles, CAPABILITY.STAFF_MANAGE)}
     />
   );
 }

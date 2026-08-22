@@ -23,9 +23,11 @@ export function NewsroomViewTabs({
   return (
     <nav
       aria-label="Haber masası görünümleri"
-      className={`border-b border-zinc-200 ${isPending ? "opacity-60" : ""}`}
+      className={`rounded border border-zinc-200 bg-white p-1 shadow-sm shadow-zinc-200/40 ${
+        isPending ? "opacity-60" : ""
+      }`}
     >
-      <div className="-mb-px flex gap-1 overflow-x-auto">
+      <div className="flex gap-1 overflow-x-auto">
         {NEWSROOM_VIEW_TABS.map((view) => {
           const active = view === activeView;
           const count = newsroomViewCount(view, counts);
@@ -35,16 +37,16 @@ export function NewsroomViewTabs({
               type="button"
               aria-current={active ? "page" : undefined}
               onClick={() => onSelect(view)}
-              className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+              className={`inline-flex h-10 shrink-0 items-center gap-2 rounded px-3 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-700 ${
                 active
-                  ? "border-zinc-900 text-zinc-900"
-                  : "border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-700"
+                  ? "bg-zinc-950 text-white"
+                  : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950"
               }`}
             >
               {NEWSROOM_VIEW_LABELS[view]}
               <span
-                className={`rounded px-1.5 py-0.5 text-[11px] font-normal ${
-                  active ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600"
+                className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                  active ? "bg-white/15 text-white" : "bg-zinc-100 text-zinc-600"
                 }`}
               >
                 {count}

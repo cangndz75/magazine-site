@@ -42,13 +42,7 @@ export function NewsroomInspector({ item, returnTo, onClose, variant }: Props) {
   }, [item, onClose, variant]);
 
   if (!item) {
-    return (
-      <div className="flex h-full min-h-[320px] items-center justify-center rounded border border-zinc-200 bg-white p-6 text-center">
-        <p className="text-sm text-zinc-500">
-          Özet görmek için listeden bir haber seçin.
-        </p>
-      </div>
-    );
+    return null;
   }
 
   const body = <InspectorBody item={item} returnTo={returnTo} onClose={onClose} />;
@@ -57,7 +51,7 @@ export function NewsroomInspector({ item, returnTo, onClose, variant }: Props) {
     return (
       <div className="flex h-full flex-col overflow-hidden bg-white">
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-zinc-900">Haber özeti</h2>
+          <h2 className="text-sm font-semibold text-zinc-900">İçerik özeti</h2>
           <button
             ref={closeRef}
             type="button"
@@ -73,9 +67,9 @@ export function NewsroomInspector({ item, returnTo, onClose, variant }: Props) {
   }
 
   return (
-    <div className="flex h-full min-h-[480px] flex-col overflow-hidden rounded border border-zinc-200 bg-white">
+    <div className="sticky top-5 flex max-h-[calc(100vh-2.5rem)] min-h-[420px] flex-col overflow-hidden rounded border border-zinc-200 bg-white shadow-sm shadow-zinc-200/40">
       <div className="border-b border-zinc-200 px-4 py-3">
-        <h2 className="text-sm font-semibold text-zinc-900">Haber özeti</h2>
+        <h2 className="text-sm font-semibold text-zinc-900">İçerik özeti</h2>
       </div>
       <div className="overflow-y-auto p-4">{body}</div>
     </div>
@@ -111,6 +105,15 @@ function InspectorBody({
     <div className="space-y-4">
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+          Tür
+        </p>
+        <p className="mt-1 text-sm font-semibold text-zinc-900">
+          {item.contentKind === "GALLERY" ? "Foto Galeri" : "Haber"}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
           Başlık
         </p>
         <p className="mt-1 text-sm font-semibold text-zinc-900">
@@ -137,7 +140,7 @@ function InspectorBody({
         <div>
           <dt className="text-xs text-zinc-500">Kategori</dt>
           <dd className="mt-0.5 text-zinc-800">
-            {item.primaryCategory?.name ?? "—"}
+            {item.primaryCategory?.name ?? "-"}
           </dd>
         </div>
         <div>
@@ -145,7 +148,7 @@ function InspectorBody({
           <dd className="mt-0.5 text-zinc-800">
             {item.authors.length > 0
               ? item.authors.map((author) => author.displayName).join(", ")
-              : "—"}
+              : "-"}
           </dd>
         </div>
         <div>
@@ -157,7 +160,7 @@ function InspectorBody({
         <div>
           <dt className="text-xs text-zinc-500">Zamanlama</dt>
           <dd className="mt-0.5 text-zinc-800">
-            {item.scheduledAt ? formatDateTime(item.scheduledAt) : "—"}
+            {item.scheduledAt ? formatDateTime(item.scheduledAt) : "-"}
           </dd>
         </div>
       </dl>
@@ -224,7 +227,9 @@ function ReadinessStateBadge({ state }: { state: string }) {
         : "bg-emerald-50 text-emerald-800";
 
   return (
-    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${classes}`}>
+    <span
+      className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${classes}`}
+    >
       {state}
     </span>
   );

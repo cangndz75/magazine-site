@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useRef, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import type { ContentPageFilters } from "@/lib/content/page-params";
 import type {
   AuthorLookupOption,
@@ -18,7 +18,6 @@ type Props = {
   onClearFilters: () => void;
   isPending: boolean;
   hasFilters: boolean;
-  canCreate: boolean;
   categoryOptions: CategoryLookupOption[];
   authorOptions: AuthorLookupOption[];
   selectedCategory: CategoryLookupOption | null;
@@ -51,68 +50,13 @@ export function NewsroomToolbar({
   onClearFilters,
   isPending,
   hasFilters,
-  canCreate,
   categoryOptions,
   authorOptions,
   selectedCategory,
   selectedAuthor,
 }: Props) {
-  const router = useRouter();
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-
-  async function handleCreateContent(contentKind: "ARTICLE" | "GALLERY") {
-    if (!canCreate || creating) {
-      return;
-    }
-
-    setCreating(true);
-    setCreateError(null);
-
-    try {
-      const response = await fetch("/api/content", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          "content-type": "application/json",
-          accept: "application/json",
-        },
-        body: JSON.stringify({
-          contentKind,
-          title: "Başlıksız",
-          slug: generateDraftSlug(
-            contentKind === "GALLERY" ? "galeri" : "haber",
-          ),
-          body: { blocks: [] },
-        }),
-      });
-      const payload = (await response.json()) as {
-        ok?: boolean;
-        data?: { contentItemId: string };
-        error?: { message?: string };
-      };
-
-      if (!response.ok || !payload.ok || !payload.data?.contentItemId) {
-        throw new Error(payload.error?.message ?? "Haber oluşturulamadı.");
-      }
-
-      startTransition(() => {
-        router.push(
-          buildArticleHref({ contentItemId: payload.data!.contentItemId }),
-        );
-      });
-    } catch (error) {
-      setCreateError(
-        error instanceof Error ? error.message : "Haber oluşturulamadı.",
-      );
-    } finally {
-      setCreating(false);
-    }
-  }
-
   return (
-    <div className="space-y-3">
+    <div className="rounded border border-zinc-200 bg-white p-3 shadow-sm shadow-zinc-200/40">
       <div className="flex flex-wrap items-center gap-2">
         <SearchInput
           key={filters.search ?? ""}
@@ -139,7 +83,7 @@ export function NewsroomToolbar({
           onChange={(event) =>
             onUpdate({ publicationStatus: event.target.value || null })
           }
-          className="h-8 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+          className="h-9 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
         >
           {PUBLICATION_OPTIONS.map((option) => (
             <option key={option.value || "all"} value={option.value}>
@@ -154,7 +98,7 @@ export function NewsroomToolbar({
           onChange={(event) =>
             onUpdate({ workflowStatus: event.target.value || null })
           }
-          className="h-8 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+          className="h-9 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
         >
           {WORKFLOW_OPTIONS.map((option) => (
             <option key={option.value || "all"} value={option.value}>
@@ -167,7 +111,7 @@ export function NewsroomToolbar({
           aria-label="Sıralama"
           value={filters.sort}
           onChange={(event) => onUpdate({ sort: event.target.value || null })}
-          className="h-8 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+          className="h-9 rounded border border-zinc-300 bg-white px-2 text-sm text-zinc-700 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
         >
           {NEWSROOM_SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -176,48 +120,22 @@ export function NewsroomToolbar({
           ))}
         </select>
 
-        <div className="ml-auto flex items-center gap-2">
-          {hasFilters ? (
-            <button
-              type="button"
-              onClick={onClearFilters}
-              className="h-8 rounded border border-zinc-300 bg-white px-3 text-sm text-zinc-700 hover:bg-zinc-50"
-            >
-              Filtreleri temizle
-            </button>
-          ) : null}
-          {canCreate ? (
-            <>
-              <button
-                type="button"
-                onClick={() => void handleCreateContent("ARTICLE")}
-                disabled={creating}
-                className="inline-flex h-8 items-center rounded bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
-              >
-                {creating ? "Oluşturuluyor…" : "Yeni Haber"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleCreateContent("GALLERY")}
-                disabled={creating}
-                className="inline-flex h-8 items-center rounded border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
-              >
-                Yeni Foto Galeri
-              </button>
-            </>
-          ) : null}
-        </div>
+        {hasFilters ? (
+          <button
+            type="button"
+            onClick={onClearFilters}
+            className="ml-auto h-9 rounded border border-zinc-300 bg-white px-3 text-sm text-zinc-700 hover:bg-zinc-50"
+          >
+            Filtreleri temizle
+          </button>
+        ) : null}
       </div>
 
-      {createError ? (
-        <p role="alert" className="text-sm text-red-700">
-          {createError}
-        </p>
-      ) : null}
-
       {hasFilters ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-zinc-500">Aktif filtreler:</span>
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3">
+          <span className="text-xs font-medium text-zinc-500">
+            Aktif filtreler
+          </span>
           {filters.search ? (
             <FilterTag
               label={`"${filters.search}"`}
@@ -284,6 +202,92 @@ export function NewsroomToolbar({
   );
 }
 
+export function NewsroomCreateActions({ canCreate }: { canCreate: boolean }) {
+  const router = useRouter();
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
+
+  async function handleCreateContent(contentKind: "ARTICLE" | "GALLERY") {
+    if (!canCreate || creating) {
+      return;
+    }
+
+    setCreating(true);
+    setCreateError(null);
+
+    try {
+      const response = await fetch("/api/content", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          contentKind,
+          title: "Başlıksız",
+          slug: generateDraftSlug(
+            contentKind === "GALLERY" ? "galeri" : "haber",
+          ),
+          body: { blocks: [] },
+        }),
+      });
+      const payload = (await response.json()) as {
+        ok?: boolean;
+        data?: { contentItemId: string };
+        error?: { message?: string };
+      };
+
+      if (!response.ok || !payload.ok || !payload.data?.contentItemId) {
+        throw new Error(payload.error?.message ?? "Haber oluşturulamadı.");
+      }
+
+      startTransition(() => {
+        router.push(
+          buildArticleHref({ contentItemId: payload.data!.contentItemId }),
+        );
+      });
+    } catch (error) {
+      setCreateError(
+        error instanceof Error ? error.message : "Haber oluşturulamadı.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-stretch gap-2 sm:items-end">
+      {canCreate ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => void handleCreateContent("ARTICLE")}
+            disabled={creating}
+            className="inline-flex h-10 items-center justify-center rounded bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+          >
+            {creating ? "Oluşturuluyor..." : "Yeni Haber"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleCreateContent("GALLERY")}
+            disabled={creating}
+            className="inline-flex h-10 items-center justify-center rounded border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
+          >
+            Foto Galeri
+          </button>
+        </div>
+      ) : null}
+      {createError ? (
+        <p role="alert" className="text-sm text-red-700">
+          {createError}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function SearchInput({
   defaultValue,
   onSearch,
@@ -307,17 +311,17 @@ function SearchInput({
   }
 
   return (
-    <div className="relative min-w-[180px] max-w-xs flex-1">
+    <div className="relative min-w-[210px] flex-1 sm:max-w-[420px]">
       <label htmlFor="newsroom-search" className="sr-only">
         Haber ara
       </label>
       <input
         id="newsroom-search"
         type="search"
-        placeholder="Başlık veya slug…"
+        placeholder="Başlık veya slug ara..."
         value={value}
         onChange={(event) => handleChange(event.target.value)}
-        className="h-8 w-full rounded border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+        className="h-9 w-full rounded border border-zinc-300 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
       />
       {isPending ? (
         <span className="absolute right-2.5 top-1/2 -translate-y-1/2">
@@ -336,7 +340,7 @@ function FilterTag({
   onRemove: () => void;
 }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+    <span className="inline-flex items-center gap-1 rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
       {label}
       <button
         type="button"
