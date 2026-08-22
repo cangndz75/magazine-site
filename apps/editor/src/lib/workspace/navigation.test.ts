@@ -18,6 +18,7 @@ describe("workspace navigation", () => {
       hrefs({
         canReadContent: true,
         canReview: false,
+        canPublish: false,
         canManageHomepage: false,
         canLegal: false,
         canManageStaff: false,
@@ -32,6 +33,7 @@ describe("workspace navigation", () => {
     const editorHrefs = hrefs({
       canReadContent: true,
       canReview: true,
+      canPublish: true,
       canManageHomepage: false,
       canLegal: false,
       canManageStaff: false,
@@ -39,6 +41,7 @@ describe("workspace navigation", () => {
       canReadAnalytics: true,
     });
 
+    assert.equal(editorHrefs.includes("/calendar"), true);
     assert.equal(editorHrefs.includes("/review"), true);
     assert.equal(editorHrefs.includes("/analytics"), true);
     assert.equal(editorHrefs.includes("/dashboard"), false);
@@ -51,6 +54,7 @@ describe("workspace navigation", () => {
       hrefs({
         canReadContent: true,
         canReview: true,
+        canPublish: true,
         canManageHomepage: true,
         canLegal: true,
         canManageStaff: true,
@@ -61,6 +65,7 @@ describe("workspace navigation", () => {
         "/",
         "/media",
         "/videos",
+        "/calendar",
         "/review",
         "/homepage",
         "/legal",
@@ -77,6 +82,7 @@ describe("workspace navigation", () => {
     const groups = buildWorkspaceNavigation({
       canReadContent: true,
       canReview: true,
+      canPublish: true,
       canManageHomepage: true,
       canLegal: true,
       canManageStaff: true,
@@ -85,6 +91,7 @@ describe("workspace navigation", () => {
     });
 
     assert.equal(findActiveWorkspaceHref("/", groups), "/");
+    assert.equal(findActiveWorkspaceHref("/calendar", groups), "/calendar");
     assert.equal(findActiveWorkspaceHref("/review/detail", groups), "/review");
     assert.equal(findActiveWorkspaceHref("/seo/content-1", groups), "/seo");
   });

@@ -14,6 +14,7 @@ export default async function WorkspaceLayout({
   const session = await requireStaffSession();
   const canReadContent = hasCapability(session.roles, CAPABILITY.CONTENT_READ);
   const canReview = hasCapability(session.roles, CAPABILITY.CONTENT_REVIEW);
+  const canPublish = hasCapability(session.roles, CAPABILITY.CONTENT_PUBLISH);
   const canManageHomepage = hasCapability(
     session.roles,
     CAPABILITY.HOMEPAGE_MANAGE,
@@ -29,6 +30,7 @@ export default async function WorkspaceLayout({
   const groups = buildWorkspaceNavigation({
     canReadContent,
     canReview,
+    canPublish,
     canManageHomepage,
     canLegal,
     canManageStaff,

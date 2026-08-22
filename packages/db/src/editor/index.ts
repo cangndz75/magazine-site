@@ -21,6 +21,7 @@ export {
   type ListContentAuditEventsResult,
 } from "./audit";
 export { getEditorContentAccess, getOwnedVersionCategories } from "./access";
+export { listEditorCalendarItems } from "./calendar";
 export { getContentVersionDiff } from "./diff";
 export { getEditorContentDetail } from "./detail";
 export {
@@ -162,6 +163,9 @@ export {
   type UploadEditorImageInput,
 } from "./media-upload";
 export type {
+  EditorCalendarFilters,
+  EditorCalendarItem,
+  EditorCalendarResult,
   EditorContentAccess,
   EditorContentDetail,
   EditorContentListFilters,
