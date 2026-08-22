@@ -1,6 +1,7 @@
 export type WorkspaceNavigationInput = {
   canReadContent: boolean;
   canReview: boolean;
+  canPublish: boolean;
   canManageHomepage: boolean;
   canLegal: boolean;
   canManageStaff: boolean;
@@ -59,6 +60,14 @@ export function buildWorkspaceNavigation(
     {
       label: "Yayın",
       items: [
+        input.canPublish
+          ? {
+              href: "/calendar",
+              label: "Yayın Takvimi",
+              description: "Planlanan yayınlar ve takvim",
+              marker: "T",
+            }
+          : null,
         input.canReview
           ? {
               href: "/review",

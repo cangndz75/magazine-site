@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import {
+  AUTHOR_ROLE,
+  CONTENT_KIND,
   PUBLICATION_STATUS,
   PUBLISHING_ERROR,
   PublishingError,
@@ -12,6 +14,7 @@ import {
 import {
   getArticleEditorModel,
   listContentRevisionHistory,
+  listEditorCalendarItems,
   listReviewQueue,
 } from "../editor";
 import {
@@ -107,6 +110,54 @@ describe("editorial workflow PostgreSQL reads", () => {
       created.updatedAt,
     );
     return { created, submitted };
+  }
+
+  async function createScheduled(
+    title: string,
+    scheduledAt: Date,
+    input: {
+      categoryId?: string;
+      authorId?: string;
+      contentKind?: typeof CONTENT_KIND[keyof typeof CONTENT_KIND];
+    } = {},
+  ) {
+    const created = await createDraftItem(fixture, {
+      scope: fixture.superAdmin,
+      title,
+      contentKind: input.contentKind,
+      categories: [
+        {
+          categoryId: input.categoryId ?? fixture.ids.categoryA,
+          isPrimary: true,
+        },
+      ],
+      authors: [
+        {
+          authorId: input.authorId ?? fixture.ids.author,
+          role: AUTHOR_ROLE.AUTHOR,
+          sortOrder: 0,
+        },
+      ],
+    });
+    const submitted = await submitCurrent(
+      created.contentItemId,
+      created.versionId,
+      created.updatedAt,
+    );
+    const approved = await approveCurrent(
+      created.contentItemId,
+      created.versionId,
+      submitted.updatedAt,
+    );
+    await scheduleVersion(
+      created.contentItemId,
+      created.versionId,
+      scheduledAt,
+      fixture.superAdmin,
+      fixture.ids.staffReviewerA,
+    );
+    void approved;
+    return created;
   }
 
   describe("revision history", () => {
@@ -478,6 +529,133 @@ describe("editorial workflow PostgreSQL reads", () => {
         page1.items[0]!.latestSubmittedAt.getTime() <=
           page1.items[1]!.latestSubmittedAt.getTime(),
         true,
+      );
+    });
+  });
+
+  describe("editorial calendar", () => {
+    it("returns bounded scheduled items ordered by scheduledAt with safe DTOs", async () => {
+      const base = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const rangeStart = new Date(base.getTime() - 60 * 60 * 1000);
+      const early = new Date(base.getTime() + 60 * 60 * 1000);
+      const late = new Date(base.getTime() + 2 * 60 * 60 * 1000);
+      const rangeEnd = new Date(base.getTime() + 3 * 60 * 60 * 1000);
+      const outside = new Date(base.getTime() + 5 * 60 * 60 * 1000);
+
+      const lateItem = await createScheduled("Calendar late", late);
+      const earlyItem = await createScheduled("Calendar early", early);
+      const outsideItem = await createScheduled("Calendar outside", outside);
+
+      const calendar = await listEditorCalendarItems(
+        { scopedCategoryIds: null },
+        { start: rangeStart, end: rangeEnd },
+        rangeStart,
+      );
+
+      assert.deepEqual(
+        calendar.items.map((item) => item.contentItemId),
+        [earlyItem.contentItemId, lateItem.contentItemId],
+      );
+      assert.equal(
+        calendar.items.some((item) => item.contentItemId === outsideItem.contentItemId),
+        false,
+      );
+      assert.equal(calendar.summary.scheduled, 2);
+      assert.equal(calendar.summary.today, 2);
+      assert.equal(calendar.summary.thisWeek, 2);
+
+      const serialized = JSON.stringify(calendar.items[0]);
+      assert.equal(serialized.includes("body"), false);
+      assert.equal(serialized.includes("Calendar early"), true);
+      assert.equal(calendar.items[0]?.scheduledVersionId, earlyItem.versionId);
+      assert.equal(calendar.items[0]?.publicationStatus, PUBLICATION_STATUS.NEVER_PUBLISHED);
+      assert.equal(calendar.items[0]?.workflowStatus, WORKFLOW_STATUS.APPROVED);
+    });
+
+    it("applies scheduled-version category scope and category filters", async () => {
+      const base = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
+      const rangeStart = new Date(base.getTime() - 60 * 60 * 1000);
+      const rangeEnd = new Date(base.getTime() + 24 * 60 * 60 * 1000);
+      const a = await createScheduled("Calendar A", base, {
+        categoryId: fixture.ids.categoryA,
+      });
+      const b = await createScheduled(
+        "Calendar B",
+        new Date(base.getTime() + 60 * 60 * 1000),
+        { categoryId: fixture.ids.categoryB },
+      );
+
+      const selectedA = await listEditorCalendarItems(
+        { scopedCategoryIds: scopedCategoryIdsForQuery(fixture.selectedOnA) },
+        { start: rangeStart, end: rangeEnd },
+        rangeStart,
+      );
+      assert.deepEqual(
+        selectedA.items.map((item) => item.contentItemId),
+        [a.contentItemId],
+      );
+
+      const selectedAFilterB = await listEditorCalendarItems(
+        { scopedCategoryIds: scopedCategoryIdsForQuery(fixture.selectedOnA) },
+        { start: rangeStart, end: rangeEnd, categoryId: fixture.ids.categoryB },
+        rangeStart,
+      );
+      assert.deepEqual(selectedAFilterB.items, []);
+
+      const selectedB = await listEditorCalendarItems(
+        { scopedCategoryIds: scopedCategoryIdsForQuery(fixture.selectedOnB) },
+        { start: rangeStart, end: rangeEnd },
+        rangeStart,
+      );
+      assert.deepEqual(
+        selectedB.items.map((item) => item.contentItemId),
+        [b.contentItemId],
+      );
+
+      const emptyScope = await listEditorCalendarItems(
+        { scopedCategoryIds: [] },
+        { start: rangeStart, end: rangeEnd },
+        rangeStart,
+      );
+      assert.deepEqual(emptyScope.items, []);
+    });
+
+    it("applies author and contentKind filters", async () => {
+      const base = new Date(Date.now() + 32 * 24 * 60 * 60 * 1000);
+      const rangeStart = new Date(base.getTime() - 60 * 60 * 1000);
+      const rangeEnd = new Date(base.getTime() + 24 * 60 * 60 * 1000);
+      const article = await createScheduled("Calendar article", base, {
+        authorId: fixture.ids.author,
+        contentKind: CONTENT_KIND.ARTICLE,
+      });
+      const gallery = await createScheduled(
+        "Calendar gallery",
+        new Date(base.getTime() + 60 * 60 * 1000),
+        {
+          authorId: fixture.ids.extraAuthor,
+          contentKind: CONTENT_KIND.GALLERY,
+        },
+      );
+
+      const byAuthor = await listEditorCalendarItems(
+        { scopedCategoryIds: null },
+        { start: rangeStart, end: rangeEnd, authorId: fixture.ids.extraAuthor },
+        rangeStart,
+      );
+      assert.deepEqual(
+        byAuthor.items.map((item) => item.contentItemId),
+        [gallery.contentItemId],
+      );
+      assert.equal(byAuthor.items[0]?.authors[0]?.id, fixture.ids.extraAuthor);
+
+      const byKind = await listEditorCalendarItems(
+        { scopedCategoryIds: null },
+        { start: rangeStart, end: rangeEnd, contentKind: CONTENT_KIND.ARTICLE },
+        rangeStart,
+      );
+      assert.deepEqual(
+        byKind.items.map((item) => item.contentItemId),
+        [article.contentItemId],
       );
     });
   });

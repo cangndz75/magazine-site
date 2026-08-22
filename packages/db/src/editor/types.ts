@@ -44,6 +44,14 @@ export type EditorReviewQueueFilters = {
   authorId?: string;
 };
 
+export type EditorCalendarFilters = {
+  start: Date;
+  end: Date;
+  categoryId?: string;
+  authorId?: string;
+  contentKind?: ContentKind;
+};
+
 export type EditorListAuthorSummary = {
   id: string;
   displayName: string;
@@ -138,6 +146,30 @@ export type EditorReviewQueueRow = {
   primaryCategory: EditorListPrimaryCategory | null;
   secondaryCategories: EditorListPrimaryCategory[];
   authors: EditorListAuthorSummary[];
+};
+
+export type EditorCalendarItem = {
+  contentItemId: string;
+  slug: string;
+  contentKind: ContentKind;
+  publicationStatus: PublicationStatus;
+  workflowStatus: WorkflowStatus;
+  scheduledVersionId: string;
+  scheduledAt: Date;
+  scheduleGeneration: number;
+  title: string;
+  primaryCategory: EditorListPrimaryCategory | null;
+  secondaryCategories: EditorListPrimaryCategory[];
+  authors: EditorListAuthorSummary[];
+};
+
+export type EditorCalendarResult = {
+  items: EditorCalendarItem[];
+  summary: {
+    scheduled: number;
+    today: number;
+    thisWeek: number;
+  };
 };
 
 export type EditorVersionSummary = {

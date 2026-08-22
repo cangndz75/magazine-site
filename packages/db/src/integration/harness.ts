@@ -12,6 +12,8 @@ import {
   STAFF_SCOPE_MODE,
   STAFF_STATUS,
   editorTimestampToEpochMs,
+  type AuthorRole,
+  type ContentKind,
   type EditorStaffScope,
 } from "@magazine/domain";
 import { closeDb, getDb } from "../client";
@@ -359,13 +361,16 @@ export async function createDraftItem(
     scope?: EditorStaffScope;
     title?: string;
     body?: unknown;
+    contentKind?: ContentKind;
     categories?: { categoryId: string; isPrimary: boolean }[];
+    authors?: { authorId: string; role: AuthorRole; sortOrder: number }[];
     tags?: { tagId: string }[];
     includeRelations?: boolean;
     actorId?: string;
   } = {},
 ) {
   const created = await createContent({
+    contentKind: input.contentKind,
     slug: uniqueSlug("item"),
     title: input.title ?? "Original title",
     body: input.body ?? EMPTY_BODY,
@@ -396,15 +401,17 @@ export async function createDraftItem(
           },
         ]
       : [],
-    authors: input.includeRelations
-      ? [
+    authors:
+      input.authors ??
+      (input.includeRelations
+        ? [
           {
             authorId: fixture.ids.author,
             role: AUTHOR_ROLE.AUTHOR,
             sortOrder: 0,
           },
         ]
-      : [],
+        : []),
   });
 
   fixture.createdItemIds.push(created.contentItemId);
