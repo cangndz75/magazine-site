@@ -10,7 +10,12 @@ import {
   INELIGIBILITY_REASON_LABELS,
   formatByteSize,
   formatDimensions,
+  formatMediaTimestamp,
+  LICENSE_EXPIRY_SIGNAL_LABELS,
   MEDIA_TYPE_LABELS,
+  presentLicenseExpirySignal,
+  presentPublicEligibilityBlockedLabel,
+  RENDITION_VARIANT_LABELS,
 } from "@/lib/media/presentation";
 import { MediaRightsStatusBadge } from "./media-rights-status-badge";
 
@@ -56,6 +61,7 @@ export type InspectorData = {
     credit: string | null;
   }>;
   usageCount: number;
+  renditions: Array<{ variant: string; width: number; height: number }>;
 };
 
 type MediaInspectorProps = {
@@ -68,6 +74,17 @@ type MediaInspectorProps = {
   onSaveRights: (rights: MediaRightsWriteInput) => void;
   onClose?: () => void;
 };
+
+export function MediaInspectorPlaceholder() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-6 py-12 text-center">
+      <p className="text-sm font-medium text-zinc-900">Varlık inceleyici</p>
+      <p className="mt-2 max-w-xs text-sm leading-6 text-zinc-500">
+        Önizleme, haklar ve kullanım bilgisi için listeden bir medya seçin.
+      </p>
+    </div>
+  );
+}
 
 function toDateInput(value: string | null): string {
   if (!value) {
@@ -111,14 +128,12 @@ export function MediaInspector({
   }
 
   if (!data) {
-    return (
-      <div className="p-6 text-sm text-zinc-500">
-        Bir medya seçin veya listeden incelemek istediğiniz öğeyi açın.
-      </div>
-    );
+    return <MediaInspectorPlaceholder />;
   }
 
   const dimensions = formatDimensions(data.width, data.height);
+  const expirySignal = presentLicenseExpirySignal(data.rights.licenseExpiresAt);
+  const blockedLabel = presentPublicEligibilityBlockedLabel(data.eligibility.eligible);
   const representativeAlt =
     data.usages.find((usage) => usage.altText?.trim())?.altText ?? null;
   const representativeCredit =
@@ -161,8 +176,8 @@ export function MediaInspector({
               status={data.eligibility.status}
               eligible={data.eligibility.eligible}
             />
-            {!data.eligibility.eligible ? (
-              <span className="text-xs text-zinc-500">Yayına uygun değil</span>
+            {blockedLabel ? (
+              <span className="text-xs font-medium text-zinc-600">{blockedLabel}</span>
             ) : (
               <span className="text-xs text-emerald-700">Yayına uygun</span>
             )}
@@ -181,6 +196,15 @@ export function MediaInspector({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
+        {expirySignal && data.eligibility.status !== "EXPIRED" ? (
+          <div
+            className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+            role="status"
+          >
+            {LICENSE_EXPIRY_SIGNAL_LABELS[expirySignal]}
+          </div>
+        ) : null}
+
         <section className="space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
             Önizleme
@@ -225,8 +249,35 @@ export function MediaInspector({
               <dt className="text-zinc-500">Dosya</dt>
               <dd>{formatByteSize(data.byteSize)}</dd>
             </div>
+            <div>
+              <dt className="text-zinc-500">Eklenme</dt>
+              <dd>{formatMediaTimestamp(data.createdAt)}</dd>
+            </div>
           </dl>
         </section>
+
+        {data.renditions.length > 0 ? (
+          <section className="mt-6 space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Renditionlar
+            </h3>
+            <ul className="space-y-1 text-sm">
+              {data.renditions.map((rendition) => (
+                <li
+                  key={`${rendition.variant}-${rendition.width}`}
+                  className="flex justify-between gap-2 rounded border border-zinc-100 bg-zinc-50 px-2 py-1.5"
+                >
+                  <span className="font-medium text-zinc-800">
+                    {RENDITION_VARIANT_LABELS[rendition.variant] ?? rendition.variant}
+                  </span>
+                  <span className="tabular-nums text-zinc-500">
+                    {rendition.width}×{rendition.height}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="mt-6 space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">

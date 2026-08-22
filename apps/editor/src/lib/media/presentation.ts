@@ -35,12 +35,12 @@ export const RIGHTS_STATUS_PRESENTATION: Record<
     icon: "!",
   },
   [MEDIA_RIGHTS_STATUS.RESTRICTED]: {
-    label: "Kısıtlı",
+    label: "Kullanım kısıtlı",
     tone: "danger",
     icon: "⊘",
   },
   [MEDIA_RIGHTS_STATUS.EXPIRED]: {
-    label: "Süresi dolmuş",
+    label: "Lisans süresi dolmuş",
     tone: "danger",
     icon: "⏱",
   },
@@ -113,6 +113,71 @@ export function formatByteSize(bytes: number): string {
   }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+export type LicenseExpirySignal =
+  | "expired"
+  | "within_7_days"
+  | "within_30_days"
+  | null;
+
+export const LICENSE_EXPIRY_SIGNAL_LABELS: Record<
+  Exclude<LicenseExpirySignal, null>,
+  string
+> = {
+  expired: "Lisans süresi dolmuş",
+  within_7_days: "Lisans süresi yaklaşıyor (7 gün)",
+  within_30_days: "Lisans süresi yaklaşıyor (30 gün)",
+};
+
+/** Presentation-only license horizon — does not replace domain eligibility. */
+export function presentLicenseExpirySignal(
+  licenseExpiresAt: string | Date | null | undefined,
+  now: Date = new Date(),
+): LicenseExpirySignal {
+  if (!licenseExpiresAt) {
+    return null;
+  }
+  const expires = new Date(licenseExpiresAt);
+  if (Number.isNaN(expires.getTime())) {
+    return null;
+  }
+  const msRemaining = expires.getTime() - now.getTime();
+  if (msRemaining < 0) {
+    return "expired";
+  }
+  const daysRemaining = msRemaining / 86400000;
+  if (daysRemaining <= 7) {
+    return "within_7_days";
+  }
+  if (daysRemaining <= 30) {
+    return "within_30_days";
+  }
+  return null;
+}
+
+export function presentPublicEligibilityBlockedLabel(eligible: boolean): string | null {
+  return eligible ? null : "Public kullanım engelli";
+}
+
+export function formatMediaTimestamp(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Istanbul",
+  }).format(date);
+}
+
+export const RENDITION_VARIANT_LABELS: Record<string, string> = {
+  thumb: "Küçük",
+  card: "Kart",
+  hero: "Hero",
+  full: "Tam",
+  original: "Orijinal",
+};
 
 export const RIGHTS_FORM_OPTIONS = {
   sourceKinds: MEDIA_SOURCE_KINDS,

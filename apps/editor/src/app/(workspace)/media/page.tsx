@@ -10,7 +10,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Medya",
+  title: "Medya Kütüphanesi",
 };
 
 export default async function MediaLibraryPage({
