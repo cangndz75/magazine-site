@@ -50,6 +50,10 @@ export {
   type SuperAdminUpcomingPublishingItem,
 } from "./super-admin-dashboard";
 export {
+  getSiteHealth,
+  type SiteHealthInput,
+} from "./site-health";
+export {
   loadEditorHeroThumbnailsByVersionIds,
   heroThumbnailForEditorItem,
 } from "./hero-thumbnails";

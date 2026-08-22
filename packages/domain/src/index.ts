@@ -537,6 +537,16 @@ export {
   type HomepageAuditVideoChange,
 } from "./homepage-builder";
 export { CAPABILITY, CAPABILITIES, type Capability } from "./capability";
+export {
+  SITE_HEALTH_STATUS,
+  assertSafeSiteHealthDto,
+  authorizeSiteHealthRead,
+  deriveSiteHealthOverallStatus,
+  type SiteHealthDto,
+  type SiteHealthSection,
+  type SiteHealthSignalAvailability,
+  type SiteHealthStatus,
+} from "./site-health";
 export { ROLE_CAPABILITIES } from "./role-capabilities";
 export {
   canPerform,

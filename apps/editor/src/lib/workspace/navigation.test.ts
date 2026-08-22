@@ -73,6 +73,7 @@ describe("workspace navigation", () => {
         "/analytics",
         "/entities",
         "/dashboard",
+        "/site-health",
         "/staff",
       ],
     );

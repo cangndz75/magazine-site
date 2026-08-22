@@ -134,6 +134,12 @@ export function buildWorkspaceNavigation(
               marker: "K",
             },
             {
+              href: "/site-health",
+              label: "Sistem Sağlığı",
+              description: "Operasyonel sağlık sinyalleri",
+              marker: "S",
+            },
+            {
               href: "/staff",
               label: "Personel",
               description: "Roller, kapsam ve güvenlik",
