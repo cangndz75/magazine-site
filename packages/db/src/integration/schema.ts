@@ -36,6 +36,7 @@ const ANALYTICS_RECENCY_FALLBACK_PLACEMENT_SQL =
 const ENTITY_PLATFORM_SQL = "0022_entity-platform-foundation.sql";
 const PUBLIC_CACHE_OUTBOX_ENTITY_EVENTS_SQL =
   "0023_public-cache-outbox-entity-events.sql";
+const PHOTO_GALLERY_CONTENT_KIND_SQL = "0024_photo-gallery-content-kind.sql";
 
 async function publicColumnExists(
   client: Client,
@@ -306,5 +307,14 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   );
   if (entityCacheEventsAllowed.rows[0]?.matches !== true) {
     await applySqlFile(client, PUBLIC_CACHE_OUTBOX_ENTITY_EVENTS_SQL);
+  }
+
+  const hasContentKind = await publicColumnExists(
+    client,
+    "content_items",
+    "content_kind",
+  );
+  if (!hasContentKind) {
+    await applySqlFile(client, PHOTO_GALLERY_CONTENT_KIND_SQL);
   }
 }

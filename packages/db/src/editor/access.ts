@@ -50,6 +50,7 @@ export async function getEditorContentAccess(
   const [item] = await db
     .select({
       id: contentItems.id,
+      contentKind: contentItems.contentKind,
       updatedAt: contentItems.updatedAt,
       publicationStatus: contentItems.publicationStatus,
       publishedVersionId: contentItems.publishedVersionId,
@@ -82,6 +83,7 @@ export async function getEditorContentAccess(
 
   return {
     id: item.id,
+    contentKind: item.contentKind,
     updatedAt: item.updatedAt,
     publicationStatus: item.publicationStatus,
     publishedVersionId: item.publishedVersionId,

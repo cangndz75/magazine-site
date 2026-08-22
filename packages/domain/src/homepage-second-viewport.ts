@@ -6,8 +6,8 @@
  * deterministic fallback only. Replace it when Homepage Builder lands.
  *
  * Homepage video is an explicit Builder-managed editorial video placement.
- * Gallery homepage modules are intentionally unavailable: MEDIA_ROLE.GALLERY is
- * an article media attachment role, not a gallery story type.
+ * Gallery homepage modules use a bounded latest-published GALLERY content source
+ * until an explicit Homepage Builder gallery placement exists.
  */
 
 export const PUBLIC_HOMEPAGE_FEATURED_LIMIT = 5;
@@ -20,11 +20,13 @@ export const PUBLIC_HOMEPAGE_FEATURED_LIMIT = 5;
  */
 export const PUBLIC_HOMEPAGE_LATEST_LIMIT = 6;
 
-export const HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE =
-  "HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE" as const;
+export const PUBLIC_HOMEPAGE_GALLERY_LIMIT = 4;
+
+export const HOMEPAGE_GALLERY_DATA_SOURCE_LATEST_PUBLISHED =
+  "LATEST_PUBLISHED_GALLERY_CONTENT" as const;
 
 export type HomepageGalleryDataSourceStatus =
-  typeof HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE;
+  typeof HOMEPAGE_GALLERY_DATA_SOURCE_LATEST_PUBLISHED;
 
 /**
  * Temporary featured placement: keep the incoming order (publishedAt DESC,

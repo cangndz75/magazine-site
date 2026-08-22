@@ -160,6 +160,7 @@ export async function listEditorContent(
   const rows = await db
     .select({
       id: contentItems.id,
+      contentKind: contentItems.contentKind,
       slug: contentItems.slug,
       publicationStatus: contentItems.publicationStatus,
       publishedVersionId: contentItems.publishedVersionId,
@@ -215,6 +216,7 @@ export async function listEditorContent(
 
   const items: EditorContentListRow[] = page.map((row) => ({
     id: row.id,
+    contentKind: row.contentKind,
     slug: row.slug,
     publicationStatus: row.publicationStatus,
     displayVersion: {

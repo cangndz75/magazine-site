@@ -1,21 +1,31 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   CONTENT_AUDIT_EVENT_TYPE,
+  CONTENT_KIND,
+  MEDIA_ROLE,
+  MEDIA_TYPE,
   PUBLISHING_ERROR,
   PublishingError,
   PUBLICATION_STATUS,
   SCHEDULED_PUBLISH_DECISION,
+  assertGalleryPublishReadiness,
   assertContentNotDeleted,
   decidePublish,
   decideScheduledPublishExecution,
   decideUnpublish,
+  evaluateMediaPublicEligibility,
   nextMonotonicUpdatedAt,
   type EditorStaffScope,
 } from "@magazine/domain";
 import { getDb } from "../client";
 import { enqueuePublicArticleCacheInvalidation } from "../public-cache-outbox";
 import { enqueuePublicEntityRelatedInvalidationForVersion } from "../entities/cache-invalidation";
-import { contentItems, contentVersions } from "../schema/content";
+import {
+  contentItems,
+  contentVersionMedia,
+  contentVersions,
+} from "../schema/content";
+import { media } from "../schema/media";
 import type { PublishingTx } from "./db-types";
 import { unwrapPublishingDecision } from "./errors";
 import { lockContentItem } from "./lock";
@@ -100,6 +110,7 @@ async function publishLockedVersion(
 ): Promise<PublishResult> {
   const version = await loadOwnedVersion(tx, item.id, versionId);
   const relations = await loadVersionRelations(tx, version.id);
+  await assertGalleryReadyForPublic(tx, item.contentKind, version.id, now);
   const plan = unwrapPublishingDecision(
     decidePublish({
       item,
@@ -160,6 +171,73 @@ async function publishLockedVersion(
     scheduleGeneration: plan.scheduleGeneration,
     updatedAt: nextUpdatedAt,
   };
+}
+
+async function assertGalleryReadyForPublic(
+  tx: PublishingTx,
+  contentKind: string,
+  versionId: string,
+  now: Date,
+): Promise<void> {
+  if (contentKind !== CONTENT_KIND.GALLERY) {
+    return;
+  }
+
+  const rows = await tx
+    .select({
+      role: contentVersionMedia.role,
+      mediaType: media.mediaType,
+      sourceKind: media.sourceKind,
+      sourceName: media.sourceName,
+      creatorName: media.creatorName,
+      rightsHolder: media.rightsHolder,
+      licenseType: media.licenseType,
+      licenseReference: media.licenseReference,
+      licenseNote: media.licenseNote,
+      licenseStartsAt: media.licenseStartsAt,
+      licenseExpiresAt: media.licenseExpiresAt,
+      creditLine: media.creditLine,
+      usageRestriction: media.usageRestriction,
+      territoryRestriction: media.territoryRestriction,
+    })
+    .from(contentVersionMedia)
+    .innerJoin(media, eq(media.id, contentVersionMedia.mediaId))
+    .where(
+      and(
+        eq(contentVersionMedia.contentVersionId, versionId),
+        inArray(contentVersionMedia.role, [MEDIA_ROLE.HERO, MEDIA_ROLE.GALLERY]),
+      ),
+    );
+
+  let heroImageCount = 0;
+  let galleryImageCount = 0;
+  let blockedPublicMediaCount = 0;
+
+  for (const row of rows) {
+    if (row.mediaType !== MEDIA_TYPE.IMAGE) {
+      blockedPublicMediaCount += 1;
+      continue;
+    }
+    if (row.role === MEDIA_ROLE.HERO) {
+      heroImageCount += 1;
+    }
+    if (row.role === MEDIA_ROLE.GALLERY) {
+      galleryImageCount += 1;
+    }
+    const eligibility = evaluateMediaPublicEligibility(row, now);
+    if (!eligibility.eligible) {
+      blockedPublicMediaCount += 1;
+    }
+  }
+
+  unwrapPublishingDecision(
+    assertGalleryPublishReadiness({
+      contentKind,
+      heroImageCount,
+      galleryImageCount,
+      blockedPublicMediaCount,
+    }),
+  );
 }
 
 export async function publishVersion(

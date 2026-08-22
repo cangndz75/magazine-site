@@ -1,19 +1,21 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
-  HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
+  HOMEPAGE_GALLERY_DATA_SOURCE_LATEST_PUBLISHED,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
+  PUBLIC_HOMEPAGE_GALLERY_LIMIT,
   PUBLIC_HOMEPAGE_LATEST_LIMIT,
   selectTemporaryHomepageFeatured,
   selectTemporaryHomepageLatest,
 } from "./homepage-second-viewport";
 
 describe("homepage second-viewport capability markers", () => {
-  it("documents that gallery public data source does not exist yet", () => {
+  it("documents that gallery public data source is latest-published content", () => {
     assert.equal(
-      HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
-      "HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE",
+      HOMEPAGE_GALLERY_DATA_SOURCE_LATEST_PUBLISHED,
+      "LATEST_PUBLISHED_GALLERY_CONTENT",
     );
+    assert.equal(PUBLIC_HOMEPAGE_GALLERY_LIMIT, 4);
   });
 });
 

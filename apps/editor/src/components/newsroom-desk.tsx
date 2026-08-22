@@ -46,6 +46,7 @@ function useIsXlViewport() {
 export type NewsroomListItem = {
   id: string;
   slug: string;
+  contentKind: "ARTICLE" | "GALLERY";
   publicationStatus: "NEVER_PUBLISHED" | "PUBLISHED" | "UNPUBLISHED";
   displayVersion: {
     id: string;

@@ -3,10 +3,12 @@ import { alias } from "drizzle-orm/pg-core";
 import {
   ANALYTICS_PLACEMENT,
   ANALYTICS_SURFACE,
+  CONTENT_KIND,
   MEDIA_ROLE,
   MEDIA_TYPE,
   MEDIA_RENDITION_SURFACE,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
+  PUBLIC_HOMEPAGE_GALLERY_LIMIT,
   PUBLIC_HOMEPAGE_LATEST_LIMIT,
   PUBLICATION_STATUS,
   buildPublishedHomepageContentPlacements,
@@ -84,6 +86,15 @@ export type PublicHomepageStory = {
   hero: PublicArticleHeroMedia | null;
 };
 
+export type PublicHomepageGallery = {
+  slug: string;
+  title: string;
+  publishedAt: Date;
+  primaryCategory: PublicHomepageCategory | null;
+  cover: PublicArticleHeroMedia;
+  imageCount: number;
+};
+
 export type PublicHomepage = {
   lead: PublicHomepageStory | null;
   supports: PublicHomepageStory[];
@@ -101,17 +112,11 @@ export type PublicHomepage = {
   homepageViewContext?: string;
   homepageVideoContext?: string;
   analyticsPlacements: PublicHomepageAnalyticsPlacement[];
-  /**
-   * MEDIA_ROLE.GALLERY is an article attachment role, not a gallery story.
-   * Frontend must not render a Foto Galeri module.
-   * See HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE.
-   */
-  galleries: readonly [];
+  /** Bounded latest-published GALLERY content. Not manual curation. */
+  galleries: PublicHomepageGallery[];
 };
 
 export type { PublicHomepageAnalyticsPlacement };
-
-const EMPTY_HOMEPAGE_GALLERIES: readonly [] = [];
 
 function displayedStory(candidate: HomepageCandidate | null): {
   contentItemId: string;
@@ -227,6 +232,7 @@ function buildHomepageAnalyticsPlacements(input: {
 
 function emptyPublicHomepage(input: {
   conversation: PublicHomepageConversationItem[];
+  galleries: PublicHomepageGallery[];
   video: PublicEditorialVideoProjection | null;
   homepageVersionId: string | null;
   editorialSlots: ReturnType<typeof emptyHomepageSlotMap> | null;
@@ -255,7 +261,7 @@ function emptyPublicHomepage(input: {
       conversation: input.conversation,
       options: input.options,
     }),
-    galleries: EMPTY_HOMEPAGE_GALLERIES,
+    galleries: input.galleries,
   };
 }
 
@@ -354,6 +360,137 @@ async function loadPublicHomepageVideo(
   return item ? { ...item, videoAssetId } : null;
 }
 
+async function loadPublicHomepageGalleries(
+  options: PublicArticleReadOptions,
+): Promise<PublicHomepageGallery[]> {
+  const db = getDb();
+  const rows = await db
+    .select({
+      slug: contentItems.slug,
+      publicationStatus: contentItems.publicationStatus,
+      publishedVersionId: contentItems.publishedVersionId,
+      publishedAt: contentItems.publishedAt,
+      title: contentVersions.title,
+      categoryName: categories.name,
+      categorySlug: categories.slug,
+      coverMediaId: media.id,
+      coverStorageKey: media.storageKey,
+      coverWidth: media.width,
+      coverHeight: media.height,
+      coverAltText: contentVersionMedia.altText,
+      coverCredit: contentVersionMedia.credit,
+      coverCreditLine: media.creditLine,
+    })
+    .from(contentItems)
+    .innerJoin(
+      contentVersions,
+      and(
+        eq(contentVersions.id, contentItems.publishedVersionId),
+        eq(contentVersions.contentItemId, contentItems.id),
+      ),
+    )
+    .innerJoin(
+      contentVersionMedia,
+      and(
+        eq(contentVersionMedia.contentVersionId, contentVersions.id),
+        eq(contentVersionMedia.role, MEDIA_ROLE.HERO),
+      ),
+    )
+    .innerJoin(media, eq(media.id, contentVersionMedia.mediaId))
+    .leftJoin(
+      contentVersionCategories,
+      and(
+        eq(contentVersionCategories.contentVersionId, contentVersions.id),
+        eq(contentVersionCategories.isPrimary, true),
+      ),
+    )
+    .leftJoin(categories, eq(categories.id, contentVersionCategories.categoryId))
+    .where(
+      and(
+        eq(contentItems.contentKind, CONTENT_KIND.GALLERY),
+        isNull(contentItems.deletedAt),
+        isNull(contentItems.retractedAt),
+        isNull(contentItems.takedownAt),
+        eq(contentItems.publicationStatus, PUBLICATION_STATUS.PUBLISHED),
+        eq(media.mediaType, MEDIA_TYPE.IMAGE),
+      ),
+    )
+    .orderBy(desc(contentItems.publishedAt), desc(contentItems.id))
+    .limit(PUBLIC_HOMEPAGE_GALLERY_LIMIT);
+
+  const versionIds = rows
+    .map((row) => publicPublishedVersionId(row))
+    .filter((id): id is string => id !== null);
+  if (versionIds.length === 0) {
+    return [];
+  }
+
+  const [galleryRows, renditionsByMediaId] = await Promise.all([
+    db
+      .select({
+        contentVersionId: contentVersionMedia.contentVersionId,
+        mediaId: contentVersionMedia.mediaId,
+      })
+      .from(contentVersionMedia)
+      .where(
+        and(
+          inArray(contentVersionMedia.contentVersionId, versionIds),
+          eq(contentVersionMedia.role, MEDIA_ROLE.GALLERY),
+        ),
+      ),
+    loadMediaRenditionsByMediaIds(rows.map((row) => row.coverMediaId)),
+  ]);
+
+  const imageCountByVersion = new Map<string, number>();
+  for (const row of galleryRows) {
+    imageCountByVersion.set(
+      row.contentVersionId,
+      (imageCountByVersion.get(row.contentVersionId) ?? 0) + 1,
+    );
+  }
+
+  return rows.flatMap((row) => {
+    const publishedVersionId = publicPublishedVersionId(row);
+    if (!publishedVersionId || row.publishedAt === null) {
+      return [];
+    }
+    const imageCount = imageCountByVersion.get(publishedVersionId) ?? 0;
+    if (imageCount === 0) {
+      return [];
+    }
+    const delivery = resolvePublicImageDelivery({
+      mediaPublicBaseUrl: options.mediaPublicBaseUrl,
+      originalStorageKey: row.coverStorageKey,
+      originalWidth: row.coverWidth,
+      originalHeight: row.coverHeight,
+      renditions: renditionsByMediaId.get(row.coverMediaId),
+      surface: MEDIA_RENDITION_SURFACE.HOMEPAGE_THUMB,
+    });
+    if (!delivery.url) {
+      return [];
+    }
+    return [
+      {
+        slug: row.slug,
+        title: row.title,
+        publishedAt: row.publishedAt,
+        primaryCategory:
+          row.categoryName && row.categorySlug
+            ? { name: row.categoryName, slug: row.categorySlug }
+            : null,
+        cover: {
+          url: delivery.url,
+          width: delivery.width,
+          height: delivery.height,
+          altText: row.coverAltText,
+          credit: row.coverCredit?.trim() || row.coverCreditLine?.trim() || null,
+        },
+        imageCount,
+      },
+    ];
+  });
+}
+
 export async function getPublicHomepage(
   options: PublicArticleReadOptions = {},
 ): Promise<PublicHomepage> {
@@ -385,19 +522,26 @@ export async function getPublicHomepage(
         isNull(contentItems.deletedAt),
         isNull(contentItems.retractedAt),
         isNull(contentItems.takedownAt),
+        eq(contentItems.contentKind, CONTENT_KIND.ARTICLE),
         eq(contentItems.publicationStatus, PUBLICATION_STATUS.PUBLISHED),
       ),
     )
     .orderBy(desc(contentItems.publishedAt), desc(contentItems.id))
     .limit(PUBLIC_HOMEPAGE_TEMPORARY_STORY_QUERY_LIMIT);
 
-  const [candidateRows, conversation, publishedVideoAssetId, homepageVersionId] =
-    await Promise.all([
-      candidateQuery,
-      getPublicHomepageConversation(options),
-      loadPublishedHomepageVideoAssetId(),
-      loadPublishedHomepageVersionId(),
-    ]);
+  const [
+    candidateRows,
+    conversation,
+    galleries,
+    publishedVideoAssetId,
+    homepageVersionId,
+  ] = await Promise.all([
+    candidateQuery,
+    getPublicHomepageConversation(options),
+    loadPublicHomepageGalleries(options),
+    loadPublishedHomepageVideoAssetId(),
+    loadPublishedHomepageVersionId(),
+  ]);
 
   const homepageVideo =
     publishedVideoAssetId !== null
@@ -460,6 +604,7 @@ export async function getPublicHomepage(
           isNull(contentItems.deletedAt),
           isNull(contentItems.retractedAt),
           isNull(contentItems.takedownAt),
+          eq(contentItems.contentKind, CONTENT_KIND.ARTICLE),
           eq(contentItems.publicationStatus, PUBLICATION_STATUS.PUBLISHED),
         ),
       );
@@ -522,6 +667,7 @@ export async function getPublicHomepage(
   if (selected.length === 0) {
     return emptyPublicHomepage({
       conversation,
+      galleries,
       video: homepageVideo,
       homepageVersionId,
       editorialSlots: editorialMap,
@@ -690,6 +836,6 @@ export async function getPublicHomepage(
       conversation,
       options,
     }),
-    galleries: EMPTY_HOMEPAGE_GALLERIES,
+    galleries,
   };
 }

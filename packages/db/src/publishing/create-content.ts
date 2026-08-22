@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import {
   CONTENT_AUDIT_EVENT_TYPE,
+  CONTENT_KIND,
   PUBLICATION_STATUS,
   WORKFLOW_STATUS,
   assertDraftRelationInputs,
@@ -9,6 +10,7 @@ import {
   canonicalizeContentSlug,
   getPrimaryCategoryId,
   type Credibility,
+  type ContentKind,
   type EditorStaffScope,
 } from "@magazine/domain";
 import { getDb } from "../client";
@@ -24,6 +26,7 @@ import {
 import { appendContentAuditEvent, staffAuditActor } from "./audit";
 
 export type CreateContentInput = ContentRelationInput & {
+  contentKind?: ContentKind;
   slug: string;
   title: string;
   body: unknown;
@@ -86,6 +89,7 @@ export async function createContent(
       const [item] = await tx
         .insert(contentItems)
         .values({
+          contentKind: input.contentKind ?? CONTENT_KIND.ARTICLE,
           slug,
           publicationStatus: PUBLICATION_STATUS.NEVER_PUBLISHED,
           publishedVersionId: null,

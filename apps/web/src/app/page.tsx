@@ -3,6 +3,7 @@ import { HomepageAnalyticsProvider } from "@/components/analytics/homepage-analy
 import { HomepageFeatured } from "@/components/homepage-featured";
 import { HomepageLatest } from "@/components/homepage-latest";
 import { HomepageLeadGrid } from "@/components/homepage-lead-grid";
+import { HomepagePhotoGalleries } from "@/components/homepage-photo-galleries";
 import { PublicUtilityBar } from "@/components/public-utility-bar";
 import { getPublicHomepage } from "@/lib/public-homepage";
 /**
@@ -67,6 +68,7 @@ export default async function Home() {
             ) : null}
 
             <HomepageLatest stories={homepage.latest} />
+            <HomepagePhotoGalleries galleries={homepage.galleries} />
           </div>
         </div>
       </HomepageAnalyticsProvider>
