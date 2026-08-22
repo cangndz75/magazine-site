@@ -32,3 +32,11 @@ Thumbs.db
 
 # Local uploaded media (development object-store root)
 apps/web/public/media/uploads/
+
+# Backup / restore artifacts
+backups/
+restore-scratch/
+*.dump
+*.backup
+*.sql.gz
+*.manifest.local.json

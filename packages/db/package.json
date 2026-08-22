@@ -26,9 +26,12 @@
     "generate": "drizzle-kit generate",
     "check": "drizzle-kit check",
     "migrate": "node ./scripts/require-database-url.mjs && drizzle-kit migrate",
-    "test": "tsx --test src/drizzle-journal.test.ts src/media/**/*.test.ts src/storage/**/*.test.ts src/editor/media-upload.test.ts src/editor/hero-thumbnails.test.ts src/editor/super-admin-dashboard.test.ts src/editor/site-health.test.ts src/analytics/**/*.test.ts src/search/**/*.test.ts",
+    "test": "tsx --test src/drizzle-journal.test.ts src/backup/**/*.test.ts src/media/**/*.test.ts src/storage/**/*.test.ts src/editor/media-upload.test.ts src/editor/hero-thumbnails.test.ts src/editor/super-admin-dashboard.test.ts src/editor/site-health.test.ts src/analytics/**/*.test.ts src/search/**/*.test.ts",
     "test:integration": "node ./scripts/run-content-integration.mjs",
     "analytics:aggregate": "node ./scripts/require-database-url.mjs && tsx ./scripts/analytics-aggregate.ts",
+    "backup:db": "tsx ./scripts/backup-db.ts",
+    "backup:verify": "tsx ./scripts/backup-verify.ts",
+    "restore:test": "tsx ./scripts/restore-test.ts",
     "seed:presentation": "tsx ./scripts/seed-presentation-demo.ts"
   },
   "dependencies": {
