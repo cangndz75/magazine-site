@@ -18,6 +18,9 @@ import {
   MediaUploadError,
   PUBLISHING_ERROR,
   PublishingError,
+  REDIRECT_ERROR,
+  RedirectError,
+  type RedirectErrorCode,
   SEO_INSPECTION_ERROR,
   SeoInspectionError,
   STAFF_ADMIN_ERROR,
@@ -38,6 +41,7 @@ import {
   type StaffMfaErrorCode,
   type VideoErrorCode,
 } from "@magazine/domain";
+import { REDIRECT_ERROR_MESSAGES } from "@/lib/redirects/presentation";
 
 export const EDITOR_NO_STORE_HEADERS = {
   "Cache-Control": "private, no-store",
@@ -134,6 +138,19 @@ const FEATURE_CONTROL_STATUS: Record<FeatureControlErrorCode, number> = {
   [FEATURE_CONTROL_ERROR.TYPE_MISMATCH]: 400,
   [FEATURE_CONTROL_ERROR.WRITE_CONFLICT]: 409,
   [FEATURE_CONTROL_ERROR.UNSAFE_AUDIT_PAYLOAD]: 500,
+};
+
+const REDIRECT_STATUS: Record<RedirectErrorCode, number> = {
+  [REDIRECT_ERROR.FORBIDDEN]: 403,
+  [REDIRECT_ERROR.SOURCE_INVALID]: 400,
+  [REDIRECT_ERROR.TARGET_INVALID]: 400,
+  [REDIRECT_ERROR.SOURCE_CONFLICT]: 409,
+  [REDIRECT_ERROR.SOURCE_EQUALS_TARGET]: 400,
+  [REDIRECT_ERROR.REDIRECT_LOOP]: 409,
+  [REDIRECT_ERROR.REDIRECT_CHAIN]: 409,
+  [REDIRECT_ERROR.WRITE_CONFLICT]: 409,
+  [REDIRECT_ERROR.NOT_FOUND]: 404,
+  [REDIRECT_ERROR.UNSAFE_AUDIT_PAYLOAD]: 500,
 };
 
 const MEDIA_RIGHTS_STATUS_MAP: Record<MediaRightsErrorCode, number> = {
@@ -497,6 +514,14 @@ export function mapEditorError(error: unknown): NextResponse {
       FEATURE_CONTROL_STATUS[error.code] ?? 400,
       error.code,
       message,
+    );
+  }
+
+  if (error instanceof RedirectError) {
+    return editorErrorResponse(
+      REDIRECT_STATUS[error.code] ?? 400,
+      error.code,
+      REDIRECT_ERROR_MESSAGES[error.code],
     );
   }
 

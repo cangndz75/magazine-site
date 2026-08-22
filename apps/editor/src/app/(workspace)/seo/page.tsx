@@ -1,4 +1,4 @@
-import { CAPABILITY } from "@magazine/domain";
+import { CAPABILITY, hasCapability } from "@magazine/domain";
 import {
   getEditorCategorySummary,
   lookupEditorCategories,
@@ -74,6 +74,7 @@ export default async function SeoCommandCenterPage({
       summary={summary}
       categoryOptions={mergeSelectedOption(selectedCategory, categoryOptions)}
       selectedCategory={selectedCategory}
+      canManageRedirects={hasCapability(session.roles, CAPABILITY.CONTENT_PUBLISH)}
     />
   );
 }

@@ -25,6 +25,7 @@ type Props = {
   summary: SeoWorkspaceSummary;
   categoryOptions: CategoryLookupOption[];
   selectedCategory: CategoryLookupOption | null;
+  canManageRedirects: boolean;
 };
 
 export function SeoWorkspace({
@@ -34,6 +35,7 @@ export function SeoWorkspace({
   summary,
   categoryOptions,
   selectedCategory,
+  canManageRedirects,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -71,12 +73,22 @@ export function SeoWorkspace({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-900">SEO</h1>
-        <p className="mt-1 max-w-3xl text-sm text-zinc-600">
-          Yayınlanmış ve taslak içeriklerin indekslenebilirliğini, meta alanlarını ve
-          HERO durumunu tarayın. Kapsamınızdaki içerik dışında kayıt gösterilmez.
-        </p>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">SEO</h1>
+          <p className="mt-1 max-w-3xl text-sm text-zinc-600">
+            Yayınlanmış ve taslak içeriklerin indekslenebilirliğini, meta alanlarını ve
+            HERO durumunu tarayın. Kapsamınızdaki içerik dışında kayıt gösterilmez.
+          </p>
+        </div>
+        {canManageRedirects ? (
+          <Link
+            href="/seo/redirects"
+            className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+          >
+            Yönlendirmeler →
+          </Link>
+        ) : null}
       </div>
 
       <SeoSummaryCards summary={summary} />

@@ -20,6 +20,7 @@ import { getDb } from "./client";
 import { contentItems } from "./schema/content";
 import { entities } from "./schema/entities";
 import { redirectRuleAuditEvents, redirectRules } from "./schema/redirects";
+import { staffUsers } from "./schema/staff";
 
 export type RedirectActor = {
   staffUserId: string;
@@ -35,6 +36,17 @@ export type RedirectRuleProjection = {
   note: string | null;
   createdAt: string;
   updatedAt: string;
+  updatedByDisplayName: string | null;
+};
+
+export type RedirectAuditProjection = {
+  occurredAt: string;
+  actorDisplayName: string;
+  sourcePath: string;
+  oldTargetPath: string | null;
+  newTargetPath: string | null;
+  oldEnabled: boolean | null;
+  newEnabled: boolean;
 };
 
 export type RedirectRuleListResult = {
@@ -145,8 +157,10 @@ export async function listRedirectRules(
       note: redirectRules.note,
       createdAt: redirectRules.createdAt,
       updatedAt: redirectRules.updatedAt,
+      updatedByDisplayName: staffUsers.displayName,
     })
     .from(redirectRules)
+    .leftJoin(staffUsers, eq(staffUsers.id, redirectRules.updatedByStaffUserId))
     .where(clauses.length > 0 ? and(...clauses) : undefined)
     .orderBy(desc(redirectRules.updatedAt), desc(redirectRules.id))
     .limit(limit + 1);
@@ -259,6 +273,74 @@ export async function updateRedirectRule(
     }
     throw error;
   });
+}
+
+export async function getRedirectRule(input: {
+  actor: RedirectActor;
+  id: string;
+}): Promise<RedirectRuleProjection> {
+  authorizeActor(input.actor);
+  const [row] = await getDb()
+    .select({
+      id: redirectRules.id,
+      sourcePath: redirectRules.sourcePath,
+      targetPath: redirectRules.targetPath,
+      status: redirectRules.status,
+      enabled: redirectRules.enabled,
+      note: redirectRules.note,
+      createdAt: redirectRules.createdAt,
+      updatedAt: redirectRules.updatedAt,
+      updatedByDisplayName: staffUsers.displayName,
+    })
+    .from(redirectRules)
+    .leftJoin(staffUsers, eq(staffUsers.id, redirectRules.updatedByStaffUserId))
+    .where(eq(redirectRules.id, input.id))
+    .limit(1);
+  if (!row) {
+    throw new RedirectError(REDIRECT_ERROR.NOT_FOUND);
+  }
+  return projectRule(row);
+}
+
+export async function listRedirectRuleAuditEvents(input: {
+  actor: RedirectActor;
+  redirectRuleId: string;
+  limit?: number;
+}): Promise<RedirectAuditProjection[]> {
+  authorizeActor(input.actor);
+  const [rule] = await getDb()
+    .select({ id: redirectRules.id })
+    .from(redirectRules)
+    .where(eq(redirectRules.id, input.redirectRuleId))
+    .limit(1);
+  if (!rule) {
+    throw new RedirectError(REDIRECT_ERROR.NOT_FOUND);
+  }
+  const limit = Math.max(1, Math.min(25, Math.floor(input.limit ?? 10)));
+  const rows = await getDb()
+    .select({
+      occurredAt: redirectRuleAuditEvents.occurredAt,
+      actorDisplayName: staffUsers.displayName,
+      sourcePath: redirectRuleAuditEvents.sourcePath,
+      oldTargetPath: redirectRuleAuditEvents.oldTargetPath,
+      newTargetPath: redirectRuleAuditEvents.newTargetPath,
+      oldEnabled: redirectRuleAuditEvents.oldEnabled,
+      newEnabled: redirectRuleAuditEvents.newEnabled,
+    })
+    .from(redirectRuleAuditEvents)
+    .innerJoin(staffUsers, eq(staffUsers.id, redirectRuleAuditEvents.actorStaffUserId))
+    .where(eq(redirectRuleAuditEvents.redirectRuleId, input.redirectRuleId))
+    .orderBy(desc(redirectRuleAuditEvents.occurredAt))
+    .limit(limit);
+  return rows.map((row) => ({
+    occurredAt: iso(row.occurredAt),
+    actorDisplayName: row.actorDisplayName,
+    sourcePath: row.sourcePath,
+    oldTargetPath: row.oldTargetPath,
+    newTargetPath: row.newTargetPath,
+    oldEnabled: row.oldEnabled,
+    newEnabled: row.newEnabled ?? false,
+  }));
 }
 
 async function lockRedirectRule(tx: Tx, id: string): Promise<RedirectRuleRecord> {
@@ -406,6 +488,7 @@ function projectRule(row: {
   note: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+  updatedByDisplayName?: string | null;
 }): RedirectRuleProjection {
   return {
     id: row.id,
@@ -416,6 +499,7 @@ function projectRule(row: {
     note: row.note,
     createdAt: iso(row.createdAt),
     updatedAt: iso(row.updatedAt),
+    updatedByDisplayName: row.updatedByDisplayName ?? null,
   };
 }
 
