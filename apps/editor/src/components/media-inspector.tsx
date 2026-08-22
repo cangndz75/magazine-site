@@ -14,7 +14,10 @@ import {
   LICENSE_EXPIRY_SIGNAL_LABELS,
   MEDIA_TYPE_LABELS,
   presentLicenseExpirySignal,
+  presentMediaUsageRoleLabel,
   presentPublicEligibilityBlockedLabel,
+  presentPublicationStatusLabel,
+  presentWorkflowStatusLabel,
   RENDITION_VARIANT_LABELS,
 } from "@/lib/media/presentation";
 import { MediaRightsStatusBadge } from "./media-rights-status-badge";
@@ -495,24 +498,32 @@ export function MediaInspector({
 
         <section className="mt-6 space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Kullanıldığı yerler
+            Bu medya nerede kullanılıyor?
           </h3>
           {data.usages.length === 0 ? (
             <p className="text-sm text-zinc-500">Henüz bir içerikte kullanılmıyor.</p>
           ) : (
             <ul className="space-y-2">
-              {data.usages.map((usage) => (
+              {data.usages.slice(0, 8).map((usage) => (
                 <li
                   key={`${usage.contentVersionId}-${usage.role}`}
-                  className="rounded border border-zinc-200 bg-white p-3 text-sm"
+                  className="rounded border border-zinc-200 bg-zinc-50/80 p-2.5 text-sm"
                 >
-                  <p className="font-medium break-words">{usage.title}</p>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {usage.role} · v{usage.versionNumber} · {usage.publicationStatus} ·{" "}
-                    {usage.workflowStatus}
+                  <p className="font-medium break-words text-zinc-950">{usage.title}</p>
+                  <p className="mt-1 text-xs text-zinc-600">
+                    {presentMediaUsageRoleLabel(usage.role)}
+                    {" · "}
+                    {presentPublicationStatusLabel(usage.publicationStatus)}
+                    {" · "}
+                    {presentWorkflowStatusLabel(usage.workflowStatus)}
                   </p>
                 </li>
               ))}
+              {data.usages.length > 8 ? (
+                <p className="text-xs text-zinc-500">
+                  +{data.usages.length - 8} ek kullanım
+                </p>
+              ) : null}
             </ul>
           )}
         </section>

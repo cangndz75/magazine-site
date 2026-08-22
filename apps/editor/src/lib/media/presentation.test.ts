@@ -4,6 +4,7 @@ import { MEDIA_RIGHTS_STATUS } from "@magazine/domain";
 import {
   LICENSE_EXPIRY_SIGNAL_LABELS,
   presentLicenseExpirySignal,
+  presentMediaUsageRoleLabel,
   presentPublicEligibilityBlockedLabel,
   RIGHTS_STATUS_PRESENTATION,
 } from "./presentation";
@@ -62,6 +63,12 @@ describe("media presentation", () => {
   it("labels blocked public eligibility in Turkish", () => {
     assert.equal(presentPublicEligibilityBlockedLabel(false), "Public kullanım engelli");
     assert.equal(presentPublicEligibilityBlockedLabel(true), null);
+  });
+
+  it("maps media usage roles to editorial Turkish labels", () => {
+    assert.equal(presentMediaUsageRoleLabel("HERO"), "Kapak");
+    assert.equal(presentMediaUsageRoleLabel("GALLERY"), "Foto Galeri");
+    assert.equal(presentMediaUsageRoleLabel("INLINE"), "Haber");
   });
 });
 

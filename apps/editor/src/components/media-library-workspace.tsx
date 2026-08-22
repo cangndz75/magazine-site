@@ -16,7 +16,6 @@ import {
 import { MediaRightsStatusBadge } from "./media-rights-status-badge";
 import {
   MediaInspector,
-  MediaInspectorPlaceholder,
   type InspectorData,
 } from "./media-inspector";
 import { MediaUploadDialog } from "./media-upload-dialog";
@@ -473,7 +472,13 @@ export function MediaLibraryWorkspace({
           ) : null}
         </div>
       ) : (
-        <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div
+          className={`mt-6 grid min-w-0 gap-6 ${
+            effectiveSelectedId
+              ? "lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)] xl:grid-cols-[minmax(0,1fr)_420px]"
+              : ""
+          }`}
+        >
           <section aria-label="Medya listesi" className="min-w-0">
             {listLoading && items.length === 0 ? (
               <p className="text-sm text-zinc-500">Medya listesi yükleniyor…</p>
@@ -507,11 +512,11 @@ export function MediaLibraryWorkspace({
             ) : null}
           </section>
 
-          <aside
-            className="hidden min-h-[480px] min-w-0 overflow-hidden rounded border border-zinc-200 bg-white shadow-sm shadow-zinc-200/40 lg:block"
-            aria-label="Medya inceleyici"
-          >
-            {effectiveSelectedId ? (
+          {effectiveSelectedId ? (
+            <aside
+              className="hidden min-h-0 min-w-0 overflow-hidden rounded border border-zinc-200 bg-white shadow-sm shadow-zinc-200/40 lg:block lg:max-h-[calc(100vh-12rem)]"
+              aria-label="Medya inceleyici"
+            >
               <MediaInspector
                 data={inspector}
                 loading={inspectorLoading}
@@ -521,10 +526,8 @@ export function MediaLibraryWorkspace({
                 saveError={saveError}
                 onSaveRights={handleSaveRights}
               />
-            ) : (
-              <MediaInspectorPlaceholder />
-            )}
-          </aside>
+            </aside>
+          ) : null}
         </div>
       )}
 
@@ -652,7 +655,7 @@ function MediaAssetCard({
         onClick={onSelect}
         className={`group flex w-full min-w-0 flex-col overflow-hidden rounded border bg-white text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-magenta ${
           selected
-            ? "border-brand-magenta ring-1 ring-brand-magenta"
+            ? "border-brand-magenta/80 ring-1 ring-brand-magenta/40"
             : "border-zinc-200 hover:border-zinc-300"
         }`}
         aria-pressed={selected}

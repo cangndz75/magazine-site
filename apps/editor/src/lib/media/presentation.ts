@@ -179,6 +179,36 @@ export const RENDITION_VARIANT_LABELS: Record<string, string> = {
   original: "Orijinal",
 };
 
+export const MEDIA_USAGE_ROLE_LABELS: Record<string, string> = {
+  HERO: "Kapak",
+  GALLERY: "Foto Galeri",
+  INLINE: "Haber",
+};
+
+export function presentMediaUsageRoleLabel(role: string): string {
+  return MEDIA_USAGE_ROLE_LABELS[role] ?? role;
+}
+
+export function presentPublicationStatusLabel(status: string): string {
+  if (status === "PUBLISHED") {
+    return "Yayında";
+  }
+  if (status === "UNPUBLISHED") {
+    return "Yayından kalktı";
+  }
+  return "İlk yayın";
+}
+
+export function presentWorkflowStatusLabel(status: string): string {
+  if (status === "APPROVED") {
+    return "Onaylı";
+  }
+  if (status === "IN_REVIEW") {
+    return "İncelemede";
+  }
+  return "Taslak";
+}
+
 export const RIGHTS_FORM_OPTIONS = {
   sourceKinds: MEDIA_SOURCE_KINDS,
   licenseTypes: MEDIA_LICENSE_TYPES,

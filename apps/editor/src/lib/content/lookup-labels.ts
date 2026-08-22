@@ -1,3 +1,5 @@
+import { RIGHTS_STATUS_PRESENTATION } from "@/lib/media/presentation";
+
 export type CategoryLookupOption = {
   id: string;
   name: string;
@@ -30,6 +32,12 @@ export type MediaLookupOption = {
   mediaType: string;
   width: number | null;
   height: number | null;
+  creditLine?: string | null;
+  eligibility?: {
+    eligible: boolean;
+    status: string;
+    reasons: string[];
+  };
 };
 
 export const ENTITY_KIND_LABELS: Record<string, string> = {
@@ -127,16 +135,31 @@ export function toEntityPickerOption(entity: EntityLookupOption) {
 }
 
 export function toMediaPickerOption(media: MediaLookupOption) {
+  const typeLabel =
+    media.mediaType === "IMAGE"
+      ? "Görsel"
+      : media.mediaType === "VIDEO"
+        ? "Video"
+        : media.mediaType === "AUDIO"
+          ? "Ses"
+          : "Medya";
+  const rightsLabel =
+    media.eligibility
+      ? (RIGHTS_STATUS_PRESENTATION[
+          media.eligibility.status as keyof typeof RIGHTS_STATUS_PRESENTATION
+        ]?.label ?? media.eligibility.status)
+      : null;
+  const credit = media.creditLine?.trim();
+  const descriptionParts = [typeLabel];
+  if (credit) {
+    descriptionParts.push(credit);
+  }
+  if (rightsLabel) {
+    descriptionParts.push(rightsLabel);
+  }
   return {
     id: media.id,
     label: formatEditorMediaLabel(media),
-    description:
-      media.mediaType === "IMAGE"
-        ? "Görsel"
-        : media.mediaType === "VIDEO"
-          ? "Video"
-          : media.mediaType === "AUDIO"
-            ? "Ses"
-            : "Medya",
+    description: descriptionParts.join(" · "),
   };
 }
