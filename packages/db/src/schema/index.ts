@@ -65,6 +65,7 @@ export {
 export { analyticsEvents } from "./analytics-events";
 export { featureControls, featureControlAuditEvents } from "./feature-controls";
 export { redirectRuleAuditEvents, redirectRules } from "./redirects";
+export { newsletterConsentEvents, newsletterSubscribers } from "./newsletter";
 export {
   analyticsAggregationCheckpoints,
   analyticsAuthorDaily,

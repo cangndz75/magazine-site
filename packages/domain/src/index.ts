@@ -14,6 +14,37 @@ export {
   type Credibility,
 } from "./credibility";
 export { CONTENT_KIND, CONTENT_KINDS, type ContentKind } from "./content-kind";
+export {
+  NEWSLETTER_CONFIRMATION_TOKEN_TTL_MS,
+  NEWSLETTER_CONSENT_EVENT_TYPE,
+  NEWSLETTER_EMAIL_MAX_LENGTH,
+  NEWSLETTER_ERROR,
+  NEWSLETTER_PUBLIC_RESPONSE_MESSAGE,
+  NEWSLETTER_SUBSCRIPTION_STATUS,
+  NEWSLETTER_SUPPRESSION_REASON,
+  NEWSLETTER_TOKEN_BYTES_REQUIRED,
+  NEWSLETTER_UNSUBSCRIBE_TOKEN_TTL_MS,
+  NewsletterError,
+  assertNewsletterTokenEntropy,
+  decideNewsletterAdminSuppression,
+  decideNewsletterConfirmation,
+  decideNewsletterSignup,
+  decideNewsletterUnsubscribe,
+  isNewsletterRecipientEligible,
+  newsletterAuditOmitsSecrets,
+  newsletterSafePublicSignupResponse,
+  normalizeNewsletterEmail,
+  type NewsletterAdminSuppressionPlan,
+  type NewsletterConfirmationDecision,
+  type NewsletterConsentEventType,
+  type NewsletterErrorCode,
+  type NewsletterSignupPlan,
+  type NewsletterSubscriberState,
+  type NewsletterSubscriptionStatus,
+  type NewsletterSuppressionReason,
+  type NewsletterUnsubscribeDecision,
+  type NormalizedNewsletterEmail,
+} from "./newsletter-audience";
 export { ENTITY_KIND, ENTITY_KINDS, type EntityKind } from "./entity-kind";
 export { ENTITY_ROLE, ENTITY_ROLES, type EntityRole } from "./entity-role";
 export {
