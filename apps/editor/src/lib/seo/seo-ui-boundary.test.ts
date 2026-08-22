@@ -55,7 +55,11 @@ describe("SEO UI security boundary", () => {
       path.join(root, "app/(workspace)/layout.tsx"),
       "utf8",
     );
+    const navigation = readFileSync(
+      path.join(root, "lib/workspace/navigation.ts"),
+      "utf8",
+    );
     assert.match(source, /canReadContent/);
-    assert.match(source, /href="\/seo"/);
+    assert.match(navigation, /href: "\/seo"/);
   });
 });

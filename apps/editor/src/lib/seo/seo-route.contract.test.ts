@@ -50,6 +50,10 @@ describe("SEO command center route contracts", () => {
       "utf8",
     );
     const layout = readFileSync(path.join(workspaceRoot, "layout.tsx"), "utf8");
+    const navigation = readFileSync(
+      fileURLToPath(new URL("../workspace/navigation.ts", import.meta.url)),
+      "utf8",
+    );
     assert.equal(listPage.includes("requireCapability(CAPABILITY.CONTENT_READ)"), true);
     assert.equal(listPage.includes("listSeoInspections"), true);
     assert.equal(listPage.includes("summarizeSeoInspections"), true);
@@ -57,8 +61,8 @@ describe("SEO command center route contracts", () => {
     assert.equal(detailPage.includes("getSeoInspectionDetail"), true);
     assert.equal(detailPage.includes("notFound()"), true);
     assert.match(layout, /canReadContent/);
-    assert.match(layout, /href="\/seo"/);
-    assert.match(layout, /SEO/);
+    assert.match(navigation, /href: "\/seo"/);
+    assert.match(navigation, /SEO/);
   });
 
   it("does not add a second slug mutation path in SEO UI", () => {

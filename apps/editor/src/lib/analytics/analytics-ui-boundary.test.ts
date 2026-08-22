@@ -83,9 +83,13 @@ describe("analytics dashboard UI privacy boundary", () => {
 
   it("layout exposes Analytics navigation only behind ANALYTICS_READ", () => {
     const source = readFileSync(path.join(root, "app/(workspace)/layout.tsx"), "utf8");
+    const navigation = readFileSync(
+      path.join(root, "lib/workspace/navigation.ts"),
+      "utf8",
+    );
     assert.match(source, /canReadAnalytics/);
     assert.match(source, /CAPABILITY\.ANALYTICS_READ/);
-    assert.match(source, /href="\/analytics"/);
-    assert.match(source, /Analytics/);
+    assert.match(navigation, /href: "\/analytics"/);
+    assert.match(navigation, /Analytics/);
   });
 });

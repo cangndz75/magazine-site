@@ -48,10 +48,14 @@ describe("staff admin UI security boundary", () => {
       path.join(root, "app/(workspace)/layout.tsx"),
       "utf8",
     );
+    const navigation = readFileSync(
+      path.join(root, "lib/workspace/navigation.ts"),
+      "utf8",
+    );
     assert.match(source, /canManageStaff/);
     assert.match(source, /CAPABILITY\.STAFF_MANAGE/);
-    assert.match(source, /href="\/staff"/);
-    assert.match(source, /Personel/);
+    assert.match(navigation, /href: "\/staff"/);
+    assert.match(navigation, /Personel/);
   });
 
   it("staff detail looks up assigned category names instead of an empty scope list", () => {

@@ -30,21 +30,21 @@ export function NewsroomTable({
   return (
     <div className={isPending ? "opacity-60" : ""}>
       <div
-        className="hidden overflow-x-auto border border-zinc-200 bg-white md:block"
+        className="hidden overflow-x-auto rounded border border-zinc-200 bg-white shadow-sm shadow-zinc-200/40 md:block"
         role="region"
         aria-label="Haber listesi"
       >
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-100 text-left text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-              <th className="px-3 py-2">Başlık</th>
-              <th className="px-3 py-2">Yayın</th>
-              <th className="px-3 py-2">İş Akışı</th>
-              <th className="hidden px-3 py-2 lg:table-cell">Kategori</th>
-              <th className="hidden px-3 py-2 xl:table-cell">Yazar</th>
-              <th className="px-3 py-2">Güncelleme</th>
-              <th className="hidden px-3 py-2 lg:table-cell">Zamanlama</th>
-              <th className="px-3 py-2">Dikkat</th>
+            <tr className="border-b border-zinc-100 bg-zinc-50/70 text-left text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <th className="px-4 py-3">Başlık</th>
+              <th className="px-3 py-3">Yayın</th>
+              <th className="px-3 py-3">İş Akışı</th>
+              <th className="hidden px-3 py-3 lg:table-cell">Kategori</th>
+              <th className="hidden px-3 py-3 xl:table-cell">Yazar</th>
+              <th className="px-3 py-3">Güncelleme</th>
+              <th className="hidden px-3 py-3 lg:table-cell">Zamanlama</th>
+              <th className="px-3 py-3">Dikkat</th>
             </tr>
           </thead>
           <tbody>
@@ -104,8 +104,8 @@ function NewsroomTableRow({
 
   return (
     <tr
-      className={`cursor-pointer border-b border-zinc-50 last:border-b-0 hover:bg-zinc-50 ${
-        selected ? "bg-zinc-50" : ""
+      className={`cursor-pointer border-b border-zinc-100 last:border-b-0 hover:bg-zinc-50 ${
+        selected ? "bg-zinc-50 shadow-[inset_3px_0_0_#18181b]" : ""
       }`}
       onClick={onSelect}
       data-selected={selected ? "true" : undefined}
@@ -117,55 +117,55 @@ function NewsroomTableRow({
         }
       }}
     >
-      <td className="px-3 py-2.5">
+      <td className="px-4 py-3">
         <div className="min-w-0">
           <Link
             href={href}
             onClick={(event) => event.stopPropagation()}
-            className="font-medium text-zinc-900 underline-offset-2 hover:underline"
+            className="font-semibold text-zinc-950 underline-offset-2 hover:underline"
           >
             {item.displayVersion.title || (
               <span className="italic text-zinc-400">Başlıksız</span>
             )}
           </Link>
-          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+            <ContentKindBadge kind={item.contentKind} />
             <span className="truncate text-xs text-zinc-500">{item.slug}</span>
-            {item.contentKind === "GALLERY" ? <ContentKindBadge /> : null}
           </div>
         </div>
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-3 py-3">
         <StatusBadge
           label={status.publicationLabel}
           variant={status.publicationVariant}
         />
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-3 py-3">
         <StatusBadge
           label={status.workflowLabel}
           variant={status.workflowVariant}
         />
       </td>
-      <td className="hidden px-3 py-2.5 lg:table-cell">
+      <td className="hidden px-3 py-3 lg:table-cell">
         {item.primaryCategory ? (
           <span className="text-xs text-zinc-600">{item.primaryCategory.name}</span>
         ) : (
-          <span className="text-xs text-zinc-300">—</span>
+          <span className="text-xs text-zinc-300">-</span>
         )}
       </td>
-      <td className="hidden px-3 py-2.5 xl:table-cell">
+      <td className="hidden px-3 py-3 xl:table-cell">
         {item.authors.length > 0 ? (
           <span className="text-xs text-zinc-600">
             {item.authors.map((author) => author.displayName).join(", ")}
           </span>
         ) : (
-          <span className="text-xs text-zinc-300">—</span>
+          <span className="text-xs text-zinc-300">-</span>
         )}
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-3 py-3">
         <RelativeTime iso={item.updatedAt} className="text-xs text-zinc-500" />
       </td>
-      <td className="hidden px-3 py-2.5 lg:table-cell">
+      <td className="hidden px-3 py-3 lg:table-cell">
         {item.scheduledAt ? (
           <time
             dateTime={item.scheduledAt}
@@ -175,14 +175,14 @@ function NewsroomTableRow({
             {formatDateTime(item.scheduledAt)}
           </time>
         ) : (
-          <span className="text-xs text-zinc-300">—</span>
+          <span className="text-xs text-zinc-300">-</span>
         )}
       </td>
-      <td className="px-3 py-2.5">
+      <td className="px-3 py-3">
         {attentionLabel ? (
           <AttentionBadge label={attentionLabel} item={item} />
         ) : (
-          <span className="text-xs text-zinc-300">—</span>
+          <span className="text-xs text-zinc-300">-</span>
         )}
       </td>
     </tr>
@@ -217,9 +217,9 @@ function NewsroomCardRow({
 
   return (
     <li
-      className={`rounded border px-3 py-3 ${
+      className={`rounded border px-3 py-3 shadow-sm shadow-zinc-200/40 ${
         selected
-          ? "border-zinc-900 bg-zinc-50"
+          ? "border-zinc-900 bg-white"
           : "border-zinc-200 bg-white hover:bg-zinc-50"
       }`}
     >
@@ -231,21 +231,19 @@ function NewsroomCardRow({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium text-zinc-900">
+            <ContentKindBadge kind={item.contentKind} />
+            <p className="mt-1 font-semibold text-zinc-950">
               {item.displayVersion.title || (
                 <span className="italic text-zinc-400">Başlıksız</span>
               )}
             </p>
-            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
-              <span className="truncate text-xs text-zinc-500">{item.slug}</span>
-              {item.contentKind === "GALLERY" ? <ContentKindBadge /> : null}
-            </div>
+            <p className="mt-0.5 truncate text-xs text-zinc-500">{item.slug}</p>
           </div>
           {attentionLabel ? (
             <AttentionBadge label={attentionLabel} item={item} compact />
           ) : null}
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1">
+        <div className="mt-3 flex flex-wrap items-center gap-1">
           <StatusBadge
             label={status.publicationLabel}
             variant={status.publicationVariant}
@@ -255,7 +253,7 @@ function NewsroomCardRow({
             variant={status.workflowVariant}
           />
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
           {item.primaryCategory ? <span>{item.primaryCategory.name}</span> : null}
           {item.authors.length > 0 ? (
             <span>{item.authors.map((author) => author.displayName).join(", ")}</span>
@@ -273,10 +271,16 @@ function NewsroomCardRow({
   );
 }
 
-function ContentKindBadge() {
+function ContentKindBadge({ kind }: { kind: NewsroomListItem["contentKind"] }) {
+  const isGallery = kind === "GALLERY";
+
   return (
-    <span className="inline-flex rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-sky-800">
-      Foto Galeri
+    <span
+      className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight ${
+        isGallery ? "bg-sky-50 text-sky-800" : "bg-zinc-100 text-zinc-700"
+      }`}
+    >
+      {isGallery ? "Foto Galeri" : "Haber"}
     </span>
   );
 }

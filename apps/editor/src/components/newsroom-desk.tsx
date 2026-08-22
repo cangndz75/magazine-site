@@ -24,7 +24,7 @@ import { newsroomEmptyState } from "@/lib/content/newsroom-presentation";
 import { ContentPagination } from "./content-pagination";
 import { NewsroomInspector } from "./newsroom-inspector";
 import { NewsroomTable } from "./newsroom-table";
-import { NewsroomToolbar } from "./newsroom-toolbar";
+import { NewsroomCreateActions, NewsroomToolbar } from "./newsroom-toolbar";
 import { NewsroomViewTabs } from "./newsroom-view-tabs";
 
 const XL_MEDIA_QUERY = "(min-width: 1280px)";
@@ -83,6 +83,8 @@ type Props = {
   selectedCategory: CategoryLookupOption | null;
   selectedAuthor: AuthorLookupOption | null;
   canCreate: boolean;
+  canReview: boolean;
+  canManageStaff: boolean;
 };
 
 export function NewsroomDesk({
@@ -95,6 +97,8 @@ export function NewsroomDesk({
   selectedCategory,
   selectedAuthor,
   canCreate,
+  canReview,
+  canManageStaff,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -103,8 +107,7 @@ export function NewsroomDesk({
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const isXlViewport = useIsXlViewport();
 
-  const selectedItem =
-    items.find((item) => item.id === selectedId) ?? null;
+  const selectedItem = items.find((item) => item.id === selectedId) ?? null;
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -149,6 +152,11 @@ export function NewsroomDesk({
   const returnTo = buildListReturnTo(searchParams.toString());
   const firstPageHref = hrefWithQuery("/", applyFilterUpdates(searchParams, {}));
   const emptyState = newsroomEmptyState(filters.view, hasFilters);
+  const headerDetail = canManageStaff
+    ? "Yayın akışını, ekip gündemini ve kritik içerik durumlarını tek ekrandan yönetin."
+    : canReview
+      ? "İnceleme bekleyen işleri, yayın hazırlığını ve içerik önceliklerini takip edin."
+      : "Taslaklarınıza dönün, foto galeriler oluşturun ve yayın sürecini izleyin.";
 
   function handleSelect(id: string) {
     setSelectedId(id);
@@ -162,16 +170,20 @@ export function NewsroomDesk({
   }
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 py-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
+    <div className="mx-auto max-w-[1480px] px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            Editoryal çalışma alanı
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">
             Haber Masası
           </h1>
-          <p className="mt-0.5 text-sm text-zinc-500">
-            Operasyonel liste, filtreler ve hızlı özet.
+          <p className="mt-2 text-sm leading-6 text-zinc-600">
+            {headerDetail}
           </p>
         </div>
+        <NewsroomCreateActions canCreate={canCreate} />
       </div>
 
       <NewsroomViewTabs
@@ -194,7 +206,6 @@ export function NewsroomDesk({
           onClearFilters={clearFilters}
           isPending={isPending}
           hasFilters={hasFilters}
-          canCreate={canCreate}
           categoryOptions={categoryOptions}
           authorOptions={authorOptions}
           selectedCategory={selectedCategory}
@@ -202,19 +213,47 @@ export function NewsroomDesk({
         />
       </div>
 
-      <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div
+        className={`mt-4 grid min-w-0 gap-4 ${
+          selectedItem ? "xl:grid-cols-[minmax(0,1fr)_340px]" : ""
+        }`}
+      >
         <section className="min-w-0">
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded border border-zinc-200 bg-white py-16 text-center">
-              <p className="text-sm font-medium text-zinc-700">{emptyState.title}</p>
-              {emptyState.detail ? (
-                <p className="mt-1 max-w-md text-sm text-zinc-500">{emptyState.detail}</p>
-              ) : null}
+            <div className="rounded border border-zinc-200 bg-white p-5 shadow-sm shadow-zinc-200/40">
+              <div className="max-w-2xl">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded bg-zinc-950 text-xs font-semibold text-white">
+                  HM
+                </span>
+                <p className="mt-4 text-base font-semibold text-zinc-950">
+                  {emptyState.title}
+                </p>
+                {emptyState.detail ? (
+                  <p className="mt-1 text-sm leading-6 text-zinc-600">
+                    {emptyState.detail}
+                  </p>
+                ) : null}
+                {!hasFilters && canCreate ? (
+                  <div className="mt-4">
+                    <NewsroomCreateActions canCreate={canCreate} />
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-5 grid gap-2 text-xs text-zinc-600 sm:grid-cols-4">
+                {["Taslak", "İnceleme", "Onay", "Yayın"].map((step) => (
+                  <div
+                    key={step}
+                    className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 font-medium"
+                  >
+                    {step}
+                  </div>
+                ))}
+              </div>
               {hasFilters ? (
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="mt-4 text-sm text-zinc-600 underline hover:text-zinc-800"
+                  className="mt-4 text-sm font-medium text-zinc-700 underline hover:text-zinc-950"
                 >
                   Filtreleri temizle
                 </button>
@@ -240,14 +279,16 @@ export function NewsroomDesk({
           )}
         </section>
 
-        <aside className="hidden min-w-0 xl:block" aria-label="Haber özeti">
-          <NewsroomInspector
-            item={selectedItem}
-            returnTo={returnTo}
-            onClose={handleCloseInspector}
-            variant="rail"
-          />
-        </aside>
+        {selectedItem ? (
+          <aside className="hidden min-w-0 xl:block" aria-label="İçerik özeti">
+            <NewsroomInspector
+              item={selectedItem}
+              returnTo={returnTo}
+              onClose={handleCloseInspector}
+              variant="rail"
+            />
+          </aside>
+        ) : null}
       </div>
 
       {!isXlViewport && mobileInspectorOpen && selectedItem ? (
@@ -260,7 +301,7 @@ export function NewsroomDesk({
             className="absolute inset-x-0 bottom-0 top-12 max-w-full overflow-hidden rounded-t-xl bg-white shadow-xl"
             role="dialog"
             aria-modal="true"
-            aria-label="Haber özeti"
+            aria-label="İçerik özeti"
             onClick={(event) => event.stopPropagation()}
           >
             <NewsroomInspector
