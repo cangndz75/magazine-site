@@ -2,6 +2,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import {
   ConversationError,
   CONVERSATION_ERROR,
+  PUBLIC_HOMEPAGE_CONVERSATION_LIMIT,
   type ConversationDecision,
   assertConversationExpectedUpdatedAt,
   assertConversationReorderPermutation,
@@ -28,6 +29,11 @@ export type EditorHomepageConversationItem = {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type EditorHomepageConversationState = {
+  updatedAt: Date;
+  items: EditorHomepageConversationItem[];
 };
 
 export type CreateHomepageConversationItemInput = {
@@ -154,6 +160,55 @@ export async function listHomepageConversationItems(
   return rows.map(toEditorItem);
 }
 
+function conversationStateFromRows(
+  rows: readonly (typeof homepageConversationItems.$inferSelect)[],
+): EditorHomepageConversationState {
+  const updatedAt = rows.reduce<Date>(
+    (latest, row) => (row.updatedAt > latest ? row.updatedAt : latest),
+    new Date(0),
+  );
+  return {
+    updatedAt,
+    items: rows.map(toEditorItem),
+  };
+}
+
+export async function getHomepageConversationManagerState(
+  scope: EditorStaffScope,
+): Promise<EditorHomepageConversationState> {
+  authorize(scope);
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(homepageConversationItems)
+    .orderBy(asc(homepageConversationItems.sortOrder), asc(homepageConversationItems.id));
+  return conversationStateFromRows(rows);
+}
+
+function assertBelowConversationLimit(
+  rows: readonly (typeof homepageConversationItems.$inferSelect)[],
+): void {
+  if (rows.length >= PUBLIC_HOMEPAGE_CONVERSATION_LIMIT) {
+    throw new ConversationError(CONVERSATION_ERROR.LIMIT_EXCEEDED);
+  }
+}
+
+function assertNoDuplicateContentItem(
+  rows: readonly (typeof homepageConversationItems.$inferSelect)[],
+  contentItemId: string | null,
+  currentItemId?: string,
+): void {
+  if (contentItemId === null) {
+    return;
+  }
+  const duplicate = rows.some(
+    (row) => row.contentItemId === contentItemId && row.id !== currentItemId,
+  );
+  if (duplicate) {
+    throw new ConversationError(CONVERSATION_ERROR.DUPLICATE_CONTENT_ITEM);
+  }
+}
+
 export async function createHomepageConversationItem(
   input: CreateHomepageConversationItemInput,
 ): Promise<EditorHomepageConversationItem> {
@@ -174,6 +229,8 @@ export async function createHomepageConversationItem(
     await lockConversationTable(tx);
     await assertLinkedContentExists(tx, contentItemId);
     const rows = await loadLockedRows(tx);
+    assertBelowConversationLimit(rows);
+    assertNoDuplicateContentItem(rows, contentItemId);
     const sortOrder = (rows[rows.length - 1]?.sortOrder ?? 0) + 1;
     const [created] = await tx
       .insert(homepageConversationItems)
@@ -236,6 +293,7 @@ export async function updateHomepageConversationItem(
     const isActive = input.isActive ?? current.isActive;
 
     await assertLinkedContentExists(tx, contentItemId);
+    assertNoDuplicateContentItem(await loadLockedRows(tx), contentItemId, current.id);
 
     const [updated] = await tx
       .update(homepageConversationItems)
@@ -259,6 +317,7 @@ export async function updateHomepageConversationItem(
 
 export async function reorderHomepageConversationItems(input: {
   scope: EditorStaffScope;
+  expectedUpdatedAt: Date | string;
   orderedIds: readonly string[];
 }): Promise<EditorHomepageConversationItem[]> {
   authorize(input.scope);
@@ -267,6 +326,13 @@ export async function reorderHomepageConversationItems(input: {
   return db.transaction(async (tx) => {
     await lockConversationTable(tx);
     const rows = await loadLockedRows(tx);
+    const state = conversationStateFromRows(rows);
+    unwrapConversationDecision(
+      assertConversationExpectedUpdatedAt({
+        currentUpdatedAt: state.updatedAt,
+        expectedUpdatedAt: input.expectedUpdatedAt,
+      }),
+    );
     const orderedIds = unwrapConversationDecision(
       assertConversationReorderPermutation({
         currentIds: rows.map((row) => row.id),

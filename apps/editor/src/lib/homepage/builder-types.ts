@@ -35,12 +35,30 @@ export type HomepageBuilderVersionView = {
   videoAssetId: string | null;
 };
 
+export type HomepageConversationItemView = {
+  id: string;
+  rank: number;
+  label: string;
+  reason: string | null;
+  contentItemId: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type HomepageConversationView = {
+  updatedAt: string;
+  maxItems: number;
+  items: HomepageConversationItemView[];
+};
+
 export type HomepageBuilderView = {
   updatedAt: string;
   published: HomepageBuilderVersionView | null;
   draft: HomepageBuilderVersionView;
   stories: Record<string, HomepageStorySummary>;
   videos: Record<string, HomepageVideoSummary>;
+  conversation: HomepageConversationView;
 };
 
 export type HomepageBuilderMutationResponse = {

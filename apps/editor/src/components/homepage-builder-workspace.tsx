@@ -27,6 +27,7 @@ import {
   type ContentPoolItem,
 } from "./homepage-builder-content-pool";
 import { HomepageBuilderInspector } from "./homepage-builder-inspector";
+import { HomepageConversationManager } from "./homepage-conversation-manager";
 import {
   HomepageConflictBanner,
   HomepagePreviewDialog,
@@ -512,6 +513,13 @@ export function HomepageBuilderWorkspace({
             onClearVideo={() => void mutateVideo(null)}
             disabled={isBusy}
           />
+          <div className="mt-4">
+            <HomepageConversationManager
+              builder={builder}
+              onBuilderChange={setBuilder}
+              disabled={isBusy}
+            />
+          </div>
         </section>
 
         <aside className="w-full border-t border-zinc-200 bg-white lg:w-72 lg:shrink-0 lg:border-t-0 lg:border-l">

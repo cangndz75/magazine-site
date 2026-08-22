@@ -4,10 +4,14 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
+  parseCreateHomepageConversationBody,
+  parseDeleteHomepageConversationBody,
   parseMoveHomepageFeaturedBody,
   parsePublishHomepageBody,
+  parseReorderHomepageConversationBody,
   parseSetHomepageSlotBody,
   parseSetHomepageVideoBody,
+  parseUpdateHomepageConversationBody,
 } from "./builder-payload";
 import { EditorHttpError } from "@/lib/content/http";
 import { analyzePublishEligibility, countEmptySlots } from "./builder-utils";
@@ -85,6 +89,70 @@ describe("homepage builder payload", () => {
         error instanceof EditorHttpError && error.code === "INVALID_REQUEST",
     );
   });
+
+  it("parses conversation create, update, delete, and reorder bodies", () => {
+    const contentItemId = "00000000-0000-4000-8000-000000000099";
+    const conversationId = "00000000-0000-4000-8000-000000000088";
+    const expectedUpdatedAt = "2026-08-18T12:00:00.000Z";
+
+    assert.deepEqual(
+      parseCreateHomepageConversationBody({
+        label: "  Topic  ",
+        reason: "  Context  ",
+        contentItemId,
+        isActive: true,
+      }),
+      {
+        label: "Topic",
+        reason: "Context",
+        contentItemId,
+        isActive: true,
+      },
+    );
+
+    assert.equal(
+      parseUpdateHomepageConversationBody({
+        id: conversationId,
+        expectedUpdatedAt,
+        label: "Topic",
+        reason: "",
+        contentItemId: null,
+        isActive: false,
+      }).reason,
+      null,
+    );
+    assert.deepEqual(parseDeleteHomepageConversationBody({ id: conversationId, expectedUpdatedAt }), {
+      id: conversationId,
+      expectedUpdatedAt,
+    });
+    assert.deepEqual(
+      parseReorderHomepageConversationBody({
+        expectedUpdatedAt,
+        orderedIds: [conversationId, contentItemId],
+      }),
+      {
+        expectedUpdatedAt,
+        orderedIds: [conversationId, contentItemId],
+      },
+    );
+  });
+
+  it("rejects malformed conversation payloads", () => {
+    assert.throws(
+      () => parseCreateHomepageConversationBody({ label: "", contentItemId: "bad" }),
+      (error: unknown) =>
+        error instanceof EditorHttpError && error.code === "INVALID_REQUEST",
+    );
+    assert.throws(
+      () =>
+        parseReorderHomepageConversationBody({
+          expectedUpdatedAt: "2026-08-18T12:00:00.000Z",
+          orderedIds: ["bad"],
+        }),
+      (error: unknown) =>
+        error instanceof EditorHttpError && error.code === "INVALID_REQUEST",
+    );
+  });
 });
 
 describe("homepage builder eligibility", () => {
@@ -131,6 +199,11 @@ describe("homepage builder eligibility", () => {
       },
     },
     videos: {},
+    conversation: {
+      updatedAt: "1970-01-01T00:00:00.000Z",
+      maxItems: 5,
+      items: [],
+    },
   };
 
   it("treats empty slots as informational not blocking", () => {
@@ -187,6 +260,14 @@ describe("homepage builder API routes", () => {
       path.join(homepageApiRoot, "builder/video/route.ts"),
       "utf8",
     );
+    const conversation = readFileSync(
+      path.join(homepageApiRoot, "conversation/route.ts"),
+      "utf8",
+    );
+    const conversationReorder = readFileSync(
+      path.join(homepageApiRoot, "conversation/reorder/route.ts"),
+      "utf8",
+    );
     const get = readFileSync(path.join(homepageApiRoot, "builder/route.ts"), "utf8");
 
     assert.equal(slots.includes("withEditorWrite"), true);
@@ -207,6 +288,19 @@ describe("homepage builder API routes", () => {
     assert.equal(video.includes("withEditorWrite"), true);
     assert.equal(video.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
     assert.equal(video.includes("setHomepageVideo"), true);
+
+    assert.equal(conversation.includes("withEditorWrite"), true);
+    assert.equal(conversation.includes("withEditorRead"), true);
+    assert.equal(conversation.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
+    assert.equal(conversation.includes("editorScopeFromSession(session)"), true);
+    assert.equal(conversation.includes(".update("), false);
+    assert.equal(conversation.includes(".insert("), false);
+
+    assert.equal(conversationReorder.includes("withEditorWrite"), true);
+    assert.equal(conversationReorder.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);
+    assert.equal(conversationReorder.includes("reorderHomepageConversationItems"), true);
+    assert.equal(conversationReorder.includes(".update("), false);
+    assert.equal(conversationReorder.includes(".insert("), false);
 
     assert.equal(get.includes("withEditorRead"), true);
     assert.equal(get.includes("CAPABILITY.HOMEPAGE_MANAGE"), true);

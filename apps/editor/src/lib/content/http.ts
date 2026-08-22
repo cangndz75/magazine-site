@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import {
   ContentLegalError,
   CONTENT_LEGAL_ERROR,
+  CONVERSATION_ERROR,
+  ConversationError,
   type ContentLegalErrorCode,
+  type ConversationErrorCode,
   EDITOR_JSON_MAX_BYTES,
   HOMEPAGE_BUILDER_ERROR,
   HomepageBuilderError,
@@ -108,6 +111,18 @@ const HOMEPAGE_BUILDER_STATUS: Record<HomepageBuilderErrorCode, number> = {
   [HOMEPAGE_BUILDER_ERROR.WRITE_CONFLICT]: 409,
   [HOMEPAGE_BUILDER_ERROR.NO_DRAFT]: 409,
   [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]: 422,
+};
+
+const CONVERSATION_STATUS: Record<ConversationErrorCode, number> = {
+  [CONVERSATION_ERROR.FORBIDDEN]: 403,
+  [CONVERSATION_ERROR.ITEM_NOT_FOUND]: 404,
+  [CONVERSATION_ERROR.INVALID_LABEL]: 400,
+  [CONVERSATION_ERROR.INVALID_REASON]: 400,
+  [CONVERSATION_ERROR.INVALID_CONTENT_ITEM]: 400,
+  [CONVERSATION_ERROR.DUPLICATE_CONTENT_ITEM]: 409,
+  [CONVERSATION_ERROR.LIMIT_EXCEEDED]: 409,
+  [CONVERSATION_ERROR.INVALID_REORDER]: 400,
+  [CONVERSATION_ERROR.WRITE_CONFLICT]: 409,
 };
 
 const MEDIA_RIGHTS_STATUS_MAP: Record<MediaRightsErrorCode, number> = {
@@ -276,6 +291,11 @@ const SAFE_MESSAGES: Record<string, string> = {
     "The selected video asset was not found.",
   [HOMEPAGE_BUILDER_ERROR.PUBLISH_VALIDATION_FAILED]:
     "The homepage draft cannot be published until all assignments are publicly eligible.",
+  [CONVERSATION_ERROR.ITEM_NOT_FOUND]: "Konuşulan başlık bulunamadı.",
+  [CONVERSATION_ERROR.INVALID_LABEL]: "Başlık 1-80 karakter olmalı.",
+  [CONVERSATION_ERROR.INVALID_REASON]: "Bağlam metni en fazla 200 karakter olmalı.",
+  [CONVERSATION_ERROR.LIMIT_EXCEEDED]: "En fazla 5 başlık eklenebilir.",
+  [CONVERSATION_ERROR.INVALID_REORDER]: "Sıralama isteği geçersiz.",
   [MEDIA_RIGHTS_ERROR.MEDIA_NOT_FOUND]: "Medya bulunamadı.",
   [MEDIA_RIGHTS_ERROR.INVALID_RIGHTS]: "Hak bilgileri geçersiz.",
   [MEDIA_UPLOAD_ERROR.EMPTY_FILE]: "Yüklenecek dosya boş.",
@@ -373,6 +393,14 @@ export function mapEditorError(error: unknown): NextResponse {
   if (error instanceof HomepageBuilderError) {
     return editorErrorResponse(
       HOMEPAGE_BUILDER_STATUS[error.code] ?? 400,
+      error.code,
+      SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof ConversationError) {
+    return editorErrorResponse(
+      CONVERSATION_STATUS[error.code] ?? 400,
       error.code,
       SAFE_MESSAGES[error.code],
     );

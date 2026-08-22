@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  PUBLIC_HOMEPAGE_CONVERSATION_LIMIT,
   PUBLICATION_STATUS,
   type EditorSafeHeroThumbnail,
   type HomepageSlotKey,
@@ -8,6 +9,7 @@ import {
 import {
   getEditorContentDetail,
   getEditorVideoAsset,
+  getHomepageConversationManagerState,
   getHomepageBuilder,
   heroThumbnailForEditorItem,
   loadEditorHeroThumbnailsByVersionIds,
@@ -37,6 +39,14 @@ function collectContentItemIds(state: EditorHomepageBuilderState): string[] {
     }
   }
   return [...ids];
+}
+
+function collectConversationContentItemIds(
+  conversation: Awaited<ReturnType<typeof getHomepageConversationManagerState>>,
+): string[] {
+  return conversation.items
+    .map((item) => item.contentItemId)
+    .filter((id): id is string => id !== null);
 }
 
 function collectVideoAssetIds(state: EditorHomepageBuilderState): string[] {
@@ -181,9 +191,17 @@ export async function loadHomepageBuilderView(
   session: StaffSessionContext,
 ): Promise<HomepageBuilderView> {
   const scope = editorScopeFromSession(session);
-  const state = await getHomepageBuilder(scope, session.staffUserId);
+  const [state, conversation] = await Promise.all([
+    getHomepageBuilder(scope, session.staffUserId),
+    getHomepageConversationManagerState(scope),
+  ]);
   const [stories, videos] = await Promise.all([
-    loadStorySummaries(collectContentItemIds(state)),
+    loadStorySummaries([
+      ...new Set([
+        ...collectContentItemIds(state),
+        ...collectConversationContentItemIds(conversation),
+      ]),
+    ]),
     loadVideoSummaries(collectVideoAssetIds(state), scope),
   ]);
 
@@ -193,5 +211,19 @@ export async function loadHomepageBuilderView(
     draft: serializeVersion(state.draft),
     stories,
     videos,
+    conversation: {
+      updatedAt: conversation.updatedAt.toISOString(),
+      maxItems: PUBLIC_HOMEPAGE_CONVERSATION_LIMIT,
+      items: conversation.items.map((item, index) => ({
+        id: item.id,
+        rank: index + 1,
+        label: item.label,
+        reason: item.reason,
+        contentItemId: item.contentItemId,
+        isActive: item.isActive,
+        createdAt: item.createdAt.toISOString(),
+        updatedAt: item.updatedAt.toISOString(),
+      })),
+    },
   };
 }
