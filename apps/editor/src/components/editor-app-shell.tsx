@@ -7,6 +7,7 @@ import {
   findActiveWorkspaceHref,
   type WorkspaceNavigationGroup,
 } from "@/lib/workspace/navigation";
+import { EditorGlobalSearch } from "@/components/editor-global-search";
 
 type Props = {
   children: React.ReactNode;
@@ -167,6 +168,8 @@ function ShellSidebar({
           Haber üretimi, medya varlıkları ve yayın akışı.
         </p>
       </div>
+
+      <EditorGlobalSearch />
 
       <nav
         aria-label="Ana menü"
