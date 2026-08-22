@@ -3,8 +3,11 @@ import { HomepageAnalyticsProvider } from "@/components/analytics/homepage-analy
 import { HomepageFeatured } from "@/components/homepage-featured";
 import { HomepageLatest } from "@/components/homepage-latest";
 import { HomepageLeadGrid } from "@/components/homepage-lead-grid";
+import { HomepageAstrology } from "@/components/homepage-astrology";
 import { HomepagePhotoGalleries } from "@/components/homepage-photo-galleries";
+import { HomepageVideoGallery } from "@/components/homepage-video-gallery";
 import { PublicUtilityBar } from "@/components/public-utility-bar";
+import { env } from "@/lib/env";
 import { getPublicHomepage } from "@/lib/public-homepage";
 /**
  * Homepage reads are still uncached: there is no homepage invalidation graph.
@@ -68,7 +71,16 @@ export default async function Home() {
             ) : null}
 
             <HomepageLatest stories={homepage.latest} />
-            <HomepagePhotoGalleries galleries={homepage.galleries} />
+            <HomepagePhotoGalleries
+              galleries={homepage.galleries}
+              allowPreview={env.APP_ENV === "development"}
+            />
+            {env.APP_ENV === "development" ? (
+              <div className="homepage__lifestyle-row">
+                <HomepageVideoGallery />
+                <HomepageAstrology />
+              </div>
+            ) : null}
           </div>
         </div>
       </HomepageAnalyticsProvider>
