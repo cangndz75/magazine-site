@@ -22,6 +22,7 @@ import { entities, entityAliases } from "../schema/entities";
 import { media } from "../schema/media";
 import { categories, tags } from "../schema/taxonomy";
 import { formatEditorMediaLabel } from "./media-label";
+import { eligibilityForRow } from "./media-projections";
 
 const parentCategory = alias(categories, "editor_parent_category");
 
@@ -58,6 +59,12 @@ export type EditorMediaLookup = {
   mediaType: string;
   width: number | null;
   height: number | null;
+  creditLine: string | null;
+  eligibility: {
+    eligible: boolean;
+    status: string;
+    reasons: string[];
+  };
 };
 
 export type LookupQuery = {
@@ -268,8 +275,10 @@ export async function lookupEditorMedia(input: {
   search?: string;
   limit?: number;
   mediaType?: MediaType;
+  now?: Date;
 }): Promise<EditorMediaLookup[]> {
   const db = getDb();
+  const now = input.now ?? new Date();
   const limit = clampEditorLookupLimit(input.limit);
   const like = pattern(input.search);
   const filters: SQL[] = [];
@@ -284,19 +293,11 @@ export async function lookupEditorMedia(input: {
     );
   }
 
-  const query = db
-    .select({
-      id: media.id,
-      mediaType: media.mediaType,
-      width: media.width,
-      height: media.height,
-    })
-    .from(media);
-
+  const baseQuery = db.select().from(media);
   const rows =
     filters.length > 0
-      ? await query.where(and(...filters)).orderBy(media.createdAt).limit(limit)
-      : await query.orderBy(media.createdAt).limit(limit);
+      ? await baseQuery.where(and(...filters)).orderBy(media.createdAt).limit(limit)
+      : await baseQuery.orderBy(media.createdAt).limit(limit);
 
   return rows.map((row) => ({
     id: row.id,
@@ -304,5 +305,7 @@ export async function lookupEditorMedia(input: {
     width: row.width,
     height: row.height,
     label: formatEditorMediaLabel(row),
+    creditLine: row.creditLine,
+    eligibility: eligibilityForRow(row, now),
   }));
 }

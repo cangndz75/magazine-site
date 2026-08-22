@@ -78,7 +78,9 @@ export type EditorMediaListItem = {
   height: number | null;
   previewUrl: string | null;
   creatorName: string | null;
+  sourceName: string | null;
   creditLine: string | null;
+  licenseExpiresAt: Date | null;
   eligibility: ReturnType<typeof eligibilityForRow>;
   usageCount: number;
   createdAt: Date;
@@ -110,6 +112,12 @@ export type EditorMediaUsage = {
   credit: string | null;
 };
 
+export type EditorMediaRenditionSummary = {
+  variant: string;
+  width: number;
+  height: number;
+};
+
 export type EditorMediaInspector = {
   id: string;
   label: string;
@@ -124,6 +132,7 @@ export type EditorMediaInspector = {
   eligibility: ReturnType<typeof eligibilityForRow>;
   usages: EditorMediaUsage[];
   usageCount: number;
+  renditions: EditorMediaRenditionSummary[];
 };
 
 type StaffAccess = {
@@ -541,7 +550,9 @@ export async function listEditorMedia(input: {
       surface: MEDIA_RENDITION_SURFACE.LIBRARY_CARD,
     }),
     creatorName: row.creatorName,
+    sourceName: row.sourceName,
     creditLine: row.creditLine,
+    licenseExpiresAt: row.licenseExpiresAt,
     eligibility: eligibilityForRow(row, now),
     usageCount: Number(usageCount ?? 0),
     createdAt: row.createdAt,
@@ -665,6 +676,7 @@ export async function getEditorMediaInspector(input: {
   }
 
   const renditionsByMediaId = await loadMediaRenditionsByMediaIds([row.id]);
+  const storedRenditions = renditionsByMediaId.get(row.id) ?? [];
 
   return {
     id: row.id,
@@ -679,7 +691,7 @@ export async function getEditorMediaInspector(input: {
       originalStorageKey: row.storageKey,
       originalWidth: row.width,
       originalHeight: row.height,
-      renditions: renditionsByMediaId.get(row.id),
+      renditions: storedRenditions,
       surface: MEDIA_RENDITION_SURFACE.LIBRARY_INSPECTOR,
     }),
     createdAt: row.createdAt,
@@ -687,5 +699,10 @@ export async function getEditorMediaInspector(input: {
     eligibility: eligibilityForRow(row, now),
     usages,
     usageCount: usages.length,
+    renditions: storedRenditions.map((rendition) => ({
+      variant: rendition.variant,
+      width: rendition.width,
+      height: rendition.height,
+    })),
   };
 }
