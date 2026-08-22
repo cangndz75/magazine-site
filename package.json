@@ -22,6 +22,7 @@
     "db:check": "pnpm --filter @magazine/db check",
     "db:migrate": "pnpm --filter @magazine/db migrate",
     "staff:bootstrap": "pnpm --filter editor staff:bootstrap",
-    "staff:password-reset": "pnpm --filter editor staff:password-reset"
+    "staff:password-reset": "pnpm --filter editor staff:password-reset",
+    "seed:presentation": "pnpm --filter @magazine/db seed:presentation"
   }
 }

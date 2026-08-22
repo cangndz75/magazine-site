@@ -1,6 +1,8 @@
 import { asc, sql } from "drizzle-orm";
 import {
+  ANALYTICS_CONTENT_SORT,
   ANALYTICS_REPORTING_TIMEZONE,
+  ANALYTICS_REPORTING_METRIC,
   ANALYTICS_TIME_BUCKET,
   CAPABILITY,
   CONTENT_LEGAL_ACTION_TYPE,
@@ -16,7 +18,16 @@ import {
   type AnalyticsReportingPeriod,
   type EditorStaffScope,
 } from "@magazine/domain";
-import { getAnalyticsFreshness, getAnalyticsOverview } from "../analytics/report";
+import {
+  getAnalyticsAuthors,
+  getAnalyticsCategories,
+  getAnalyticsContentPerformance,
+  getAnalyticsFreshness,
+  getAnalyticsHomepageSlots,
+  getAnalyticsOverview,
+  getAnalyticsSources,
+  getAnalyticsTimeSeries,
+} from "../analytics/report";
 import { getDb } from "../client";
 import { countPublicCacheOutboxEventsByStatus } from "../public-cache-outbox";
 import { summarizeSeoInspections } from "../seo/inspection";
@@ -42,10 +53,11 @@ import { listLegalDashboard } from "./legal-workspace";
 import { listReviewQueue } from "./review-queue";
 
 const DASHBOARD_LIMITS = {
-  ATTENTION: 10,
+  ATTENTION: 8,
   UPCOMING: 8,
   REVIEW: 5,
   LEGAL: 5,
+  PERFORMANCE: 5,
 } as const;
 
 export type DashboardSection<T> =
@@ -120,6 +132,47 @@ export type SuperAdminAnalyticsSummary = {
     homepageCtr: number | null;
   };
   comparison: unknown;
+  timeSeries: {
+    bucketStart: string;
+    articleViews: number;
+    homepageImpressions: number;
+  }[];
+  topContent: {
+    contentItemId: string;
+    title: string;
+    primaryCategoryName: string | null;
+    authorNames: string[];
+    articleViews: number;
+    homepageClicks: number;
+    homepageCtr: number | null;
+    targetHref: string;
+  }[];
+  trafficSources: {
+    sourceChannel: string;
+    eventCount: number;
+    share: number | null;
+  }[];
+  categories: {
+    categoryId: string;
+    name: string | null;
+    articleViews: number;
+    contentCount: number;
+    share: number | null;
+  }[];
+  authors: {
+    authorId: string;
+    displayName: string | null;
+    articleViews: number;
+    contentCount: number;
+  }[];
+  homepageSlots: {
+    placement: string;
+    position: number;
+    title: string | null;
+    impressions: number;
+    clicks: number;
+    ctr: number | null;
+  }[];
 };
 
 export type SuperAdminLegalSummary = {
@@ -572,7 +625,57 @@ async function loadAnalyticsSummary(
   scope: EditorStaffScope,
   period: AnalyticsReportingPeriod,
 ): Promise<SuperAdminAnalyticsSummary> {
-  const overview = await getAnalyticsOverview({ period, scope, comparePrevious: true });
+  const [
+    overview,
+    articleViewsSeries,
+    homepageImpressionsSeries,
+    topContent,
+    sources,
+    categoryPerformance,
+    authorPerformance,
+    homepageSlots,
+  ] = await Promise.all([
+    getAnalyticsOverview({ period, scope, comparePrevious: true }),
+    getAnalyticsTimeSeries({
+      period,
+      scope,
+      metric: ANALYTICS_REPORTING_METRIC.ARTICLE_VIEWS,
+    }),
+    getAnalyticsTimeSeries({
+      period,
+      scope,
+      metric: ANALYTICS_REPORTING_METRIC.HOMEPAGE_IMPRESSIONS,
+    }),
+    getAnalyticsContentPerformance({
+      period,
+      scope,
+      sort: ANALYTICS_CONTENT_SORT.ARTICLE_VIEWS,
+      limit: DASHBOARD_LIMITS.PERFORMANCE,
+      minImpressions: 1,
+    }),
+    getAnalyticsSources({ period, scope }),
+    getAnalyticsCategories({ period, scope }),
+    getAnalyticsAuthors({ period, scope }),
+    getAnalyticsHomepageSlots({ period, scope }),
+  ]);
+  if (
+    overview.freshness.status !== "AVAILABLE" ||
+    articleViewsSeries.freshness.status !== "AVAILABLE" ||
+    homepageImpressionsSeries.freshness.status !== "AVAILABLE"
+  ) {
+    throw new Error("ANALYTICS_UNAVAILABLE");
+  }
+  const homepageByBucket = new Map(
+    homepageImpressionsSeries.points.map((point) => [
+      point.bucketStart.toISOString(),
+      point.value ?? 0,
+    ]),
+  );
+  const categoryTotal = categoryPerformance.items.reduce(
+    (sum, item) => sum + item.articleViews,
+    0,
+  );
+  const sourceTotal = sources.total;
   return {
     period: {
       fromInclusive: period.fromInclusive.toISOString(),
@@ -589,6 +692,56 @@ async function loadAnalyticsSummary(
       homepageCtr: overview.metrics.homepageCtr,
     },
     comparison: overview.comparison,
+    timeSeries: articleViewsSeries.points.map((point) => ({
+      bucketStart: point.bucketStart.toISOString(),
+      articleViews: point.value ?? 0,
+      homepageImpressions: homepageByBucket.get(point.bucketStart.toISOString()) ?? 0,
+    })),
+    topContent: topContent.items.slice(0, DASHBOARD_LIMITS.PERFORMANCE).map((item) => ({
+      contentItemId: item.contentItemId,
+      title: item.display?.title ?? "Başlıksız içerik",
+      primaryCategoryName: item.display?.primaryCategoryName ?? null,
+      authorNames: item.display?.authors.map((author) => author.displayName) ?? [],
+      articleViews: item.articleViews,
+      homepageClicks: item.homepageClicks,
+      homepageCtr: item.homepageCtr,
+      targetHref: contentHref(item.contentItemId),
+    })),
+    trafficSources: sources.items
+      .slice(0, DASHBOARD_LIMITS.PERFORMANCE)
+      .map((item) => ({
+        sourceChannel: item.sourceChannel,
+        eventCount: item.eventCount,
+        share: sourceTotal > 0 ? item.eventCount / sourceTotal : null,
+      })),
+    categories: categoryPerformance.items
+      .slice(0, DASHBOARD_LIMITS.PERFORMANCE)
+      .map((item) => ({
+        categoryId: item.categoryId,
+        name: item.name,
+        articleViews: item.articleViews,
+        contentCount: item.contentCount,
+        share: categoryTotal > 0 ? item.articleViews / categoryTotal : null,
+      })),
+    authors: authorPerformance.items
+      .slice(0, DASHBOARD_LIMITS.PERFORMANCE)
+      .map((item) => ({
+        authorId: item.authorId,
+        displayName: item.displayName,
+        articleViews: item.articleViews,
+        contentCount: item.contentCount,
+      })),
+    homepageSlots: homepageSlots.items
+      .sort((left, right) => right.impressions - left.impressions)
+      .slice(0, DASHBOARD_LIMITS.PERFORMANCE)
+      .map((item) => ({
+        placement: item.placement,
+        position: item.position,
+        title: item.display?.title ?? null,
+        impressions: item.impressions,
+        clicks: item.clicks,
+        ctr: item.ctr,
+      })),
   };
 }
 
