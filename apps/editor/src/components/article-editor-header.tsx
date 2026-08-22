@@ -10,12 +10,14 @@ import {
   PUBLICATION_STATUS_LABELS,
   WORKFLOW_STATUS_LABELS,
 } from "@/lib/content/revision-presentation";
+import type { ContentKind } from "@magazine/domain";
 
 type Props = {
   backHref: string;
   backLabel: string;
   title: string;
   slug: string;
+  contentKind?: ContentKind;
   publicationStatus: keyof typeof PUBLICATION_STATUS_LABELS;
   workflowStatus: keyof typeof WORKFLOW_STATUS_LABELS | null;
   publicationVariant: "neutral" | "success" | "warning" | "info" | "danger";
@@ -33,6 +35,7 @@ export function ArticleEditorHeader({
   backLabel,
   title,
   slug,
+  contentKind = "ARTICLE",
   publicationStatus,
   workflowStatus,
   publicationVariant,
@@ -68,10 +71,13 @@ export function ArticleEditorHeader({
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-tight text-zinc-950 md:text-[1.75rem]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-magenta">
+            {contentKind === "GALLERY" ? "Foto Galeri" : "Haber düzenleyici"}
+          </p>
+          <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight text-zinc-950 md:text-[1.75rem]">
             {title}
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">{slug}</p>
+          <p className="mt-1 font-mono text-xs text-zinc-500">{slug}</p>
         </div>
 
         <div

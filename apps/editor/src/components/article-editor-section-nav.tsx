@@ -1,21 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { EDITOR_SECTION_NAV } from "@/lib/content/article-readiness-presentation";
+import {
+  EDITOR_SECTION_NAV,
+  type EditorSectionNavItem,
+} from "@/lib/content/article-readiness-presentation";
 
 type Props = {
   onNavigate: (targetId: string) => void;
+  sections?: readonly EditorSectionNavItem[];
 };
 
-export function ArticleEditorSectionNav({ onNavigate }: Props) {
-  const [activeId, setActiveId] = useState<string>(EDITOR_SECTION_NAV[0]?.id ?? "");
+export function ArticleEditorSectionNav({
+  onNavigate,
+  sections = EDITOR_SECTION_NAV,
+}: Props) {
+  const [activeId, setActiveId] = useState<string>(sections[0]?.id ?? "");
 
   useEffect(() => {
-    const sections = EDITOR_SECTION_NAV.map((item) =>
-      document.getElementById(item.id),
-    ).filter((item): item is HTMLElement => item !== null);
-
-    if (sections.length === 0) {
+    const sectionElements = sections
+      .map((item) => document.getElementById(item.id))
+      .filter((item): item is HTMLElement => item !== null);
+    if (sectionElements.length === 0) {
       return;
     }
 
@@ -34,12 +40,12 @@ export function ArticleEditorSectionNav({ onNavigate }: Props) {
       },
     );
 
-    for (const section of sections) {
+    for (const section of sectionElements) {
       observer.observe(section);
     }
 
     return () => observer.disconnect();
-  }, []);
+  }, [sections]);
 
   return (
     <nav
@@ -47,7 +53,7 @@ export function ArticleEditorSectionNav({ onNavigate }: Props) {
       className="sticky top-[4.75rem] z-10 -mx-1 mb-5 overflow-x-auto border-b border-zinc-200 bg-white/95 px-1 pb-2 pt-1 backdrop-blur sm:top-12"
     >
       <ul className="flex min-w-max gap-1">
-        {EDITOR_SECTION_NAV.map((item) => {
+        {sections.map((item) => {
           const active = item.id === activeId;
           return (
             <li key={item.id}>
