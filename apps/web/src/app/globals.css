@@ -1344,6 +1344,8 @@ summary:focus-visible {
 .homepage__canvas {
   display: grid;
   gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
 
 .homepage-featured {
@@ -2332,6 +2334,25 @@ summary:focus-visible {
 @media (max-width: 767px) {
   .homepage__inner {
     padding-inline: var(--space-2);
+  }
+
+  .homepage-lead-grid {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    width: 100%;
+  }
+
+  .homepage-lead-grid__lead,
+  .homepage-lead-grid__supports,
+  .homepage-lead-grid__rail {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .homepage-featured,
+  .homepage-featured__grid {
+    width: 100%;
+    max-width: 100%;
   }
 
   .homepage-featured__grid {
