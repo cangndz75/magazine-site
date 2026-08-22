@@ -504,7 +504,7 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
                   )}
                 </div>
               </div>
-            ) : null}
+            )}
           </div>
         </section>
       </div>
