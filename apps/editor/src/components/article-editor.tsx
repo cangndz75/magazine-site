@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type {
   AuthorRole,
+  ContentKind,
   Credibility,
   EntityKind,
   EntityLinkSuggestion,
   EntityRole,
   MediaRole,
 } from "@magazine/domain";
-import { evaluateArticleReadiness } from "@magazine/domain";
+import { CONTENT_KIND, evaluateArticleReadiness } from "@magazine/domain";
 import { deriveContentStatus } from "@/lib/content/status";
 import { ArticleAuditHistory } from "@/components/article-audit-history";
 import { ArticleEditorHeader } from "@/components/article-editor-header";
@@ -22,7 +23,9 @@ import {
 } from "@/components/article-entity-link-assistant";
 import { ArticleRevisionPanel } from "@/components/article-revision-panel";
 import { ArticleReviewPanel, type ReviewHistoryItem } from "@/components/article-review-panel";
-import { PublicationReadinessRail } from "@/components/publication-readiness-rail";
+import { PhotoGalleryClassificationRail } from "@/components/photo-gallery-classification-rail";
+import { PhotoGalleryCoverSection } from "@/components/photo-gallery-cover-section";
+import { PhotoGalleryImageManager } from "@/components/photo-gallery-image-manager";
 import { StructuredBodyEditor } from "@/components/structured-body-editor";
 import {
   cloneBodyEditorDocument,
@@ -37,6 +40,7 @@ import {
 } from "@/lib/content/article-editor-state";
 import {
   cloneArticleEditorRelations,
+  getGalleryMedia,
   getHeroMedia,
   setArticleVideos,
   setGalleryMedia,
@@ -54,9 +58,13 @@ import {
   isSuccessfulSaveResponse,
   presentSaveFailure,
 } from "@/lib/content/save-presentation";
+import { PublicationReadinessRail } from "@/components/publication-readiness-rail";
 import {
+  GALLERY_EDITOR_SECTION_NAV,
   presentArticleReadiness,
 } from "@/lib/content/article-readiness-presentation";
+import { ensureGalleryBodyDocument } from "@/lib/content/photo-gallery-editor-body";
+import { presentPhotoGalleryReadiness } from "@/lib/content/photo-gallery-readiness-presentation";
 import {
   presentWorkflow,
   type WorkflowEligibilityInput,
@@ -76,6 +84,7 @@ import type { SeoSlugHistoryDto } from "@/lib/seo/serialize";
 type ArticleEditorModel = {
   contentItem: {
     id: string;
+    contentKind: ContentKind;
     slug: string;
     publicationStatus: "NEVER_PUBLISHED" | "PUBLISHED" | "UNPUBLISHED";
     publishedVersionId: string | null;
@@ -400,6 +409,8 @@ export function ArticleEditor({
   );
 
   const heroMedia = getHeroMedia(relations);
+  const galleryMedia = getGalleryMedia(relations);
+  const isGallery = model.contentItem.contentKind === CONTENT_KIND.GALLERY;
   const fieldValidationErrors = useMemo(
     () =>
       Object.values(validation.errors).filter(
@@ -457,7 +468,11 @@ export function ArticleEditor({
   ]);
 
   const reviewFeedback = latestReviewFeedback(reviewEvents);
-  const presentedReadiness = readiness ? presentArticleReadiness(readiness) : null;
+  const presentedReadiness = readiness
+    ? isGallery
+      ? presentPhotoGalleryReadiness(presentArticleReadiness(readiness), relations)
+      : presentArticleReadiness(readiness)
+    : null;
 
   function patchField<K extends keyof ArticleEditorFields>(
     key: K,
@@ -482,7 +497,9 @@ export function ArticleEditor({
       return;
     }
 
-    const nextBodyDocument = cloneBodyEditorDocument(bodyDocument);
+    const nextBodyDocument = isGallery
+      ? ensureGalleryBodyDocument(cloneBodyEditorDocument(bodyDocument), fields)
+      : cloneBodyEditorDocument(bodyDocument);
     const nextRelations = cloneArticleEditorRelations(relations);
     const payload = {
       ...normalizeArticleEditorFields(fields),
@@ -739,6 +756,7 @@ export function ArticleEditor({
         backLabel={backLabel}
         title={fields?.title || version?.fields.title || model.contentItem.slug}
         slug={model.contentItem.slug}
+        contentKind={model.contentItem.contentKind}
         publicationStatus={model.contentItem.publicationStatus}
         workflowStatus={version?.workflowStatus ?? null}
         publicationVariant={status?.publicationVariant ?? "neutral"}
@@ -820,7 +838,10 @@ export function ArticleEditor({
                 void save();
               }}
             >
-              <ArticleEditorSectionNav onNavigate={scrollToEditorSection} />
+              <ArticleEditorSectionNav
+                onNavigate={scrollToEditorSection}
+                sections={isGallery ? GALLERY_EDITOR_SECTION_NAV : undefined}
+              />
 
               {!canEdit && (
                 <Notice>
@@ -879,7 +900,7 @@ export function ArticleEditor({
                   onChange={(value) => patchField("excerpt", value)}
                 />
 
-                {bodyDocument ? (
+                {isGallery ? null : bodyDocument ? (
                   <StructuredBodyEditor
                     document={bodyDocument}
                     disabled={!effectiveCanEdit}
@@ -895,57 +916,99 @@ export function ArticleEditor({
                 )}
               </section>
 
-              <ArticleMetadataEditor
-                relations={relations}
-                disabled={!effectiveCanEdit}
-                heroBusy={heroBusy}
-                galleryBusy={galleryBusy}
-                videoBusy={videoBusy}
-                contentItemId={model.contentItem.id}
-                trustedSiteUrl={trustedSiteUrl}
-                title={fields.title}
-                bodyDocument={bodyDocument}
-                onChange={(next) => {
-                  const prevEntityIds = relations.entities
-                    .map((entity) => entity.id)
-                    .sort()
-                    .join(",");
-                  const nextEntityIds = next.entities
-                    .map((entity) => entity.id)
-                    .sort()
-                    .join(",");
-                  setRelations(next);
-                  setSaveState({ kind: "idle" });
-                  if (
-                    prevEntityIds !== nextEntityIds &&
-                    entitySuggestionSnapshotRef.current.length > 0
-                  ) {
-                    handleSuggestionStats(
-                      computeEntityLinkSuggestionStats(
-                        entitySuggestionSnapshotRef.current,
-                        next.entities.map((entity) => entity.id),
-                      ),
-                    );
-                  }
-                }}
-                onPersistHero={(media) => {
-                  void persistHeroMutation(media);
-                }}
-                onRemoveHero={() => {
-                  void persistHeroMutation(null);
-                }}
-                onPersistGallery={(gallery) => {
-                  void persistGalleryMutation(gallery);
-                }}
-                onPersistVideos={(videos) => {
-                  void persistVideosMutation(videos);
-                }}
-                onSuggestionStats={handleSuggestionStats}
-                onSuggestionSnapshot={(suggestions) => {
-                  entitySuggestionSnapshotRef.current = [...suggestions];
-                }}
-              />
+              {isGallery ? (
+                <>
+                  <PhotoGalleryCoverSection
+                    hero={heroMedia}
+                    disabled={!effectiveCanEdit}
+                    busy={heroBusy}
+                    onSelect={(media) => {
+                      void persistHeroMutation(media);
+                    }}
+                    onRemove={() => {
+                      void persistHeroMutation(null);
+                    }}
+                    onPresentationChange={(patch) => {
+                      if (!heroMedia) {
+                        return;
+                      }
+                      setRelations((current) =>
+                        setHeroMedia(current, {
+                          ...heroMedia,
+                          altText: patch.altText,
+                          credit: patch.credit,
+                        }),
+                      );
+                      setSaveState({ kind: "idle" });
+                    }}
+                  />
+                  <PhotoGalleryImageManager
+                    gallery={galleryMedia}
+                    disabled={!effectiveCanEdit}
+                    busy={galleryBusy}
+                    onChange={(next) => {
+                      setRelations((current) => setGalleryMedia(current, next));
+                      setSaveState({ kind: "idle" });
+                    }}
+                    onPersist={(next) => {
+                      void persistGalleryMutation(next);
+                    }}
+                  />
+                </>
+              ) : (
+                <ArticleMetadataEditor
+                  relations={relations}
+                  disabled={!effectiveCanEdit}
+                  heroBusy={heroBusy}
+                  galleryBusy={galleryBusy}
+                  videoBusy={videoBusy}
+                  contentItemId={model.contentItem.id}
+                  trustedSiteUrl={trustedSiteUrl}
+                  title={fields.title}
+                  bodyDocument={bodyDocument}
+                  onChange={(next) => {
+                    const prevEntityIds = relations.entities
+                      .map((entity) => entity.id)
+                      .sort()
+                      .join(",");
+                    const nextEntityIds = next.entities
+                      .map((entity) => entity.id)
+                      .sort()
+                      .join(",");
+                    setRelations(next);
+                    setSaveState({ kind: "idle" });
+                    if (
+                      prevEntityIds !== nextEntityIds &&
+                      entitySuggestionSnapshotRef.current.length > 0
+                    ) {
+                      handleSuggestionStats(
+                        computeEntityLinkSuggestionStats(
+                          entitySuggestionSnapshotRef.current,
+                          next.entities.map((entity) => entity.id),
+                        ),
+                      );
+                    }
+                  }}
+                  onPersistHero={(media) => {
+                    void persistHeroMutation(media);
+                  }}
+                  onRemoveHero={() => {
+                    void persistHeroMutation(null);
+                  }}
+                  onPersistGallery={(gallery) => {
+                    void persistGalleryMutation(gallery);
+                  }}
+                  onPersistVideos={(videos) => {
+                    void persistVideosMutation(videos);
+                  }}
+                  onSuggestionStats={handleSuggestionStats}
+                  onSuggestionSnapshot={(suggestions) => {
+                    entitySuggestionSnapshotRef.current = [...suggestions];
+                  }}
+                />
+              )}
 
+              {isGallery ? null : (
               <section
                 id="editor-section-publication"
                 className="scroll-mt-28 border-t border-zinc-200 pt-6"
@@ -1028,6 +1091,7 @@ export function ArticleEditor({
                   </div>
                 </div>
               </section>
+              )}
 
               <ArticleSeoSection
                 fields={fields}
@@ -1086,6 +1150,17 @@ export function ArticleEditor({
         </main>
 
         <aside className="space-y-5 xl:sticky xl:top-4 xl:self-start">
+          {isGallery ? (
+            <PhotoGalleryClassificationRail
+              relations={relations}
+              disabled={!effectiveCanEdit}
+              onChange={(next) => {
+                setRelations(next);
+                setSaveState({ kind: "idle" });
+              }}
+            />
+          ) : null}
+
           {presentedReadiness ? (
             <div className="hidden xl:block">
               <PublicationReadinessRail

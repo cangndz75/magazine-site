@@ -113,6 +113,7 @@ export default async function ArticleWorkspacePage({
       model={{
         contentItem: {
           ...model.contentItem,
+          contentKind: model.contentItem.contentKind,
           scheduledAt: model.contentItem.scheduledAt?.toISOString() ?? null,
           publishedAt: model.contentItem.publishedAt?.toISOString() ?? null,
           publicDateModified:
