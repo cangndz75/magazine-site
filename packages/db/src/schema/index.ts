@@ -64,6 +64,7 @@ export {
 } from "./homepage-builder";
 export { analyticsEvents } from "./analytics-events";
 export { featureControls, featureControlAuditEvents } from "./feature-controls";
+export { redirectRuleAuditEvents, redirectRules } from "./redirects";
 export {
   analyticsAggregationCheckpoints,
   analyticsAuthorDaily,

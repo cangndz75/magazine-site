@@ -38,6 +38,7 @@ const PUBLIC_CACHE_OUTBOX_ENTITY_EVENTS_SQL =
   "0023_public-cache-outbox-entity-events.sql";
 const PHOTO_GALLERY_CONTENT_KIND_SQL = "0024_photo-gallery-content-kind.sql";
 const FEATURE_CONTROLS_SQL = "0025_feature-controls.sql";
+const REDIRECT_MANAGEMENT_SQL = "0026_redirect-management.sql";
 
 async function publicColumnExists(
   client: Client,
@@ -322,5 +323,10 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   const hasFeatureControls = await publicTableExists(client, "feature_controls");
   if (!hasFeatureControls) {
     await applySqlFile(client, FEATURE_CONTROLS_SQL);
+  }
+
+  const hasRedirectRules = await publicTableExists(client, "redirect_rules");
+  if (!hasRedirectRules) {
+    await applySqlFile(client, REDIRECT_MANAGEMENT_SQL);
   }
 }

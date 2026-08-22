@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { REDIRECT_RESOLUTION } from "@magazine/domain";
+import { resolvePublicRedirect } from "@magazine/db/redirects";
 import { notFound, permanentRedirect } from "next/navigation";
 import { JsonLdScript } from "@/components/json-ld-script";
 import { PublicEntityBiography } from "@/components/public-entity-biography";
@@ -45,6 +47,12 @@ export async function generateMetadata({
   if (result?.status === "redirect") {
     permanentRedirect(publicEntityCanonicalUrl(env.SITE_URL, result.slug));
   }
+  if (!result) {
+    const manual = await resolvePublicRedirect(`/kimdir/${slug}`);
+    if (manual.kind === REDIRECT_RESOLUTION.REDIRECT) {
+      permanentRedirect(manual.targetPath);
+    }
+  }
 
   return buildPublicEntityPageSeo(result, env.SITE_URL).metadata;
 }
@@ -65,6 +73,10 @@ export default async function PublicEntityProfilePage({
     permanentRedirect(publicEntityCanonicalUrl(env.SITE_URL, result.slug));
   }
   if (!result || result.status !== "found") {
+    const manual = await resolvePublicRedirect(`/kimdir/${slug}`);
+    if (manual.kind === REDIRECT_RESOLUTION.REDIRECT) {
+      permanentRedirect(manual.targetPath);
+    }
     notFound();
   }
 

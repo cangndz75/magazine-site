@@ -74,6 +74,7 @@ describe("workspace navigation", () => {
         "/entities",
         "/dashboard",
         "/site-health",
+        "/feature-controls",
         "/staff",
       ],
     );
