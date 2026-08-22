@@ -40,35 +40,67 @@ type ConfirmAction = {
   rule: RedirectRuleHttpDto;
 };
 
-export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
-  const [selectedId, setSelectedId] = useState(items[0]?.id ?? null);
+type RedirectRuleInspectorProps = {
+  ruleId: string;
+  router: ReturnType<typeof useRouter>;
+  onWriteConflict: () => void;
+};
+
+function RedirectRuleInspector({
+  ruleId,
+  router,
+  onWriteConflict,
+}: RedirectRuleInspectorProps) {
   const [detail, setDetail] = useState<RedirectRuleHttpDto | null>(null);
   const [audit, setAudit] = useState<RedirectAuditHttpDto[]>([]);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
-  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [pending, setPending] = useState(false);
-
-  const [createSource, setCreateSource] = useState("");
-  const [createTarget, setCreateTarget] = useState("");
-  const [createNote, setCreateNote] = useState("");
-
   const [editTarget, setEditTarget] = useState("");
   const [editNote, setEditNote] = useState("");
 
-  const selected =
-    items.find((item) => item.id === selectedId) ?? items[0] ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/redirects/${ruleId}`, {
+      headers: { Accept: "application/json" },
+    })
+      .then((response) => response.json())
+      .then((body: {
+        ok?: boolean;
+        data?: { rule: RedirectRuleHttpDto; audit: RedirectAuditHttpDto[] };
+        error?: { code?: string; message?: string };
+      }) => {
+        if (cancelled) {
+          return;
+        }
+        if (!body.ok || !body.data) {
+          setFormError(body.error?.message ?? "Yönlendirme yüklenemedi.");
+          setLoading(false);
+          return;
+        }
+        setDetail(body.data.rule);
+        setAudit(body.data.audit);
+        setEditTarget(body.data.rule.targetPath);
+        setEditNote(body.data.rule.note ?? "");
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFormError("Yönlendirme yüklenemedi.");
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ruleId]);
 
-  const loadDetail = useCallback(async (id: string) => {
-    setDetailLoading(true);
+  async function reloadDetail() {
+    setLoading(true);
     setFormError(null);
     try {
-      const response = await fetch(`/api/redirects/${id}`, {
+      const response = await fetch(`/api/redirects/${ruleId}`, {
         headers: { Accept: "application/json" },
       });
       const body = (await response.json()) as {
@@ -87,17 +119,246 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
     } catch {
       setFormError("Yönlendirme yüklenemedi.");
     } finally {
-      setDetailLoading(false);
+      setLoading(false);
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    if (!selected?.id) {
+  async function handleUpdate(enabled?: boolean) {
+    if (!detail) {
       return;
     }
-    const id = selected.id;
-    void Promise.resolve().then(() => loadDetail(id));
-  }, [selected?.id, loadDetail]);
+    setPending(true);
+    setFormError(null);
+    try {
+      const response = await fetch(`/api/redirects/${detail.id}`, {
+        method: "PATCH",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          targetPath: editTarget,
+          note: editNote.trim() || null,
+          enabled: enabled ?? detail.enabled,
+          expectedUpdatedAt: detail.updatedAt,
+        }),
+      });
+      const body = (await response.json()) as {
+        ok?: boolean;
+        error?: { code?: string; message?: string };
+      };
+      if (!body.ok) {
+        if (body.error?.code === REDIRECT_ERROR.WRITE_CONFLICT) {
+          onWriteConflict();
+          setConfirmAction(null);
+          return;
+        }
+        setFormError(
+          body.error?.message ??
+            REDIRECT_ERROR_MESSAGES[body.error?.code ?? ""] ??
+            "Yönlendirme güncellenemedi.",
+        );
+        setConfirmAction(null);
+        return;
+      }
+      setConfirmAction(null);
+      router.refresh();
+      await reloadDetail();
+    } catch {
+      setFormError("Yönlendirme güncellenemedi.");
+      setConfirmAction(null);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (loading) {
+    return <p className="text-sm text-zinc-500">Yükleniyor…</p>;
+  }
+
+  if (!detail) {
+    return (
+      <p className="text-sm text-rose-800" role="alert">
+        {formError ?? "Yönlendirme yüklenemedi."}
+      </p>
+    );
+  }
+
+  return (
+    <>
+      {formError ? (
+        <p className="mb-3 text-sm text-rose-800" role="alert">{formError}</p>
+      ) : null}
+      <div className="space-y-4">
+        <div className="rounded-md border border-zinc-200 bg-zinc-50/80 px-3 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            Önizleme
+          </p>
+          <p className="mt-1 font-mono text-sm text-zinc-900">
+            {redirectPreviewLabel(detail.sourcePath, detail.targetPath)}
+          </p>
+          <p className="mt-1 text-xs text-zinc-600">308 Kalıcı Yönlendirme</p>
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-zinc-700" htmlFor="edit-source">
+            Kaynak URL
+          </label>
+          <input
+            id="edit-source"
+            type="text"
+            readOnly
+            value={detail.sourcePath}
+            className="mt-1 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-zinc-700" htmlFor="edit-target">
+            Hedef URL
+          </label>
+          <input
+            id="edit-target"
+            type="text"
+            value={editTarget}
+            onChange={(event) => setEditTarget(event.target.value)}
+            placeholder="/yeni-haber-adresi"
+            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-zinc-700" htmlFor="edit-note">
+            Not (isteğe bağlı)
+          </label>
+          <textarea
+            id="edit-note"
+            value={editNote}
+            onChange={(event) => setEditNote(event.target.value)}
+            rows={2}
+            maxLength={500}
+            className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => void handleUpdate()}
+            className="rounded-md bg-[var(--brand-magenta)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--brand-magenta-hover)] disabled:opacity-50"
+          >
+            Kaydet
+          </button>
+          {detail.enabled ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setConfirmAction({ kind: "disable", rule: detail })}
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Devre dışı bırak
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setConfirmAction({ kind: "enable", rule: detail })}
+              className="rounded-md border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50"
+            >
+              Etkinleştir
+            </button>
+          )}
+        </div>
+
+        <div>
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            Son değişiklikler
+          </h3>
+          {audit.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-500">Henüz denetim kaydı yok.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-zinc-100">
+              {audit.map((event) => (
+                <li key={event.occurredAt} className="py-2 text-xs text-zinc-600">
+                  <p className="font-medium text-zinc-800">
+                    {event.oldTargetPath ?? "—"} → {event.newTargetPath ?? "—"}
+                  </p>
+                  <p>
+                    {redirectAuditEnabledLabel(event.oldEnabled)} →{" "}
+                    {redirectAuditEnabledLabel(event.newEnabled)} ·{" "}
+                    {formatDateTime(event.occurredAt)} · {event.actorDisplayName}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {confirmAction ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/40 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="redirect-confirm-title"
+        >
+          <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-lg">
+            <h2
+              id="redirect-confirm-title"
+              className="text-sm font-semibold text-zinc-950"
+            >
+              {confirmAction.kind === "disable"
+                ? "Yönlendirmeyi devre dışı bırak"
+                : "Yönlendirmeyi etkinleştir"}
+            </h2>
+            <p className="mt-2 text-sm text-zinc-600">
+              {confirmAction.kind === "disable"
+                ? `${confirmAction.rule.sourcePath} artık yönlendirilmeyecek. Geçmiş korunur.`
+                : `${confirmAction.rule.sourcePath} yeniden yönlendirilecek.`}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmAction(null)}
+                disabled={pending}
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleUpdate(confirmAction.kind === "enable")}
+                disabled={pending}
+                className="rounded-md bg-[var(--brand-magenta)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                Onayla
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+  const [selectedId, setSelectedId] = useState(items[0]?.id ?? null);
+  const [inspectorReloadNonce, setInspectorReloadNonce] = useState(0);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  const [createSource, setCreateSource] = useState("");
+  const [createTarget, setCreateTarget] = useState("");
+  const [createNote, setCreateNote] = useState("");
+
+  const selected =
+    items.find((item) => item.id === selectedId) ?? items[0] ?? null;
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -160,56 +421,6 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
     }
   }
 
-  async function handleUpdate(enabled?: boolean) {
-    if (!detail) {
-      return;
-    }
-    setPending(true);
-    setFormError(null);
-    setConflictMessage(null);
-    try {
-      const response = await fetch(`/api/redirects/${detail.id}`, {
-        method: "PATCH",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          targetPath: editTarget,
-          note: editNote.trim() || null,
-          enabled: enabled ?? detail.enabled,
-          expectedUpdatedAt: detail.updatedAt,
-        }),
-      });
-      const body = (await response.json()) as {
-        ok?: boolean;
-        error?: { code?: string; message?: string };
-      };
-      if (!body.ok) {
-        if (body.error?.code === REDIRECT_ERROR.WRITE_CONFLICT) {
-          setConflictMessage(REDIRECT_ERROR_MESSAGES.WRITE_CONFLICT);
-          setConfirmAction(null);
-          return;
-        }
-        setFormError(
-          body.error?.message ??
-            REDIRECT_ERROR_MESSAGES[body.error?.code ?? ""] ??
-            "Yönlendirme güncellenemedi.",
-        );
-        setConfirmAction(null);
-        return;
-      }
-      setConfirmAction(null);
-      router.refresh();
-      await loadDetail(detail.id);
-    } catch {
-      setFormError("Yönlendirme güncellenemedi.");
-      setConfirmAction(null);
-    } finally {
-      setPending(false);
-    }
-  }
-
   const hasFilters = redirectPageHasFilters(filters);
 
   return (
@@ -264,9 +475,7 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
             onClick={() => {
               setConflictMessage(null);
               router.refresh();
-              if (selected?.id) {
-                void loadDetail(selected.id);
-              }
+              setInspectorReloadNonce((nonce) => nonce + 1);
             }}
             className="mt-2 text-xs font-semibold text-[var(--brand-magenta)]"
           >
@@ -339,10 +548,7 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
                   <li key={item.id}>
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedId(item.id);
-                        void loadDetail(item.id);
-                      }}
+                      onClick={() => setSelectedId(item.id)}
                       className={`w-full px-3 py-2.5 text-left transition-colors hover:bg-zinc-50 ${
                         selected?.id === item.id ? "bg-zinc-50" : ""
                       }`}
@@ -392,122 +598,15 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
           <div className="px-3 py-3">
             {!selected ? (
               <p className="text-sm text-zinc-500">Düzenlemek için bir kural seçin.</p>
-            ) : detailLoading || !detail || detail.id !== selected.id ? (
-              <p className="text-sm text-zinc-500">Yükleniyor…</p>
             ) : (
-              <div className="space-y-4">
-                <div className="rounded-md border border-zinc-200 bg-zinc-50/80 px-3 py-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Önizleme
-                  </p>
-                  <p className="mt-1 font-mono text-sm text-zinc-900">
-                    {redirectPreviewLabel(detail.sourcePath, detail.targetPath)}
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-600">308 Kalıcı Yönlendirme</p>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-zinc-700" htmlFor="edit-source">
-                    Kaynak URL
-                  </label>
-                  <input
-                    id="edit-source"
-                    type="text"
-                    readOnly
-                    value={detail.sourcePath}
-                    className="mt-1 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-zinc-700" htmlFor="edit-target">
-                    Hedef URL
-                  </label>
-                  <input
-                    id="edit-target"
-                    type="text"
-                    value={editTarget}
-                    onChange={(event) => setEditTarget(event.target.value)}
-                    placeholder="/yeni-haber-adresi"
-                    className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-zinc-700" htmlFor="edit-note">
-                    Not (isteğe bağlı)
-                  </label>
-                  <textarea
-                    id="edit-note"
-                    value={editNote}
-                    onChange={(event) => setEditNote(event.target.value)}
-                    rows={2}
-                    maxLength={500}
-                    className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => void handleUpdate()}
-                    className="rounded-md bg-[var(--brand-magenta)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--brand-magenta-hover)] disabled:opacity-50"
-                  >
-                    Kaydet
-                  </button>
-                  {detail.enabled ? (
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() =>
-                        setConfirmAction({ kind: "disable", rule: detail })
-                      }
-                      className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-                    >
-                      Devre dışı bırak
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() =>
-                        setConfirmAction({ kind: "enable", rule: detail })
-                      }
-                      className="rounded-md border border-emerald-300 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50"
-                    >
-                      Etkinleştir
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                    Son değişiklikler
-                  </h3>
-                  {audit.length === 0 ? (
-                    <p className="mt-2 text-sm text-zinc-500">Henüz denetim kaydı yok.</p>
-                  ) : (
-                    <ul className="mt-2 divide-y divide-zinc-100">
-                      {audit.map((event) => (
-                        <li
-                          key={event.occurredAt}
-                          className="py-2 text-xs text-zinc-600"
-                        >
-                          <p className="font-medium text-zinc-800">
-                            {event.oldTargetPath ?? "—"} → {event.newTargetPath ?? "—"}
-                          </p>
-                          <p>
-                            {redirectAuditEnabledLabel(event.oldEnabled)} →{" "}
-                            {redirectAuditEnabledLabel(event.newEnabled)} ·{" "}
-                            {formatDateTime(event.occurredAt)} · {event.actorDisplayName}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
+              <RedirectRuleInspector
+                key={`${selected.id}-${inspectorReloadNonce}`}
+                ruleId={selected.id}
+                router={router}
+                onWriteConflict={() =>
+                  setConflictMessage(REDIRECT_ERROR_MESSAGES.WRITE_CONFLICT)
+                }
+              />
             )}
           </div>
         </section>
@@ -587,51 +686,6 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
                 className="rounded-md bg-[var(--brand-magenta)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
               >
                 {pending ? "Oluşturuluyor…" : "Oluştur"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {confirmAction ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/40 p-4 sm:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="redirect-confirm-title"
-        >
-          <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-lg">
-            <h2
-              id="redirect-confirm-title"
-              className="text-sm font-semibold text-zinc-950"
-            >
-              {confirmAction.kind === "disable"
-                ? "Yönlendirmeyi devre dışı bırak"
-                : "Yönlendirmeyi etkinleştir"}
-            </h2>
-            <p className="mt-2 text-sm text-zinc-600">
-              {confirmAction.kind === "disable"
-                ? `${confirmAction.rule.sourcePath} artık yönlendirilmeyecek. Geçmiş korunur.`
-                : `${confirmAction.rule.sourcePath} yeniden yönlendirilecek.`}
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmAction(null)}
-                disabled={pending}
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void handleUpdate(confirmAction.kind === "enable")
-                }
-                disabled={pending}
-                className="rounded-md bg-[var(--brand-magenta)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                Onayla
               </button>
             </div>
           </div>
