@@ -92,12 +92,10 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
   }, []);
 
   useEffect(() => {
-    if (selected?.id) {
-      void loadDetail(selected.id);
-    } else {
-      setDetail(null);
-      setAudit([]);
+    if (!selected?.id) {
+      return;
     }
+    void loadDetail(selected.id);
   }, [selected?.id, loadDetail]);
 
   const updateParams = useCallback(
@@ -390,9 +388,9 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
           <div className="px-3 py-3">
             {!selected ? (
               <p className="text-sm text-zinc-500">Düzenlemek için bir kural seçin.</p>
-            ) : detailLoading && !detail ? (
+            ) : detailLoading || !detail || detail.id !== selected.id ? (
               <p className="text-sm text-zinc-500">Yükleniyor…</p>
-            ) : detail ? (
+            ) : (
               <div className="space-y-4">
                 <div className="rounded-md border border-zinc-200 bg-zinc-50/80 px-3 py-2.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
