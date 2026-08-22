@@ -4,8 +4,11 @@ import {
   CONTENT_LEGAL_ERROR,
   CONVERSATION_ERROR,
   ConversationError,
+  FEATURE_CONTROL_ERROR,
+  FeatureControlError,
   type ContentLegalErrorCode,
   type ConversationErrorCode,
+  type FeatureControlErrorCode,
   EDITOR_JSON_MAX_BYTES,
   HOMEPAGE_BUILDER_ERROR,
   HomepageBuilderError,
@@ -123,6 +126,14 @@ const CONVERSATION_STATUS: Record<ConversationErrorCode, number> = {
   [CONVERSATION_ERROR.LIMIT_EXCEEDED]: 409,
   [CONVERSATION_ERROR.INVALID_REORDER]: 400,
   [CONVERSATION_ERROR.WRITE_CONFLICT]: 409,
+};
+
+const FEATURE_CONTROL_STATUS: Record<FeatureControlErrorCode, number> = {
+  [FEATURE_CONTROL_ERROR.FORBIDDEN]: 403,
+  [FEATURE_CONTROL_ERROR.UNKNOWN_KEY]: 400,
+  [FEATURE_CONTROL_ERROR.TYPE_MISMATCH]: 400,
+  [FEATURE_CONTROL_ERROR.WRITE_CONFLICT]: 409,
+  [FEATURE_CONTROL_ERROR.UNSAFE_AUDIT_PAYLOAD]: 500,
 };
 
 const MEDIA_RIGHTS_STATUS_MAP: Record<MediaRightsErrorCode, number> = {
@@ -472,6 +483,20 @@ export function mapEditorError(error: unknown): NextResponse {
       ENTITY_STATUS_MAP[error.code] ?? 400,
       error.code,
       SAFE_MESSAGES[error.code],
+    );
+  }
+
+  if (error instanceof FeatureControlError) {
+    const message =
+      error.code === FEATURE_CONTROL_ERROR.WRITE_CONFLICT
+        ? "Bu kontrol başka bir yönetici tarafından değiştirildi. Güncel durumu yeniden yükleyin."
+        : error.code === FEATURE_CONTROL_ERROR.FORBIDDEN
+          ? SAFE_MESSAGES[EDITOR_API_ERROR.FORBIDDEN]
+          : "The request could not be completed.";
+    return editorErrorResponse(
+      FEATURE_CONTROL_STATUS[error.code] ?? 400,
+      error.code,
+      message,
     );
   }
 

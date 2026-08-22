@@ -1,5 +1,6 @@
 import {
   SCHEDULED_PUBLISH_DECISION,
+  KILL_SWITCH_KEY,
   isBearerMachineAuthorized,
   isUuid,
   type ScheduledPublishDecisionCode,
@@ -8,6 +9,7 @@ import {
   executeScheduledPublish,
   type ScheduledPublishExecutionResult,
 } from "@magazine/db/publishing";
+import { isKillSwitchActive as isFeatureControlKillSwitchActive } from "@magazine/db/feature-controls";
 
 export const SCHEDULED_PUBLISH_RUNNER_ERROR = {
   UNAUTHORIZED: "UNAUTHORIZED",
@@ -53,6 +55,7 @@ export type ScheduledPublishRunnerDeps = {
     contentItemId: string,
     scheduleGeneration: number,
   ) => Promise<ScheduledPublishExecutionResult>;
+  isKillSwitchActive?: (key: typeof KILL_SWITCH_KEY.SCHEDULED_PUBLISHING) => Promise<boolean>;
 };
 
 export function assertScheduledPublishRunnerAuthorized(
@@ -100,6 +103,12 @@ export async function runScheduledPublishJob(
   payload: ScheduledPublishJobPayload,
   deps: ScheduledPublishRunnerDeps = {},
 ): Promise<ScheduledPublishRunnerResult> {
+  const isKillSwitchActive =
+    deps.isKillSwitchActive ?? isFeatureControlKillSwitchActive;
+  if (await isKillSwitchActive(KILL_SWITCH_KEY.SCHEDULED_PUBLISHING)) {
+    return { outcome: SCHEDULED_PUBLISH_DECISION.NOOP_KILL_SWITCH };
+  }
+
   const execute = deps.execute ?? executeScheduledPublish;
   const result = await execute(payload.contentItemId, payload.scheduleGeneration);
 

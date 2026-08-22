@@ -37,6 +37,7 @@ const ENTITY_PLATFORM_SQL = "0022_entity-platform-foundation.sql";
 const PUBLIC_CACHE_OUTBOX_ENTITY_EVENTS_SQL =
   "0023_public-cache-outbox-entity-events.sql";
 const PHOTO_GALLERY_CONTENT_KIND_SQL = "0024_photo-gallery-content-kind.sql";
+const FEATURE_CONTROLS_SQL = "0025_feature-controls.sql";
 
 async function publicColumnExists(
   client: Client,
@@ -316,5 +317,10 @@ export async function ensureJournaledTestSchema(client: Client): Promise<void> {
   );
   if (!hasContentKind) {
     await applySqlFile(client, PHOTO_GALLERY_CONTENT_KIND_SQL);
+  }
+
+  const hasFeatureControls = await publicTableExists(client, "feature_controls");
+  if (!hasFeatureControls) {
+    await applySqlFile(client, FEATURE_CONTROLS_SQL);
   }
 }

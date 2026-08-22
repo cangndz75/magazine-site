@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
+  KILL_SWITCH_KEY,
   MEDIA_ROLE,
   MEDIA_TYPE,
   MEDIA_RENDITION_SURFACE,
@@ -19,6 +20,7 @@ import {
   loadMediaRenditionsByMediaIds,
   resolvePublicImageDelivery,
 } from "../media/image-delivery";
+import { isKillSwitchActive } from "../feature-controls";
 
 export type PublicHomepageConversationArticle = {
   id: string;
@@ -37,6 +39,10 @@ export type PublicHomepageConversationItem = {
 export async function getPublicHomepageConversation(
   options: PublicArticleReadOptions = {},
 ): Promise<PublicHomepageConversationItem[]> {
+  if (await isKillSwitchActive(KILL_SWITCH_KEY.HOMEPAGE_CONVERSATION)) {
+    return [];
+  }
+
   const db = getDb();
     const rows = await db
       .select({

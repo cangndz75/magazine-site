@@ -1,4 +1,4 @@
-import { CAPABILITY } from "@magazine/domain";
+import { CAPABILITY, FEATURE_FLAG_KEY } from "@magazine/domain";
 import {
   getEditorAuthorSummary,
   getEditorCategorySummary,
@@ -6,6 +6,8 @@ import {
   lookupEditorAuthors,
   lookupEditorCategories,
 } from "@magazine/db/editor";
+import { isFeatureEnabled } from "@magazine/db/feature-controls";
+import { notFound } from "next/navigation";
 import { EditorialCalendarWorkspace } from "@/components/editorial-calendar-workspace";
 import { requireCapability } from "@/lib/auth/authorization";
 import { queryScopeFromSession } from "@/lib/content/authorize";
@@ -24,6 +26,10 @@ export default async function CalendarPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await requireCapability(CAPABILITY.CONTENT_PUBLISH);
+  if (!(await isFeatureEnabled(FEATURE_FLAG_KEY.EDITORIAL_CALENDAR))) {
+    notFound();
+  }
+
   const params = await searchParams;
   const filters = parseCalendarPageSearchParams(params);
   const scope = queryScopeFromSession(session);

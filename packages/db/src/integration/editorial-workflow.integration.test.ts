@@ -535,7 +535,7 @@ describe("editorial workflow PostgreSQL reads", () => {
 
   describe("editorial calendar", () => {
     it("returns bounded scheduled items ordered by scheduledAt with safe DTOs", async () => {
-      const base = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const base = editorialCalendarTestAnchor(30);
       const rangeStart = new Date(base.getTime() - 60 * 60 * 1000);
       const early = new Date(base.getTime() + 60 * 60 * 1000);
       const late = new Date(base.getTime() + 2 * 60 * 60 * 1000);
@@ -549,7 +549,7 @@ describe("editorial workflow PostgreSQL reads", () => {
       const calendar = await listEditorCalendarItems(
         { scopedCategoryIds: null },
         { start: rangeStart, end: rangeEnd },
-        rangeStart,
+        base,
       );
 
       assert.deepEqual(
@@ -697,3 +697,10 @@ describe("editorial workflow PostgreSQL reads", () => {
     });
   });
 });
+
+function editorialCalendarTestAnchor(daysAhead: number): Date {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + daysAhead);
+  date.setUTCHours(9, 0, 0, 0);
+  return date;
+}

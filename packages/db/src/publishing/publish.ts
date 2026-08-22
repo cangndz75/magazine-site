@@ -332,6 +332,7 @@ export type ScheduledPublishExecutionResult =
   | { outcome: typeof SCHEDULED_PUBLISH_DECISION.NOOP_NOT_SCHEDULED }
   | { outcome: typeof SCHEDULED_PUBLISH_DECISION.NOOP_NOT_DUE }
   | { outcome: typeof SCHEDULED_PUBLISH_DECISION.NOOP_LEGAL_HOLD }
+  | { outcome: typeof SCHEDULED_PUBLISH_DECISION.NOOP_KILL_SWITCH }
   | { outcome: typeof SCHEDULED_PUBLISH_DECISION.EXECUTE; publish: PublishResult };
 
 export async function executeScheduledPublish(

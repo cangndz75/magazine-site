@@ -2,6 +2,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import {
   ANALYTICS_SURFACE,
   CONTENT_KIND,
+  KILL_SWITCH_KEY,
   canonicalizeContentSlug,
   canRedirectHistoricalPublicSlug,
   MEDIA_ROLE,
@@ -37,6 +38,7 @@ import {
   loadMediaRenditionsByMediaIds,
   resolvePublicImageDelivery,
 } from "../media/image-delivery";
+import { isKillSwitchActive } from "../feature-controls";
 import { alias } from "drizzle-orm/pg-core";
 import {
   loadPublicLegalNotices,
@@ -331,7 +333,8 @@ export async function getPublicArticleBySlug(
     });
     return item ? [item] : [];
   });
-  const videos = videoRows.flatMap((row) => {
+  const publicVideoDisabled = await isKillSwitchActive(KILL_SWITCH_KEY.PUBLIC_VIDEO);
+  const videos = publicVideoDisabled ? [] : videoRows.flatMap((row) => {
     const posterDelivery =
       row.posterStorageKey && row.posterMediaType === MEDIA_TYPE.IMAGE
         ? resolvePublicImageDelivery({

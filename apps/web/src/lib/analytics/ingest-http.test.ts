@@ -6,6 +6,7 @@ import {
   ANALYTICS_ERROR,
   ANALYTICS_EVENT_NAME,
   ANALYTICS_HTTP_ERROR,
+  ANALYTICS_INGEST_STATUS,
   ANALYTICS_RATE_LIMIT_POLICY,
   ANALYTICS_SESSION_POLICY,
   ANALYTICS_SURFACE,
@@ -76,6 +77,34 @@ function requestWith(input: {
 }
 
 describe("public analytics ingestion HTTP", () => {
+  it("drops ingestion before parsing when the kill switch is active", async () => {
+    let ingested = false;
+    const response = await handleAnalyticsIngestPost(
+      requestWith({ origin: "https://www.example.com", rawBody: "{not-json" }),
+      {
+        now: () => new Date("2026-08-21T08:00:10.000Z"),
+        appEnv: ANALYTICS_APP_ENV.PRODUCTION,
+        trustedSiteOrigin: "https://www.example.com",
+        consentState: ANALYTICS_CONSENT_STATE.UNKNOWN,
+        analyticsContextSigningKey: "test-analytics-context-signing-key-32",
+        rateLimitBuckets: new Map(),
+        observe: () => undefined,
+        isKillSwitchActive: async () => true,
+        ingest: async () => {
+          ingested = true;
+          throw new Error("ingest should not be called");
+        },
+      },
+    );
+
+    assert.equal(response.status, 202);
+    assert.equal(ingested, false);
+    assert.deepEqual(await response.json(), {
+      status: ANALYTICS_INGEST_STATUS.REJECTED,
+      error: ANALYTICS_HTTP_ERROR.INGESTION_DISABLED,
+    });
+  });
+
   it("accepts a valid same-origin event with a minimal response", async () => {
     const response = await handleAnalyticsIngestPost(
       requestWith({ origin: "https://www.example.com" }),

@@ -2,6 +2,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import {
   ANALYTICS_SURFACE,
   CONTENT_KIND,
+  FEATURE_FLAG_KEY,
   MEDIA_RENDITION_SURFACE,
   MEDIA_ROLE,
   MEDIA_TYPE,
@@ -29,6 +30,7 @@ import {
   loadMediaRenditionsByMediaIds,
   resolvePublicImageDelivery,
 } from "../media/image-delivery";
+import { isFeatureEnabled } from "../feature-controls";
 import type {
   PublicArticleAuthor,
   PublicArticleCategory,
@@ -64,6 +66,9 @@ export async function getPublicPhotoGalleryBySlug(
 ): Promise<PublicPhotoGallery | null> {
   const canonical = canonicalizeContentSlug(rawSlug);
   if (!canonical.ok) {
+    return null;
+  }
+  if (!(await isFeatureEnabled(FEATURE_FLAG_KEY.PUBLIC_GALLERIES))) {
     return null;
   }
 

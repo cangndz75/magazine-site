@@ -15,6 +15,7 @@ import {
 } from "@magazine/domain";
 import { getAnalyticsFreshness } from "../analytics/report";
 import { getDb } from "../client";
+import { getFeatureControlOperationalSummary } from "../feature-controls";
 import { countPublicCacheOutboxEventsByStatus } from "../public-cache-outbox";
 import { summarizeSeoInspections } from "../seo/inspection";
 import { contentItems } from "../schema/content";
@@ -114,6 +115,7 @@ export async function getSiteHealth(
     homepage,
     mediaSection,
     cache,
+    featureControls,
   ] = await Promise.all([
     section("Veritabanı", { available: false, queryTimestamp: null }, () =>
       loadDatabaseHealth(),
@@ -165,6 +167,11 @@ export async function getSiteHealth(
       },
       () => loadCacheHealth(),
     ),
+    section(
+      "Özellik kontrolleri",
+      { featureFlagsDisabled: null, killSwitchesActive: null },
+      () => loadFeatureControlsHealth(),
+    ),
   ]);
 
   const overallStatus = deriveSiteHealthOverallStatus([
@@ -176,6 +183,7 @@ export async function getSiteHealth(
     homepage.status,
     mediaSection.status,
     cache.status,
+    featureControls.status,
   ]);
 
   const dto: SiteHealthDto = {
@@ -193,10 +201,38 @@ export async function getSiteHealth(
     homepage,
     media: mediaSection,
     cache,
+    featureControls,
   };
 
   assertSafeSiteHealthDto(dto);
   return dto;
+}
+
+async function loadFeatureControlsHealth(): Promise<
+  SiteHealthSection<{
+    featureFlagsDisabled: number | null;
+    killSwitchesActive: number | null;
+  }>
+> {
+  const summary = await getFeatureControlOperationalSummary();
+  const needsAttention =
+    summary.featureFlagsDisabled > 0 || summary.killSwitchesActive > 0;
+  return {
+    status: needsAttention ? SITE_HEALTH_STATUS.ATTENTION : SITE_HEALTH_STATUS.HEALTHY,
+    availability: "AVAILABLE",
+    label: "Özellik kontrolleri",
+    summary: needsAttention
+      ? summary.killSwitchesActive > 0
+        ? "En az bir acil durum kontrolü aktif; normal davranış değişmiş olabilir."
+        : "Bazı özellik bayrakları kapalı; ürün yüzeyleri kısıtlanmış olabilir."
+    : "Çalışma zamanı kontrolleri varsayılan üretim durumunda.",
+    updatedAt: summary.updatedAt,
+    metrics: {
+      featureFlagsDisabled: summary.featureFlagsDisabled,
+      killSwitchesActive: summary.killSwitchesActive,
+    },
+    actionTarget: "/feature-controls",
+  };
 }
 
 async function loadDatabaseHealth(): Promise<

@@ -192,7 +192,7 @@ function SummaryStrip({ health }: { health: SiteHealthDto }) {
     <div
       role="list"
       aria-label="Sistem özeti"
-      className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-9"
     >
       {items.map((item) => {
         const tone = siteHealthTone(item.status);
@@ -495,6 +495,40 @@ function CacheModule({ health }: { health: SiteHealthDto }) {
   );
 }
 
+function FeatureControlsModule({ health }: { health: SiteHealthDto }) {
+  const section = health.featureControls;
+  const unavailable = section.availability === "UNAVAILABLE";
+  const killActive = section.metrics.killSwitchesActive ?? 0;
+  const flagsDisabled = section.metrics.featureFlagsDisabled ?? 0;
+  const needsAttention = killActive > 0 || flagsDisabled > 0;
+
+  return (
+    <ModuleSection
+      title="Özellik Kontrolleri"
+      status={section.status}
+      actionHref={section.actionTarget}
+      attention={needsAttention}
+      className="lg:col-span-6"
+    >
+      {unavailable ? (
+        <EmptyNote>Özellik kontrol sinyali okunamadı.</EmptyNote>
+      ) : (
+        <>
+          <p className="mb-3 text-sm leading-relaxed text-zinc-600">{section.summary}</p>
+          <MetricRow
+            label="Aktif acil durum kontrolü"
+            value={formatSiteHealthCount(section.metrics.killSwitchesActive)}
+          />
+          <MetricRow
+            label="Kapalı özellik bayrağı"
+            value={formatSiteHealthCount(section.metrics.featureFlagsDisabled)}
+          />
+        </>
+      )}
+    </ModuleSection>
+  );
+}
+
 function DatabaseModule({ health }: { health: SiteHealthDto }) {
   const section = health.database;
   const unavailable = section.availability === "UNAVAILABLE";
@@ -532,6 +566,7 @@ export function SiteHealthWorkspace({ health }: Props) {
         <MediaModule health={health} />
         <HomepageModule health={health} />
         <CacheModule health={health} />
+        <FeatureControlsModule health={health} />
         <DatabaseModule health={health} />
       </div>
     </div>
