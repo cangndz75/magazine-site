@@ -82,6 +82,7 @@ export default async function ContentPage({
     const serialized = {
       id: row.id,
       slug: row.slug,
+      contentKind: row.contentKind,
       publicationStatus: row.publicationStatus,
       displayVersion: row.displayVersion,
       publishedVersionId: row.publishedVersionId,

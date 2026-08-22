@@ -64,6 +64,7 @@ export async function getEditorContentDetail(
 
   return {
     id: item.id,
+    contentKind: item.contentKind,
     slug: item.slug,
     publicationStatus: item.publicationStatus,
     publishedVersionId: item.publishedVersionId,

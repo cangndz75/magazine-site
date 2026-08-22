@@ -2031,6 +2031,78 @@ summary:focus-visible {
   color: var(--ink-muted);
 }
 
+/* -- Homepage photo galleries -- */
+
+.homepage-photo-galleries {
+  margin-top: var(--space-5);
+  min-width: 0;
+}
+
+.homepage-photo-galleries__grid {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.homepage-photo-gallery-card {
+  min-width: 0;
+}
+
+.homepage-photo-gallery-card__link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.homepage-photo-gallery-card__link:hover .homepage-photo-gallery-card__title {
+  color: var(--brand-hover);
+}
+
+.homepage-photo-gallery-card__figure {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-image);
+  background: var(--surface-soft);
+  aspect-ratio: 4 / 3;
+}
+
+.homepage-photo-gallery-card__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.homepage-photo-gallery-card__count {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 2px;
+  background: rgba(17, 17, 17, 0.78);
+  color: var(--inverse);
+  font-size: var(--text-ui-xs);
+  font-weight: 700;
+}
+
+.homepage-photo-gallery-card__body {
+  padding-top: 0.625rem;
+}
+
+.homepage-photo-gallery-card__title {
+  margin: 0.25rem 0 0;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.28;
+  color: var(--ink);
+}
+
+.homepage-photo-gallery-card__time {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: var(--text-ui-xs);
+  color: var(--ink-muted);
+}
+
 @media (min-width: 768px) {
   .homepage-latest__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2044,6 +2116,10 @@ summary:focus-visible {
 
   .homepage-latest__item:nth-child(-n + 2) {
     border-top: none;
+  }
+
+  .homepage-photo-galleries__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -2151,6 +2227,10 @@ summary:focus-visible {
 }
 
 @media (min-width: 1280px) {
+  .homepage-photo-galleries__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .homepage-featured__grid[data-count="5"] {
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }

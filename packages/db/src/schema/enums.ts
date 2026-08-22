@@ -20,6 +20,7 @@ import {
   CONTENT_LEGAL_ACTION_TYPES,
   CONTENT_LEGAL_ACTION_POLARITIES,
   CONTENT_LEGAL_REASON_CATEGORIES,
+  CONTENT_KINDS,
   STAFF_MFA_FACTOR_KINDS,
   STAFF_MFA_FACTOR_STATUSES,
 } from "@magazine/domain";
@@ -32,6 +33,8 @@ export const publicationStatusEnum = pgEnum(
 export const workflowStatusEnum = pgEnum("workflow_status", WORKFLOW_STATUSES);
 
 export const credibilityEnum = pgEnum("credibility", CREDIBILITY_VALUES);
+
+export const contentKindEnum = pgEnum("content_kind", CONTENT_KINDS);
 
 export const entityKindEnum = pgEnum("entity_kind", ENTITY_KINDS);
 

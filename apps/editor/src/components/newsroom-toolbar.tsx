@@ -39,10 +39,10 @@ const WORKFLOW_OPTIONS = [
   { value: "APPROVED", label: "Onaylandı" },
 ] as const;
 
-function generateDraftSlug(): string {
+function generateDraftSlug(prefix: "haber" | "galeri" = "haber"): string {
   const stamp = Date.now().toString(36);
   const random = Math.random().toString(36).slice(2, 8);
-  return `haber-${stamp}-${random}`;
+  return `${prefix}-${stamp}-${random}`;
 }
 
 export function NewsroomToolbar({
@@ -62,7 +62,7 @@ export function NewsroomToolbar({
   const [createError, setCreateError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  async function handleCreateArticle() {
+  async function handleCreateContent(contentKind: "ARTICLE" | "GALLERY") {
     if (!canCreate || creating) {
       return;
     }
@@ -79,8 +79,11 @@ export function NewsroomToolbar({
           accept: "application/json",
         },
         body: JSON.stringify({
+          contentKind,
           title: "Başlıksız",
-          slug: generateDraftSlug(),
+          slug: generateDraftSlug(
+            contentKind === "GALLERY" ? "galeri" : "haber",
+          ),
           body: { blocks: [] },
         }),
       });
@@ -184,14 +187,24 @@ export function NewsroomToolbar({
             </button>
           ) : null}
           {canCreate ? (
-            <button
-              type="button"
-              onClick={() => void handleCreateArticle()}
-              disabled={creating}
-              className="inline-flex h-8 items-center rounded bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
-            >
-              {creating ? "Oluşturuluyor…" : "Yeni Haber"}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => void handleCreateContent("ARTICLE")}
+                disabled={creating}
+                className="inline-flex h-8 items-center rounded bg-zinc-900 px-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
+              >
+                {creating ? "Oluşturuluyor…" : "Yeni Haber"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateContent("GALLERY")}
+                disabled={creating}
+                className="inline-flex h-8 items-center rounded border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-60"
+              >
+                Yeni Foto Galeri
+              </button>
+            </>
           ) : null}
         </div>
       </div>

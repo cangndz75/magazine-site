@@ -3,6 +3,7 @@ export {
   contentLegalActionPolarityEnum,
   contentLegalActionTypeEnum,
   contentLegalReasonCategoryEnum,
+  contentKindEnum,
   credibilityEnum,
   entityKindEnum,
   entityRoleEnum,

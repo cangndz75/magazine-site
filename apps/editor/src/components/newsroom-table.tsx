@@ -128,7 +128,10 @@ function NewsroomTableRow({
               <span className="italic text-zinc-400">Başlıksız</span>
             )}
           </Link>
-          <p className="mt-0.5 truncate text-xs text-zinc-500">{item.slug}</p>
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
+            <span className="truncate text-xs text-zinc-500">{item.slug}</span>
+            {item.contentKind === "GALLERY" ? <ContentKindBadge /> : null}
+          </div>
         </div>
       </td>
       <td className="px-3 py-2.5">
@@ -233,7 +236,10 @@ function NewsroomCardRow({
                 <span className="italic text-zinc-400">Başlıksız</span>
               )}
             </p>
-            <p className="mt-0.5 truncate text-xs text-zinc-500">{item.slug}</p>
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1">
+              <span className="truncate text-xs text-zinc-500">{item.slug}</span>
+              {item.contentKind === "GALLERY" ? <ContentKindBadge /> : null}
+            </div>
           </div>
           {attentionLabel ? (
             <AttentionBadge label={attentionLabel} item={item} compact />
@@ -264,6 +270,14 @@ function NewsroomCardRow({
         Editörde Aç
       </Link>
     </li>
+  );
+}
+
+function ContentKindBadge() {
+  return (
+    <span className="inline-flex rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-sky-800">
+      Foto Galeri
+    </span>
   );
 }
 

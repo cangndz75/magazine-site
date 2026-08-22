@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import {
   ANALYTICS_SURFACE,
+  CONTENT_KIND,
   canonicalizeContentSlug,
   canRedirectHistoricalPublicSlug,
   MEDIA_ROLE,
@@ -142,6 +143,7 @@ export async function getPublicArticleBySlug(
     .where(
       and(
         eq(contentItems.slug, canonical.value),
+        eq(contentItems.contentKind, CONTENT_KIND.ARTICLE),
         isNull(contentItems.deletedAt),
         isNull(contentItems.retractedAt),
         isNull(contentItems.takedownAt),

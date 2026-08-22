@@ -1,5 +1,6 @@
 import type {
   AuthorRole,
+  ContentKind,
   EditorSafeHeroThumbnail,
   EntityKind,
   EntityRole,
@@ -57,6 +58,7 @@ export type EditorListPrimaryCategory = {
 
 export type EditorContentListRow = {
   id: string;
+  contentKind: ContentKind;
   slug: string;
   publicationStatus: PublicationStatus;
   displayVersion: {
@@ -147,6 +149,7 @@ export type EditorVersionSummary = {
 
 export type EditorContentDetail = {
   id: string;
+  contentKind: ContentKind;
   slug: string;
   publicationStatus: PublicationStatus;
   publishedVersionId: string | null;
@@ -218,6 +221,7 @@ export type EditorContentDetail = {
 
 export type EditorContentAccess = {
   id: string;
+  contentKind: ContentKind;
   updatedAt: Date;
   publicationStatus: PublicationStatus;
   publishedVersionId: string | null;

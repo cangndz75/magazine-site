@@ -22,7 +22,8 @@ import {
   contentLegalActionPolarityEnum,
   contentLegalActionTypeEnum,
   contentLegalReasonCategoryEnum,
-  credibilityEnum,
+    credibilityEnum,
+  contentKindEnum,
   entityRoleEnum,
   mediaRoleEnum,
   publicationStatusEnum,
@@ -145,6 +146,7 @@ export const contentItems = pgTable(
   "content_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    contentKind: contentKindEnum("content_kind").notNull().default("ARTICLE"),
     slug: text("slug").notNull(),
     publicationStatus: publicationStatusEnum("publication_status")
       .notNull()

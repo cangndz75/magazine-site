@@ -13,6 +13,7 @@ export {
   CREDIBILITY_VALUES,
   type Credibility,
 } from "./credibility";
+export { CONTENT_KIND, CONTENT_KINDS, type ContentKind } from "./content-kind";
 export { ENTITY_KIND, ENTITY_KINDS, type EntityKind } from "./entity-kind";
 export { ENTITY_ROLE, ENTITY_ROLES, type EntityRole } from "./entity-role";
 export {
@@ -256,12 +257,14 @@ export {
   ARTICLE_GALLERY_ALT_TEXT_MAX,
   ARTICLE_GALLERY_CAPTION_MAX,
   ARTICLE_GALLERY_MAX_ITEMS,
+  assertGalleryPublishReadiness,
   assertGalleryAssignableMediaType,
   canonicalizeDraftGalleryItems,
   canonicalizeGalleryCaption,
   toPublicArticleGalleryItem,
   type CanonicalGalleryItem,
   type DraftGalleryItemInput,
+  type GalleryPublishReadinessInput,
   type PublicArticleGalleryItem,
 } from "./article-gallery";
 export {
@@ -490,8 +493,9 @@ export {
   type ConversationErrorCode,
 } from "./homepage-conversation";
 export {
-  HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
+  HOMEPAGE_GALLERY_DATA_SOURCE_LATEST_PUBLISHED,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
+  PUBLIC_HOMEPAGE_GALLERY_LIMIT,
   PUBLIC_HOMEPAGE_LATEST_LIMIT,
   selectTemporaryHomepageFeatured,
   selectTemporaryHomepageLatest,

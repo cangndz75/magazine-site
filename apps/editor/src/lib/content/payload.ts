@@ -1,5 +1,7 @@
 import {
   AUTHOR_ROLES,
+  CONTENT_KIND,
+  CONTENT_KINDS,
   ENTITY_ROLES,
   MEDIA_ROLES,
   PUBLISHING_ERROR,
@@ -19,6 +21,7 @@ import {
   optionalTrimmedText,
   parseCredibility,
   type Credibility,
+  type ContentKind,
   type EditorStaffScope,
   type PublishingDecision,
 } from "@magazine/domain";
@@ -163,6 +166,7 @@ function requireEnum<T extends string>(
 }
 
 export type ParsedCreateContent = {
+  contentKind: ContentKind;
   title: string;
   slug: string;
   subtitle: string | null;
@@ -177,6 +181,10 @@ export function parseCreateContentBody(
 ): ParsedCreateContent {
   const record = asRecord(body);
   const title = unwrap(canonicalizeDraftTitle(requiredString(record, "title")));
+  const contentKind =
+    record.contentKind === undefined
+      ? CONTENT_KIND.ARTICLE
+      : requireEnum(record.contentKind, CONTENT_KINDS);
   const slug = unwrap(canonicalizeContentSlug(requiredString(record, "slug")));
   const rawBody = record.body === undefined ? {} : record.body;
   const parsedBody = unwrap(assertStructuredArticleBody(rawBody));
@@ -190,6 +198,7 @@ export function parseCreateContentBody(
   );
 
   return {
+    contentKind,
     title,
     slug,
     subtitle: optionalTrimmedText(optionalString(record, "subtitle")),

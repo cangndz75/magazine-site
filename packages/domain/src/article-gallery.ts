@@ -1,5 +1,6 @@
 import { MEDIA_TYPE } from "./media-type";
 import { PUBLISHING_ERROR, type PublishingDecision } from "./publishing/errors";
+import { CONTENT_KIND, type ContentKind } from "./content-kind";
 import {
   ARTICLE_HERO_ALT_TEXT_MAX,
   canonicalizeHeroAltText,
@@ -36,6 +37,13 @@ export type PublicArticleGalleryItem = {
   thumbUrl: string;
   srcSet: string | null;
   sizes: string | null;
+};
+
+export type GalleryPublishReadinessInput = {
+  contentKind: ContentKind;
+  heroImageCount: number;
+  galleryImageCount: number;
+  blockedPublicMediaCount: number;
 };
 
 function trimOrNull(value: string | null | undefined): string | null {
@@ -151,4 +159,22 @@ export function toPublicArticleGalleryItem(input: {
     srcSet,
     sizes,
   };
+}
+
+export function assertGalleryPublishReadiness(
+  input: GalleryPublishReadinessInput,
+): PublishingDecision<true> {
+  if (input.contentKind !== CONTENT_KIND.GALLERY) {
+    return { ok: true, value: true };
+  }
+
+  if (
+    input.heroImageCount !== 1 ||
+    input.galleryImageCount < 1 ||
+    input.blockedPublicMediaCount > 0
+  ) {
+    return { ok: false, code: PUBLISHING_ERROR.PUBLISH_READINESS_FAILED };
+  }
+
+  return { ok: true, value: true };
 }

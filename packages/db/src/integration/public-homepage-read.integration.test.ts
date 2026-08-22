@@ -3,10 +3,17 @@ import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import {
   ANALYTICS_PLACEMENT,
   AUTHOR_ROLE,
-  HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
+  CONTENT_KIND,
+  HOMEPAGE_GALLERY_DATA_SOURCE_LATEST_PUBLISHED,
   MEDIA_ROLE,
+  MEDIA_LICENSE_TYPE,
+  MEDIA_SOURCE_KIND,
+  MEDIA_USAGE_RESTRICTION,
   PUBLIC_HOMEPAGE_FEATURED_LIMIT,
+  PUBLIC_HOMEPAGE_GALLERY_LIMIT,
   PUBLIC_HOMEPAGE_LATEST_LIMIT,
+  PUBLISHING_ERROR,
+  PublishingError,
   PUBLICATION_STATUS,
   SCHEDULED_PUBLISH_DECISION,
   WORKFLOW_STATUS,
@@ -16,6 +23,8 @@ import { getDb } from "../client";
 import {
   PUBLIC_HOMEPAGE_LEAD_SLICE_SIZE,
   PUBLIC_HOMEPAGE_TEMPORARY_STORY_QUERY_LIMIT,
+  getPublicArticleBySlug,
+  getPublicPhotoGalleryBySlug,
   getPublicHomepage,
   selectTemporaryHomepageLeadSlice,
   type PublicHomepage,
@@ -24,6 +33,7 @@ import {
 import {
   approveVersion,
   createDraftRevision,
+  createContent,
   executeScheduledPublish,
   getContentItem,
   publishVersion,
@@ -32,7 +42,7 @@ import {
   unpublishContent,
   updateDraftContent,
 } from "../publishing";
-import { contentItems } from "../schema";
+import { contentItems, media } from "../schema";
 import {
   articleBody,
   cleanupFixture,
@@ -43,6 +53,7 @@ import {
   createFixture,
   ensureEditorContentTestDatabase,
   snapshotContent,
+  uniqueSlug,
   type IntegrationFixture,
 } from "./harness";
 
@@ -117,6 +128,88 @@ describe("public homepage read PostgreSQL", () => {
       .update(contentItems)
       .set({ publishedAt })
       .where(eq(contentItems.id, contentItemId));
+  }
+
+  async function clearFixtureMediaRights() {
+    await getDb()
+      .update(media)
+      .set({
+        sourceKind: MEDIA_SOURCE_KIND.OWNED,
+        rightsHolder: "Fixture Rights",
+        licenseType: MEDIA_LICENSE_TYPE.ALL_RIGHTS,
+        creditLine: "Fixture Credit",
+        usageRestriction: MEDIA_USAGE_RESTRICTION.NONE,
+      })
+      .where(eq(media.id, fixture.ids.media));
+    await getDb()
+      .update(media)
+      .set({
+        sourceKind: MEDIA_SOURCE_KIND.OWNED,
+        rightsHolder: "Fixture Rights",
+        licenseType: MEDIA_LICENSE_TYPE.ALL_RIGHTS,
+        creditLine: "Fixture Credit",
+        usageRestriction: MEDIA_USAGE_RESTRICTION.NONE,
+      })
+      .where(eq(media.id, fixture.ids.extraMedia));
+  }
+
+  async function publishPhotoGallery(title: string) {
+    await clearFixtureMediaRights();
+    const created = await createContent({
+      contentKind: CONTENT_KIND.GALLERY,
+      slug: uniqueSlug("gallery"),
+      title,
+      body: articleBody(`${title}-body`),
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      categories: [{ categoryId: fixture.ids.categoryA, isPrimary: true }],
+      media: [
+        {
+          mediaId: fixture.ids.media,
+          role: MEDIA_ROLE.HERO,
+          sortOrder: 0,
+          altText: "gallery cover alt",
+          credit: "gallery cover credit",
+        },
+        {
+          mediaId: fixture.ids.extraMedia,
+          role: MEDIA_ROLE.GALLERY,
+          sortOrder: 0,
+          caption: "first gallery caption",
+          altText: "first gallery alt",
+          credit: "first gallery credit",
+        },
+      ],
+      authors: [
+        {
+          authorId: fixture.ids.author,
+          role: AUTHOR_ROLE.AUTHOR,
+          sortOrder: 0,
+        },
+      ],
+    });
+    fixture.createdItemIds.push(created.contentItemId);
+    const submitted = await submitForReview(
+      created.contentItemId,
+      created.versionId,
+      {
+        expectedUpdatedAt: created.updatedAt,
+        scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
+      },
+    );
+    await approveVersion(created.contentItemId, created.versionId, {
+      expectedUpdatedAt: submitted.updatedAt,
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffReviewerA,
+    });
+    const published = await publishVersion(
+      created.contentItemId,
+      created.versionId,
+      fixture.superAdmin,
+      fixture.ids.staffReviewerA,
+    );
+    return { ...created, published };
   }
 
   function homepageStories(homepage: PublicHomepage): PublicHomepageStory[] {
@@ -504,8 +597,8 @@ describe("public homepage read PostgreSQL", () => {
     assert.equal(homepage.video, null);
     assert.deepEqual(homepage.galleries, []);
     assert.equal(
-      HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE,
-      "HOMEPAGE_GALLERY_DATA_SOURCE_NOT_YET_AVAILABLE",
+      HOMEPAGE_GALLERY_DATA_SOURCE_LATEST_PUBLISHED,
+      "LATEST_PUBLISHED_GALLERY_CONTENT",
     );
     assertNoInternalLeak(homepage);
   });
@@ -579,6 +672,138 @@ describe("public homepage read PostgreSQL", () => {
     const homepage = await getPublicHomepage();
     assert.deepEqual(homepage.galleries, []);
     assert.equal(homepage.video, null);
+  });
+
+  it("exposes real published gallery content on the homepage and public gallery route", async () => {
+    const gallery = await publishPhotoGallery("Homepage real gallery");
+    const article = await publishApproved({
+      title: "Homepage article beside gallery",
+      body: articleBody("homepage-article-beside-gallery"),
+    });
+    await stampPublishedAt(article.contentItemId, new Date(Date.now() + 1000));
+    await stampPublishedAt(gallery.contentItemId, new Date(Date.now() + 2000));
+
+    const homepage = await getPublicHomepage({
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.equal(PUBLIC_HOMEPAGE_GALLERY_LIMIT, 4);
+    assert.equal(homepage.galleries.length, 1);
+    assert.equal(homepage.galleries[0]?.slug, gallery.slug);
+    assert.equal(homepage.galleries[0]?.title, "Homepage real gallery");
+    assert.equal(homepage.galleries[0]?.primaryCategory?.name, "Category A");
+    assert.equal(homepage.galleries[0]?.imageCount, 1);
+    assert.equal(
+      homepage.galleries[0]?.cover.url,
+      `https://media.example.test/assets/itest/${fixture.ids.media}`,
+    );
+    assert.equal(
+      homepageStories(homepage).some((story) => story.id === gallery.contentItemId),
+      false,
+    );
+
+    const publicGallery = await getPublicPhotoGalleryBySlug(gallery.slug, {
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.equal(publicGallery?.title, "Homepage real gallery");
+    assert.equal(publicGallery?.images.length, 1);
+    assert.equal(publicGallery?.images[0]?.caption, "first gallery caption");
+    assert.equal(publicGallery?.images[0]?.credit, "first gallery credit");
+    assert.equal(await getPublicArticleBySlug(gallery.slug), null);
+    assertNoInternalLeak(homepage);
+    assertNoInternalLeak(publicGallery ?? {});
+  });
+
+  it("does not leak draft gallery content to homepage or public gallery resolver", async () => {
+    await clearFixtureMediaRights();
+    const draft = await createContent({
+      contentKind: CONTENT_KIND.GALLERY,
+      slug: uniqueSlug("draftgallery"),
+      title: "Draft gallery must not leak",
+      body: articleBody("draft-gallery-must-not-leak"),
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      categories: [{ categoryId: fixture.ids.categoryA, isPrimary: true }],
+      media: [
+        {
+          mediaId: fixture.ids.media,
+          role: MEDIA_ROLE.HERO,
+          sortOrder: 0,
+          altText: "draft cover",
+        },
+        {
+          mediaId: fixture.ids.extraMedia,
+          role: MEDIA_ROLE.GALLERY,
+          sortOrder: 0,
+          caption: "draft gallery caption must not leak",
+        },
+      ],
+    });
+    fixture.createdItemIds.push(draft.contentItemId);
+
+    const homepage = await getPublicHomepage({
+      mediaPublicBaseUrl: MEDIA_PUBLIC_BASE_URL,
+    });
+    assert.equal(homepage.galleries.some((item) => item.slug === draft.slug), false);
+    assert.equal(await getPublicPhotoGalleryBySlug(draft.slug), null);
+  });
+
+  it("blocks gallery publication when any public gallery media rights are not eligible", async () => {
+    await clearFixtureMediaRights();
+    await getDb()
+      .update(media)
+      .set({ usageRestriction: MEDIA_USAGE_RESTRICTION.RESTRICTED })
+      .where(eq(media.id, fixture.ids.extraMedia));
+    const created = await createContent({
+      contentKind: CONTENT_KIND.GALLERY,
+      slug: uniqueSlug("blockedgallery"),
+      title: "Blocked gallery rights",
+      body: articleBody("blocked-gallery-rights"),
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffEditor,
+      categories: [{ categoryId: fixture.ids.categoryA, isPrimary: true }],
+      media: [
+        {
+          mediaId: fixture.ids.media,
+          role: MEDIA_ROLE.HERO,
+          sortOrder: 0,
+          altText: "cover",
+        },
+        {
+          mediaId: fixture.ids.extraMedia,
+          role: MEDIA_ROLE.GALLERY,
+          sortOrder: 0,
+          caption: "blocked",
+        },
+      ],
+    });
+    fixture.createdItemIds.push(created.contentItemId);
+    const submitted = await submitForReview(
+      created.contentItemId,
+      created.versionId,
+      {
+        expectedUpdatedAt: created.updatedAt,
+        scope: fixture.superAdmin,
+        actorId: fixture.ids.staffEditor,
+      },
+    );
+    await approveVersion(created.contentItemId, created.versionId, {
+      expectedUpdatedAt: submitted.updatedAt,
+      scope: fixture.superAdmin,
+      actorId: fixture.ids.staffReviewerA,
+    });
+
+    await assert.rejects(
+      () =>
+        publishVersion(
+          created.contentItemId,
+          created.versionId,
+          fixture.superAdmin,
+          fixture.ids.staffReviewerA,
+        ),
+      (error) =>
+        error instanceof PublishingError &&
+        error.code === PUBLISHING_ERROR.PUBLISH_READINESS_FAILED,
+    );
   });
 
   it("selects featured from remaining published stories after lead and supports", async () => {

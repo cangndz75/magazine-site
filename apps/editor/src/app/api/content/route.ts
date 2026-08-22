@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     async (session, body) => {
       const parsed = parseCreateContentBody(body, editorScopeFromSession(session));
       const created = await createContent({
+        contentKind: parsed.contentKind,
         slug: parsed.slug,
         title: parsed.title,
         body: parsed.body,

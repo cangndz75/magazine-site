@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { CONTENT_KIND } from "./content-kind";
 import { MEDIA_TYPE } from "./media-type";
 import { MEDIA_RIGHTS_TEXT_MAX } from "./media-rights";
 import { PUBLISHING_ERROR } from "./publishing/errors";
@@ -12,10 +13,64 @@ import {
   ARTICLE_GALLERY_CAPTION_MAX,
   ARTICLE_GALLERY_MAX_ITEMS,
   assertGalleryAssignableMediaType,
+  assertGalleryPublishReadiness,
   canonicalizeDraftGalleryItems,
   canonicalizeGalleryCaption,
   toPublicArticleGalleryItem,
 } from "./article-gallery";
+
+describe("assertGalleryPublishReadiness", () => {
+  it("does not apply gallery blockers to ordinary articles", () => {
+    assert.deepEqual(
+      assertGalleryPublishReadiness({
+        contentKind: CONTENT_KIND.ARTICLE,
+        heroImageCount: 0,
+        galleryImageCount: 0,
+        blockedPublicMediaCount: 99,
+      }),
+      { ok: true, value: true },
+    );
+  });
+
+  it("requires gallery content to have a cover, images, and cleared media rights", () => {
+    assert.deepEqual(
+      assertGalleryPublishReadiness({
+        contentKind: CONTENT_KIND.GALLERY,
+        heroImageCount: 1,
+        galleryImageCount: 3,
+        blockedPublicMediaCount: 0,
+      }),
+      { ok: true, value: true },
+    );
+    assert.deepEqual(
+      assertGalleryPublishReadiness({
+        contentKind: CONTENT_KIND.GALLERY,
+        heroImageCount: 0,
+        galleryImageCount: 3,
+        blockedPublicMediaCount: 0,
+      }),
+      { ok: false, code: PUBLISHING_ERROR.PUBLISH_READINESS_FAILED },
+    );
+    assert.deepEqual(
+      assertGalleryPublishReadiness({
+        contentKind: CONTENT_KIND.GALLERY,
+        heroImageCount: 1,
+        galleryImageCount: 0,
+        blockedPublicMediaCount: 0,
+      }),
+      { ok: false, code: PUBLISHING_ERROR.PUBLISH_READINESS_FAILED },
+    );
+    assert.deepEqual(
+      assertGalleryPublishReadiness({
+        contentKind: CONTENT_KIND.GALLERY,
+        heroImageCount: 1,
+        galleryImageCount: 3,
+        blockedPublicMediaCount: 1,
+      }),
+      { ok: false, code: PUBLISHING_ERROR.PUBLISH_READINESS_FAILED },
+    );
+  });
+});
 
 describe("canonicalizeDraftGalleryItems", () => {
   it("assigns dense 0-based sort order from the submitted array", () => {

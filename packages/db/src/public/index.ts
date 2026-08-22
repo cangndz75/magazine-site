@@ -11,6 +11,10 @@ export {
   type PublicArticleReadOptions,
   type PublicEditorialVideoProjection,
 } from "./get-public-article";
+export {
+  getPublicPhotoGalleryBySlug,
+  type PublicPhotoGallery,
+} from "./get-public-gallery";
 export { loadPublicArticleEntityLinks } from "./load-public-article-entities";
 export {
   loadPublicLegalNotices,
@@ -24,6 +28,7 @@ export {
   selectTemporaryHomepageLeadSlice,
   type PublicHomepage,
   type PublicHomepageCategory,
+  type PublicHomepageGallery,
   type PublicHomepageStory,
   type PublicHomepageAnalyticsPlacement,
 } from "./get-public-homepage";
