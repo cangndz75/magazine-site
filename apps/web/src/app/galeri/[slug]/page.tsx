@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { REDIRECT_RESOLUTION } from "@magazine/domain";
+import { resolvePublicRedirect } from "@magazine/db/redirects";
+import { notFound, permanentRedirect } from "next/navigation";
 import { AnalyticsArticleView } from "@/components/analytics/analytics-page-view";
 import { ArticleHero } from "@/components/article-hero";
 import { ArticleShare } from "@/components/article-share";
@@ -19,6 +21,10 @@ export async function generateMetadata({
   const { slug } = await params;
   const gallery = await getPublicPhotoGalleryBySlug(slug);
   if (!gallery) {
+    const manual = await resolvePublicRedirect(`/galeri/${slug}`);
+    if (manual.kind === REDIRECT_RESOLUTION.REDIRECT) {
+      permanentRedirect(manual.targetPath);
+    }
     return {};
   }
   const canonical = new URL(`/galeri/${gallery.slug}`, env.SITE_URL).toString();
@@ -38,6 +44,10 @@ export default async function PublicPhotoGalleryPage({
   const { slug } = await params;
   const gallery = await getPublicPhotoGalleryBySlug(slug);
   if (!gallery) {
+    const manual = await resolvePublicRedirect(`/galeri/${slug}`);
+    if (manual.kind === REDIRECT_RESOLUTION.REDIRECT) {
+      permanentRedirect(manual.targetPath);
+    }
     notFound();
   }
 

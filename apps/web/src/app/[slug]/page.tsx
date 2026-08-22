@@ -1,4 +1,5 @@
-import { resolvePublicArticleCanonical } from "@magazine/domain";
+import { REDIRECT_RESOLUTION, resolvePublicArticleCanonical } from "@magazine/domain";
+import { resolvePublicRedirect } from "@magazine/db/redirects";
 import { notFound, permanentRedirect } from "next/navigation";
 import { AnalyticsArticleView } from "@/components/analytics/analytics-page-view";
 import { ArticleHeader } from "@/components/article-header";
@@ -27,6 +28,12 @@ export async function generateMetadata({
   if (page?.status === "redirect") {
     permanentRedirect(publicArticleCanonicalUrl(env.SITE_URL, page.toSlug));
   }
+  if (!page) {
+    const manual = await resolvePublicRedirect(`/${slug}`);
+    if (manual.kind === REDIRECT_RESOLUTION.REDIRECT) {
+      permanentRedirect(manual.targetPath);
+    }
+  }
   return buildPublicArticlePageSeo(
     page,
     env.SITE_URL,
@@ -45,6 +52,10 @@ export default async function PublicArticlePage({
     permanentRedirect(publicArticleCanonicalUrl(env.SITE_URL, page.toSlug));
   }
   if (!page) {
+    const manual = await resolvePublicRedirect(`/${slug}`);
+    if (manual.kind === REDIRECT_RESOLUTION.REDIRECT) {
+      permanentRedirect(manual.targetPath);
+    }
     notFound();
   }
 
