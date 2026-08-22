@@ -5,6 +5,7 @@ import { AnalyticsHomepagePlacement } from "@/components/analytics/analytics-hom
 import { HomepageConversationRail } from "@/components/homepage-conversation-rail";
 import { HomepageLead } from "@/components/homepage-lead";
 import { HomepageSupportStory } from "@/components/homepage-support-story";
+import { HomepageVideo } from "@/components/homepage-video";
 import { findHomepagePlacement } from "@/lib/analytics/placements";
 
 type HomepageLeadGridProps = {
@@ -18,11 +19,15 @@ export function HomepageLeadGrid({ homepage }: HomepageLeadGridProps) {
 
   const hasSupports = homepage.supports.length > 0;
   const hasConversation = homepage.conversation.length > 0;
+  const hasVideo = Boolean(homepage.video);
+  const hasRail = hasConversation || hasVideo;
 
   const className = [
     "homepage-lead-grid",
     hasSupports ? null : "homepage-lead-grid--solo",
+    hasRail ? "homepage-lead-grid--with-rail" : null,
     hasConversation ? "homepage-lead-grid--with-conversation" : null,
+    hasVideo ? "homepage-lead-grid--with-rail-video" : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -51,12 +56,22 @@ export function HomepageLeadGrid({ homepage }: HomepageLeadGridProps) {
           ))}
         </div>
       ) : null}
-      {hasConversation ? (
-        <div className="homepage-lead-grid__conversation">
-          <HomepageConversationRail
-            items={homepage.conversation}
-            placements={homepage.analyticsPlacements}
-          />
+      {hasRail ? (
+        <div className="homepage-lead-grid__rail">
+          {hasConversation ? (
+            <HomepageConversationRail
+              items={homepage.conversation}
+              placements={homepage.analyticsPlacements}
+            />
+          ) : null}
+          {homepage.video ? (
+            <HomepageVideo
+              video={homepage.video}
+              homepageVersionId={homepage.homepageVersionId}
+              analyticsContext={homepage.homepageVideoContext}
+              variant="rail"
+            />
+          ) : null}
         </div>
       ) : null}
     </div>
