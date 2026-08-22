@@ -27,7 +27,6 @@ import {
   normalizeSearchQuery,
   SEARCH_FILTER,
   SEARCH_RESULT_KIND,
-  type SearchFilter,
   type SearchProvider,
   type SearchProviderContext,
   type SearchProviderInput,
