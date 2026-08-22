@@ -22,7 +22,7 @@ function sampleDashboard(): SuperAdminDashboardDto {
         published: 6,
       },
     },
-    attention: { status: "AVAILABLE", data: { limit: 10, total: 0, items: [] } },
+    attention: { status: "AVAILABLE", data: { limit: 8, total: 0, items: [] } },
     upcomingPublishing: { status: "AVAILABLE", data: { limit: 8, items: [] } },
     review: {
       status: "AVAILABLE",
@@ -53,6 +53,55 @@ function sampleDashboard(): SuperAdminDashboardDto {
           homepageCtr: null,
         },
         comparison: null,
+        timeSeries: [
+          {
+            bucketStart: "2026-08-15T21:00:00.000Z",
+            articleViews: 10,
+            homepageImpressions: 20,
+          },
+        ],
+        topContent: [
+          {
+            contentItemId: "11111111-1111-4111-8111-111111111111",
+            title: "Sunum içeriği",
+            primaryCategoryName: "Magazin",
+            authorNames: ["Deniz Koral"],
+            articleViews: 10,
+            homepageClicks: 2,
+            homepageCtr: 0.2,
+            targetHref: "/content/11111111-1111-4111-8111-111111111111",
+          },
+        ],
+        trafficSources: [
+          { sourceChannel: "SEARCH", eventCount: 10, share: 1 },
+        ],
+        categories: [
+          {
+            categoryId: "22222222-2222-4222-8222-222222222222",
+            name: "Magazin",
+            articleViews: 10,
+            contentCount: 1,
+            share: 1,
+          },
+        ],
+        authors: [
+          {
+            authorId: "33333333-3333-4333-8333-333333333333",
+            displayName: "Deniz Koral",
+            articleViews: 10,
+            contentCount: 1,
+          },
+        ],
+        homepageSlots: [
+          {
+            placement: "LEAD",
+            position: 1,
+            title: "Sunum içeriği",
+            impressions: 20,
+            clicks: 2,
+            ctr: 0.1,
+          },
+        ],
       },
     },
     legal: {
