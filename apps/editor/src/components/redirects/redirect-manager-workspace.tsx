@@ -95,7 +95,8 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
     if (!selected?.id) {
       return;
     }
-    void loadDetail(selected.id);
+    const id = selected.id;
+    void Promise.resolve().then(() => loadDetail(id));
   }, [selected?.id, loadDetail]);
 
   const updateParams = useCallback(
@@ -338,7 +339,10 @@ export function RedirectManagerWorkspace({ items, nextCursor, filters }: Props) 
                   <li key={item.id}>
                     <button
                       type="button"
-                      onClick={() => setSelectedId(item.id)}
+                      onClick={() => {
+                        setSelectedId(item.id);
+                        void loadDetail(item.id);
+                      }}
                       className={`w-full px-3 py-2.5 text-left transition-colors hover:bg-zinc-50 ${
                         selected?.id === item.id ? "bg-zinc-50" : ""
                       }`}
