@@ -107,6 +107,15 @@ function sampleSiteHealth(): SiteHealthDto {
       },
       actionTarget: null,
     },
+    featureControls: {
+      status: SITE_HEALTH_STATUS.HEALTHY,
+      availability: "AVAILABLE",
+      label: "Feature controls",
+      summary: "Runtime controls are at their default production posture.",
+      updatedAt: null,
+      metrics: { featureFlagsDisabled: 0, killSwitchesActive: 0 },
+      actionTarget: null,
+    },
   };
 }
 

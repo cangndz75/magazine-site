@@ -17,6 +17,7 @@ import { alias } from "drizzle-orm/pg-core";
 import {
   CONTENT_KIND,
   ENTITY_STATUS,
+  FEATURE_FLAG_KEY,
   MEDIA_RENDITION_SURFACE,
   PUBLIC_ENTITY_PROFILE_PATH_PREFIX,
   PUBLICATION_STATUS,
@@ -48,6 +49,7 @@ import {
   loadMediaRenditionsByMediaIds,
   resolvePublicImageDelivery,
 } from "../media/image-delivery";
+import { isFeatureEnabled } from "../feature-controls";
 import { loadPublishedHeroMedia } from "../public/published-hero";
 
 const ENTITY_RESULT_CAP_ALL = 5;
@@ -76,6 +78,16 @@ export class PostgresSearchProvider implements SearchProvider {
     input: SearchProviderInput,
     context: SearchProviderContext,
   ): Promise<SearchResultsDto> {
+    if (!(await isFeatureEnabled(FEATURE_FLAG_KEY.PUBLIC_SEARCH))) {
+      return {
+        query: input.query,
+        normalizedQuery: "",
+        filter: input.filter ?? SEARCH_FILTER.ALL,
+        items: [],
+        nextCursor: null,
+      };
+    }
+
     const parsed = normalizeSearchQuery(input.query);
     if (!parsed.ok) {
       return {

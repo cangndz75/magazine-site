@@ -10,6 +10,7 @@ import {
   ANALYTICS_OPS_METRIC,
   ANALYTICS_SESSION_POLICY,
   ANALYTICS_VISITOR_POLICY,
+  KILL_SWITCH_KEY,
   consumeAnalyticsRateLimit,
   decideAnalyticsRequestOrigin,
   isJsonContentType,
@@ -26,6 +27,7 @@ import {
   ingestPublicAnalyticsEvent,
   type IngestPublicAnalyticsEventResult,
 } from "@magazine/db/analytics";
+import { isKillSwitchActive as isFeatureControlKillSwitchActive } from "@magazine/db/feature-controls";
 
 export type AnalyticsObserveSignal = {
   metric: string;
@@ -46,6 +48,7 @@ export type AnalyticsIngestHttpDeps = {
   ) => Promise<IngestPublicAnalyticsEventResult>;
   rateLimitBuckets: Map<string, AnalyticsRateLimitBucket>;
   observe: (signal: AnalyticsObserveSignal) => void;
+  isKillSwitchActive?: (key: typeof KILL_SWITCH_KEY.ANALYTICS_INGESTION) => Promise<boolean>;
 };
 
 const NO_STORE = { "cache-control": "no-store" };
@@ -84,6 +87,7 @@ export function defaultAnalyticsIngestDeps(input: {
     ingest: ingestPublicAnalyticsEvent,
     rateLimitBuckets: defaultBuckets,
     observe: observeAnalyticsIngestion,
+    isKillSwitchActive: isFeatureControlKillSwitchActive,
   };
 }
 
@@ -167,6 +171,17 @@ export async function handleAnalyticsIngestPost(
         error: ANALYTICS_HTTP_ERROR.METHOD_NOT_ALLOWED,
       },
       405,
+    );
+  }
+
+  if (await (deps.isKillSwitchActive?.(KILL_SWITCH_KEY.ANALYTICS_INGESTION) ?? false)) {
+    deps.observe({ metric: ANALYTICS_OPS_METRIC.REJECTED_VALIDATION, eventName: "unknown" });
+    return jsonResponse(
+      {
+        status: ANALYTICS_INGEST_STATUS.REJECTED,
+        error: ANALYTICS_HTTP_ERROR.INGESTION_DISABLED,
+      },
+      202,
     );
   }
 

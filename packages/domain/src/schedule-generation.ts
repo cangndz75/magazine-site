@@ -25,6 +25,7 @@ export const SCHEDULED_PUBLISH_DECISION = {
   NOOP_NOT_SCHEDULED: "NOOP_NOT_SCHEDULED",
   NOOP_NOT_DUE: "NOOP_NOT_DUE",
   NOOP_LEGAL_HOLD: "NOOP_LEGAL_HOLD",
+  NOOP_KILL_SWITCH: "NOOP_KILL_SWITCH",
   EXECUTE: "EXECUTE",
 } as const;
 
@@ -47,6 +48,7 @@ export type ScheduledPublishExecutionDecision =
   | { decision: typeof SCHEDULED_PUBLISH_DECISION.NOOP_NOT_SCHEDULED }
   | { decision: typeof SCHEDULED_PUBLISH_DECISION.NOOP_NOT_DUE }
   | { decision: typeof SCHEDULED_PUBLISH_DECISION.NOOP_LEGAL_HOLD }
+  | { decision: typeof SCHEDULED_PUBLISH_DECISION.NOOP_KILL_SWITCH }
   | {
       decision: typeof SCHEDULED_PUBLISH_DECISION.EXECUTE;
       versionId: string;

@@ -79,6 +79,10 @@ export type SiteHealthDto = {
     processing: number | null;
     dead: number | null;
   }>;
+  featureControls: SiteHealthSection<{
+    featureFlagsDisabled: number | null;
+    killSwitchesActive: number | null;
+  }>;
 };
 
 export function deriveSiteHealthOverallStatus(

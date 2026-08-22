@@ -15,6 +15,7 @@
     "./staff-password-reset": "./src/staff-password-reset.ts",
     "./staff-administration": "./src/staff-administration.ts",
     "./staff-mfa": "./src/staff-mfa.ts",
+    "./feature-controls": "./src/feature-controls.ts",
     "./entities": "./src/entities/index.ts",
     "./seo": "./src/seo/index.ts",
     "./analytics": "./src/analytics/index.ts",

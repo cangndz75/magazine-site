@@ -117,4 +117,23 @@ describe("scheduled publish runner", () => {
       outcome: SCHEDULED_PUBLISH_DECISION.NOOP_STALE,
     });
   });
+
+  it("does not execute scheduled publishing while the kill switch is active", async () => {
+    let executed = false;
+    const result = await runScheduledPublishJob(
+      { contentItemId: CONTENT_ITEM_ID, scheduleGeneration: 4 },
+      {
+        isKillSwitchActive: async () => true,
+        execute: async () => {
+          executed = true;
+          throw new Error("execute should not be called");
+        },
+      },
+    );
+
+    assert.equal(executed, false);
+    assert.deepEqual(result, {
+      outcome: SCHEDULED_PUBLISH_DECISION.NOOP_KILL_SWITCH,
+    });
+  });
 });

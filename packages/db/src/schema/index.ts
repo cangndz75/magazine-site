@@ -63,6 +63,7 @@ export {
   homepageVersions,
 } from "./homepage-builder";
 export { analyticsEvents } from "./analytics-events";
+export { featureControls, featureControlAuditEvents } from "./feature-controls";
 export {
   analyticsAggregationCheckpoints,
   analyticsAuthorDaily,
